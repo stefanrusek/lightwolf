@@ -1,0 +1,10 @@
+<project name="ASM" default="main">
+  <taskdef name="enhance" classname="org.lightwolf.tools.LightWolfAntTask"/>
+  <target name="main">
+    <delete dir="enhbin"/>
+  	<copy todir="enhbin">
+      <fileset dir="bin"/>
+    </copy>
+    <enhance classesdir="enhbin"/>
+  </target>
+</project>
