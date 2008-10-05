@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?eclipse version="3.2"?>
+<plugin>
+
+   <extension
+         id="lightwolfBuilder"
+         name="Light Wolf Builder"
+         point="org.eclipse.core.resources.builders">
+      <builder
+            hasNature="true">
+         <run
+               class="org.lightwolf.plugin.LightWolfBuilder">
+         </run>
+      </builder>
+   </extension>
+   <extension
+         id="lightwolfNature"
+         name="Light Wolf Nature"
+         point="org.eclipse.core.resources.natures">
+      <runtime>
+         <run
+               class="org.lightwolf.plugin.LightWolfNature">
+         </run>
+      </runtime>
+      <builder
+            id="org.lightwolf.plugin.lightwolfBuilder">
+      </builder>
+   </extension>
+   <extension
+         point="org.eclipse.ui.popupMenus">
+      <objectContribution
+            adaptable="true"
+            objectClass="org.eclipse.core.resources.IProject"
+            nameFilter="*"
+            id="org.lightwolf.plugin.contribution1">
+         <action
+               label="Add/Remove Light Wolf Nature"
+               class="org.lightwolf.plugin.ToggleNatureAction"
+               menubarPath="additions"
+               enablesFor="+"
+               id="org.lightwolf.plugin.addRemoveNatureAction">
+         </action>
+      </objectContribution>
+   </extension>
+
+</plugin>

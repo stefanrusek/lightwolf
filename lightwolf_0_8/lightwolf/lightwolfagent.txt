@@ -1,0 +1,4 @@
+Manifest-Version: 1.0
+Premain-Class: org.lightwolf.core.Agent
+Boot-Class-Path: bin ../asm-3.1/output/eclipse
+Can-Redefine-Classes: false

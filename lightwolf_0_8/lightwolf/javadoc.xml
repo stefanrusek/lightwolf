@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project default="javadoc">
+<target name="javadoc">
+<javadoc access="protected" author="true" classpath="C:\persist\eclipse\plugins\org.junit4_4.3.1\junit.jar;lib/commons-primitives-1.0.jar;lib/asm-all-3.1.jar;lib/ant.jar;lib/commons-io-1.4.jar" destdir="../wolfcrow/doc" nodeprecated="false" nodeprecatedlist="false" noindex="false" nonavbar="false" notree="false" packagenames="org.lightwolf.process,org.lightwolf.synchronization,org.lightwolf.tools" source="1.5" sourcefiles="src/org/lightwolf/FlowManager.java,src/org/lightwolf/FlowInterruptedException.java,src/org/lightwolf/MethodFrame.java,src/org/lightwolf/FlowSignal.java,src/org/lightwolf/FlowLocal.java,src/org/lightwolf/Process.java,src/org/lightwolf/SuspendSignal.java,src/org/lightwolf/FlowContext.java,src/org/lightwolf/Fork.java,src/org/lightwolf/Types.java,src/org/lightwolf/FlowSignalException.java,src/org/lightwolf/IllegalReturnValueException.java,src/org/lightwolf/ResumeException.java,src/org/lightwolf/FlowMethod.java,src/org/lightwolf/DelayedCallSignal.java,src/org/lightwolf/ExceptionEnvelope.java,src/org/lightwolf/Flow.java" sourcepath="src;test" splitindex="false" use="true" version="true">
+<link href="http://java.sun.com/j2se/1.5.0/docs/api/"/>
+</javadoc>
+</target>
+</project>

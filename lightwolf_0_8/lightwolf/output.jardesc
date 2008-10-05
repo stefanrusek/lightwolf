@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="WINDOWS-1252"?>
+<jardesc>
+<jar path="lightwolf/output/lightwolf.jar"/>
+<options buildIfNeeded="true" compress="true" descriptionLocation="/lightwolf/output.jardesc" exportErrors="true" exportWarnings="true" includeDirectoryEntries="false" overwrite="false" saveDescription="true" storeRefactorings="false" useSourceFolders="false"/>
+<storedRefactorings deprecationInfo="true" structuralOnly="false"/>
+<selectedProjects/>
+<manifest generateManifest="false" manifestLocation="/lightwolf/MANIFEST.MF" manifestVersion="1.0" reuseManifest="true" saveManifest="true" usesManifest="true">
+<sealing sealJar="false">
+<packagesToSeal/>
+<packagesToUnSeal/>
+</sealing>
+</manifest>
+<selectedElements exportClassFiles="true" exportJavaFiles="false" exportOutputFolder="false">
+<javaElement handleIdentifier="=lightwolf/src"/>
+</selectedElements>
+<fatjar builder="org.eclipse.jdt.ui.plain_jar_builder" launchConfig=""/>
+</jardesc>
