@@ -346,13 +346,13 @@ public class LightWolfEnhancer {
         //        TraceMethodVisitor tmv = new TraceMethodVisitor(null);
         //        method.accept(tmv);
         //        for (int i = 0; i < tmv.text.size(); ++i) {
-        //            System.out.print(tmv.text.get(i));
+        //            LightWolfLog.print(tmv.text.get(i));
         //        }
 
         //        try {
         //            frames = analyzer.analyze(clazz.name, method);
         //        } catch (Throwable e) {
-        //            e.printStackTrace(System.out);
+        //            e.printStackTrace(LightWolfLog);
         //            printTrace(method, null, insts);
         //        }
 
@@ -592,7 +592,7 @@ public class LightWolfEnhancer {
         String resName = className + ".class";
         IClassResource clazz = classProvider.getClass(resName);
         if (clazz == null) {
-            System.out.println("Resource not found: " + resName);
+            LightWolfLog.println("Resource not found: " + resName);
             return;
         }
         String superName = clazz.getSuperName();
@@ -839,22 +839,22 @@ public class LightWolfEnhancer {
     }
 
     private static void printTrace(MethodNode method, Frame[] frames, InsnList insts) {
-        System.out.println(method.name + ", " + method.signature);
+        LightWolfLog.println(method.name + ", " + method.signature);
         for (int i = 0; i < insts.size(); ++i) {
-            System.out.print("" + i + ": ");
+            LightWolfLog.print("" + i + ": ");
             if (frames != null) {
-                System.out.println(frames[i]);
+                LightWolfLog.println(frames[i]);
             }
             AbstractInsnNode inst = insts.get(i);
             if (inst.getOpcode() >= 0) {
-                System.out.print("    ");
+                LightWolfLog.print("    ");
             }
-            System.out.println(toString(inst));
+            LightWolfLog.println(toString(inst));
         }
-        System.out.println();
-        System.out.println();
-        System.out.println();
-        System.out.println();
+        LightWolfLog.println();
+        LightWolfLog.println();
+        LightWolfLog.println();
+        LightWolfLog.println();
     }
 
     public static String toString(AbstractInsnNode inst) {

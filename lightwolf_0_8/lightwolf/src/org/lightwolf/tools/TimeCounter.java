@@ -50,7 +50,7 @@ public class TimeCounter {
     public static void dump() {
         for (Map.Entry<String, Sum> entry : sums.entrySet()) {
             Sum s = entry.getValue();
-            System.out.printf("%s: Total: %d, Count: %d, Avg: %f, Max: %d (%s), Min: %d.\n", entry.getKey(), s.getTotal(), s.getCount(), s.getAvg(), s.getMax(), s.getMaxInst(), s.getMin());
+            LightWolfLog.printf("%s: Total: %d, Count: %d, Avg: %f, Max: %d (%s), Min: %d.\n", entry.getKey(), s.getTotal(), s.getCount(), s.getAvg(), s.getMax(), s.getMaxInst(), s.getMin());
         }
 
     }

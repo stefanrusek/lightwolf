@@ -29,6 +29,7 @@ import org.lightwolf.tools.ClassLoaderProvider;
 import org.lightwolf.tools.IClassProvider;
 import org.lightwolf.tools.IClassResource;
 import org.lightwolf.tools.LightWolfEnhancer;
+import org.lightwolf.tools.LightWolfLog;
 import org.lightwolf.tools.PublicByteArrayOutputStream;
 
 public class LightWolfBuilder extends IncrementalProjectBuilder {
@@ -64,15 +65,15 @@ public class LightWolfBuilder extends IncrementalProjectBuilder {
             }
         }
         if (outputs.isEmpty()) {
-            System.err.printf("[lightwolf] Couldn't find output folders in project %s.\n", getProject().getName());
+            LightWolfLog.printf("Couldn't find output folders in project %s.\n", getProject().getName());
             return null;
         }
         this.outputs = outputs;
         this.project = project;
         enhancer = new LightWolfEnhancer(new ClassProvider());
-        System.out.printf("[lightwolf] Listing output folders for project %s:\n", getProject().getName());
+        LightWolfLog.printf("Listing output folders for project %s:\n", getProject().getName());
         for (IPath output : outputs) {
-            System.out.printf("[lightwolf]   %s\n", output.toString());
+            LightWolfLog.printf("   %s\n", output.toString());
         }
         if (kind == FULL_BUILD) {
             fullBuild(monitor);
@@ -126,14 +127,13 @@ public class LightWolfBuilder extends IncrementalProjectBuilder {
                 throw new RuntimeException(e);
             }
             if (enhancer.transform(pbaos)) {
-                System.out.printf("[lightwolf] Enhancing class %s...\n", file.getName());
+                LightWolfLog.printf("Enhancing class %s...\n", file.getName());
                 ByteArrayInputStream bais = new ByteArrayInputStream(pbaos.getBuffer(), 0, pbaos.size());
                 file.setContents(bais, false, false, null);
-                System.out.printf("[lightwolf] Class %s sucessfully enhanced.\n", file.getName());
+                LightWolfLog.printf("Class %s sucessfully enhanced.\n", file.getName());
             }
         } catch (Throwable e) {
-            System.out.print("[lightwolf] ");
-            e.printStackTrace(System.out);
+            LightWolfLog.printTrace(e);
             if (e instanceof Error) {
                 throw (Error) e;
             }
@@ -145,39 +145,6 @@ public class LightWolfBuilder extends IncrementalProjectBuilder {
             }
             throw new AssertionError(e);
         }
-    }
-
-    private void printClassPath() {
-        IJavaProject project = JavaCore.create(getProject());
-        if (project == null) {
-            System.out.println("Not a java project: " + getProject());
-            return;
-        }
-        IClasspathEntry[] classpath;
-        try {
-            classpath = project.getResolvedClasspath(true);
-        } catch (JavaModelException e) {
-            e.printStackTrace();
-            // Ignore.
-            return;
-        }
-        System.out.println("Output directories for: " + project.toString());
-        for (IClasspathEntry entry : classpath) {
-            System.out.println("  " + entry.getPath() + ": " + entry.getOutputLocation());
-        }
-        System.out.println("Done.");
-        try {
-            classpath = project.getRawClasspath();
-        } catch (JavaModelException e) {
-            e.printStackTrace();
-            // Ignore.
-            return;
-        }
-        System.out.println("Output directories for: " + project.toString());
-        for (IClasspathEntry entry : classpath) {
-            System.out.println("  " + entry.getPath() + ": " + entry.getOutputLocation());
-        }
-        System.out.println("Done.");
     }
 
     class ClassProvider implements IClassProvider {
@@ -203,7 +170,7 @@ public class LightWolfBuilder extends IncrementalProjectBuilder {
                     return null;
                 }
                 if (element == null) {
-                    System.out.println("Could not find element for " + javaName);
+                    LightWolfLog.println("Could not find element for " + javaName);
                     return null;
                 }
             } else {
@@ -214,7 +181,7 @@ public class LightWolfBuilder extends IncrementalProjectBuilder {
                     return null;
                 }
                 if (element == null) {
-                    System.out.println("Could not find element for " + resName);
+                    LightWolfLog.println("Could not find element for " + resName);
                     return null;
                 }
                 if (element instanceof IClassFile) {
@@ -224,7 +191,7 @@ public class LightWolfBuilder extends IncrementalProjectBuilder {
             if (element instanceof ICompilationUnit) {
                 return fromCompilationUnit((ICompilationUnit) element, resName);
             }
-            System.out.printf("Element for " + resName + " is of unknown class: %s.\n", element.getClass().getName());
+            LightWolfLog.printf("Element for " + resName + " is of unknown class: %s.\n", element.getClass().getName());
             return null;
         }
 
@@ -237,11 +204,11 @@ public class LightWolfBuilder extends IncrementalProjectBuilder {
                 return null;
             }
             if (res == null) {
-                System.out.println("Element for " + resName + " has no resource.");
+                LightWolfLog.println("Element for " + resName + " has no resource.");
                 return null;
             }
             if (!(res instanceof IFile)) {
-                System.out.println("Resource of " + resName + " is not a file.");
+                LightWolfLog.println("Resource of " + resName + " is not a file.");
                 return null;
             }
             return fromFile((IFile) res);
@@ -278,7 +245,7 @@ public class LightWolfBuilder extends IncrementalProjectBuilder {
                 }
             }
             if (outputFolder == null) {
-                System.out.println("Could not find output folder for file " + path + ".");
+                LightWolfLog.println("Could not find output folder for file " + path + ".");
                 return null;
             }
             IPath outputFile = outputFolder.append(resName);

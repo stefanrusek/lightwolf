@@ -57,8 +57,8 @@ import org.objectweb.asm.Type;
  * <li>The flow's execution state can be serialized and restored, possibly on a
  * different machine (as long as certain conditions are met). This allows
  * implementation of long running processes in pure Java language.</li>
- * <li>A flow can wait for a {@linkplain ThreadFreeLock lock} on a resource, or for
- * the {@linkplain #waitComplete() completion} of an I/O operation, without
+ * <li>A flow can wait for a {@linkplain ThreadFreeLock lock} on a resource, or
+ * for the {@linkplain #waitComplete() completion} of an I/O operation, without
  * consuming a Java thread meanwhile, and thus releasing a pooled thread for
  * increased concurrency.</li>
  * <li>Flows can use utilities such as {@link #currentContext()},
@@ -320,24 +320,24 @@ public final class Flow implements Serializable {
      *
      * <pre>
      *    void example() {
-     *        System.out.println("Before doFlow()");
+     *        LightWolfLog.println("Before doFlow()");
      *        int i = doFlow();
-     *        System.out.printf("doFlow(): %d\n", i);
+     *        LightWolfLog.printf("doFlow(): %d\n", i);
      *    }
      *
      *    &#064;{@link FlowMethod}
      *    int doFlow() {
-     *        System.out.println("Before performSplit()");
+     *        LightWolfLog.println("Before performSplit()");
      *        int i = performSplit();
-     *        System.out.printf("performSplit(): %d\n", i);
+     *        LightWolfLog.printf("performSplit(): %d\n", i);
      *        return i;
      *    }
      *
      *    &#064;{@link FlowMethod}
      *    int performSplit() {
-     *        System.out.println("Before split(2)");
+     *        LightWolfLog.println("Before split(2)");
      *        int i = Flow.split(2);
-     *        System.out.printf("Split result: %d\n", i);
+     *        LightWolfLog.printf("Split result: %d\n", i);
      *        return i;
      *    }
      * </pre>
@@ -734,18 +734,18 @@ public final class Flow implements Serializable {
      * <pre>
      *    &#064;{@link FlowMethod}
      *    void example() {
-     *        System.out.println("Before doFlow()");
+     *        LightWolfLog.println("Before doFlow()");
      *        int i = doFlow();
-     *        System.out.printf("doFlow(): %d\n", i);
+     *        LightWolfLog.printf("doFlow(): %d\n", i);
      *        Thread.sleep(50);
-     *        System.out.println("Done");
+     *        LightWolfLog.println("Done");
      *    }
      *
      *    &#064;{@link FlowMethod}
      *    int doFlow() {
-     *        System.out.println("Before returnAndContinue()");
+     *        LightWolfLog.println("Before returnAndContinue()");
      *        Flow.returnAndContinue(123);
-     *        System.out.println("After returnAndContinue()");
+     *        LightWolfLog.println("After returnAndContinue()");
      *        return 456;
      *    }
      *
@@ -872,12 +872,12 @@ public final class Flow implements Serializable {
      *    void example() { // This is the flow-controller.
      *        try {
      *            doFlow();
-     *            System.out.println("doFlow() finished");
+     *            LightWolfLog.println("doFlow() finished");
      *        } catch (FlowSignal signal) {
-     *            System.out.println("Caught by the flow-controller");
-     *            System.out.println("Calling Flow.resume()");
+     *            LightWolfLog.println("Caught by the flow-controller");
+     *            LightWolfLog.println("Calling Flow.resume()");
      *            signal.getFlow().{@link #resume()};
-     *            System.out.println("Flow finished");
+     *            LightWolfLog.println("Flow finished");
      *        }
      *    }
      *
@@ -885,21 +885,21 @@ public final class Flow implements Serializable {
      *    void doFlow() { // This is the flow-creator.
      *        try {
      *            doSignal();
-     *            System.out.println("doSignal() finished");
+     *            LightWolfLog.println("doSignal() finished");
      *        } catch (FlowSignal signal) {
-     *            System.out.println("Caught by the flow-creator");
+     *            LightWolfLog.println("Caught by the flow-creator");
      *        }
      *    }
      *
      *    &#064;{@link FlowMethod}
      *    void doSignal() { // This is an ordinary flow method.
      *        try {
-     *            System.out.println("Sending signal");
+     *            LightWolfLog.println("Sending signal");
      *            FlowSignal signal = new MyFlowSignal();
      *            Flow.signal(signal);
-     *            System.out.println("Returned from signal (resumed)");
+     *            LightWolfLog.println("Returned from signal (resumed)");
      *        } catch (FlowSignal signal) {
-     *            System.out.println("Caught by doSignal()");
+     *            LightWolfLog.println("Caught by doSignal()");
      *        }
      *    }
      *
@@ -939,9 +939,9 @@ public final class Flow implements Serializable {
      * </ul>
      * <p>
      * This method is used to implement utilities such as {@link #suspend()} and
-     * {@link ThreadFreeLock}. It is the lowest level API for implementing features
-     * such as releasing a pooled thread before completion and serializing
-     * thread state for long running processes.
+     * {@link ThreadFreeLock}. It is the lowest level API for implementing
+     * features such as releasing a pooled thread before completion and
+     * serializing thread state for long running processes.
      *
      * @param signal The signal that will be sent to the flow-controller.
      * @return The object passed to {@link #resume(Object)} method.

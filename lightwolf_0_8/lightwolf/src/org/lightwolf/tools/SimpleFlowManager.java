@@ -111,7 +111,7 @@ public class SimpleFlowManager extends FlowManager implements Serializable {
 
     private void notifyException(Throwable e) {
         Flow.log("Threw exception: " + e.getMessage());
-        e.printStackTrace(System.out);
+        LightWolfLog.printTrace(e);
         // TODO: Check another way of making the test fail.
     }
 

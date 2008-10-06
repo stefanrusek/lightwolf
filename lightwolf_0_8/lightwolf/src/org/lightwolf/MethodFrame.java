@@ -26,6 +26,8 @@ package org.lightwolf;
 
 import java.io.Serializable;
 
+import org.lightwolf.tools.LightWolfLog;
+
 public final class MethodFrame implements Serializable {
 
     private static final long serialVersionUID = 1L;
@@ -191,11 +193,11 @@ public final class MethodFrame implements Serializable {
     }
 
     public void monitorEnter(Object o) {
-        System.out.println("-- Ignoring monitor enter! --");
+        LightWolfLog.println("-- Ignoring monitor enter! --");
     }
 
     public void monitorExit(Object o) {
-        System.out.println("-- Ignoring monitor exit! --");
+        LightWolfLog.println("-- Ignoring monitor exit! --");
     }
 
     public int getPrimitiveCount() {

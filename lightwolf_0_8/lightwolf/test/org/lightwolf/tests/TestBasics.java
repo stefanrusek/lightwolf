@@ -5,8 +5,8 @@ import java.util.concurrent.SynchronousQueue;
 
 import org.junit.Assert;
 import org.junit.Test;
-import org.lightwolf.FlowContext;
 import org.lightwolf.Flow;
+import org.lightwolf.FlowContext;
 import org.lightwolf.FlowMethod;
 
 public class TestBasics {
