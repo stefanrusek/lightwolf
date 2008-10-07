@@ -1,0 +1,18 @@
+Manifest-Version: 1.0
+Bundle-ManifestVersion: 2
+Bundle-Name: Light Wolf Nature
+Bundle-SymbolicName: org.lightwolf.nature; singleton:=true
+Bundle-Version: 0.8.2
+Bundle-Activator: org.lightwolf.plugin.Activator
+Bundle-Vendor: Fernando Colombo
+Require-Bundle: org.eclipse.ui,
+ org.eclipse.core.runtime,
+ org.eclipse.core.resources,
+ org.eclipse.jdt.core
+Bundle-RequiredExecutionEnvironment: J2SE-1.5
+Eclipse-LazyStart: true
+Bundle-ClassPath: .,
+ lib/lightwolf.jar,
+ lib/asm-all-3.1.jar,
+ lib/commons-io-1.4.jar,
+ lib/commons-primitives-1.0.jar
