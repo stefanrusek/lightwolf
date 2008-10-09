@@ -43,7 +43,6 @@ import org.lightwolf.synchronization.ThreadFreeLock;
 import org.lightwolf.tools.PublicByteArrayInputStream;
 import org.lightwolf.tools.PublicByteArrayOutputStream;
 import org.lightwolf.tools.SimpleFlowManager;
-import org.objectweb.asm.Type;
 
 /**
  * An execution context similar to that of a thread, but with more capabilities.

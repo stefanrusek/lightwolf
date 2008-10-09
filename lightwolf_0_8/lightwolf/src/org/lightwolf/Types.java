@@ -26,8 +26,6 @@ package org.lightwolf;
 
 import java.lang.reflect.Array;
 
-import org.objectweb.asm.Type;
-
 class Types {
 
     public static final char TYPE_CODE_VOID = 'V';
