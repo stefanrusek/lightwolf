@@ -7,14 +7,17 @@ import org.eclipse.core.resources.IProjectDescription;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IAdaptable;
 import org.eclipse.jface.action.IAction;
+import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.jface.viewers.ISelection;
 import org.eclipse.jface.viewers.IStructuredSelection;
 import org.eclipse.ui.IObjectActionDelegate;
 import org.eclipse.ui.IWorkbenchPart;
+import org.lightwolf.tools.LightWolfLog;
 
 public class ToggleNatureAction implements IObjectActionDelegate {
 
     private ISelection selection;
+    private IWorkbenchPart part;
 
     public void run(IAction action) {
         if (selection instanceof IStructuredSelection) {
@@ -27,10 +30,21 @@ public class ToggleNatureAction implements IObjectActionDelegate {
                     project = (IProject) ((IAdaptable) element).getAdapter(IProject.class);
                 }
                 if (project != null) {
+                    String msg;
                     try {
-                        toggleNature(project);
+                        if (toggleNature(project)) {
+                            msg = "Light Wolf nature added to project " + project.getName() + '.';
+                        } else {
+                            msg = "Light Wolf nature removed from project " + project.getName() + '.';
+                        }
                     } catch (CoreException e) {
+                        msg = "An error ocurred: [" + e.getMessage() + "]. Please check error log.";
                         e.printStackTrace();
+                    }
+                    if (part != null && part.getSite() != null) {
+                        MessageDialog.openInformation(part.getSite().getShell(), "Light Wolf", msg);
+                    } else {
+                        LightWolfLog.print(msg);
                     }
                 }
             }
@@ -41,9 +55,11 @@ public class ToggleNatureAction implements IObjectActionDelegate {
         this.selection = selection;
     }
 
-    public void setActivePart(IAction action, IWorkbenchPart targetPart) {}
+    public void setActivePart(IAction action, IWorkbenchPart targetPart) {
+        part = targetPart;
+    }
 
-    private void toggleNature(IProject project) throws CoreException {
+    private boolean toggleNature(IProject project) throws CoreException {
         IProjectDescription description = project.getDescription();
         String[] natures = description.getNatureIds();
 
@@ -55,7 +71,7 @@ public class ToggleNatureAction implements IObjectActionDelegate {
                 System.arraycopy(natures, i + 1, newNatures, i, natures.length - i - 1);
                 description.setNatureIds(newNatures);
                 project.setDescription(description, null);
-                return;
+                return false;
             }
         }
 
@@ -65,6 +81,7 @@ public class ToggleNatureAction implements IObjectActionDelegate {
         newNatures[natures.length] = LightWolfNature.NATURE_ID;
         description.setNatureIds(newNatures);
         project.setDescription(description, null);
+        return true;
     }
 
 }

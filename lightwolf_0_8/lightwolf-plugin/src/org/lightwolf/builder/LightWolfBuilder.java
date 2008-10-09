@@ -199,22 +199,14 @@ public class LightWolfBuilder extends IncrementalProjectBuilder {
         }
 
         private IClassResource fromClassFile(IClassFile classFile, String resName) throws IOException {
-            IResource res;
+            byte[] bytes;
             try {
-                res = classFile.getCorrespondingResource();
+                bytes = classFile.getBytes();
             } catch (JavaModelException e) {
                 e.printStackTrace();
                 return null;
             }
-            if (res == null) {
-                LightWolfLog.println("Element for " + resName + " has no resource.");
-                return null;
-            }
-            if (!(res instanceof IFile)) {
-                LightWolfLog.println("Resource of " + resName + " is not a file.");
-                return null;
-            }
-            return fromFile((IFile) res);
+            return fromInputStream(new ByteArrayInputStream(bytes));
         }
 
         private IClassResource fromCompilationUnit(ICompilationUnit compilationUnit, String resName) throws IOException {
@@ -264,6 +256,10 @@ public class LightWolfBuilder extends IncrementalProjectBuilder {
                 e.printStackTrace();
                 return null;
             }
+            return fromInputStream(is);
+        }
+
+        private IClassResource fromInputStream(InputStream is) throws IOException {
             try {
                 return ClassLoaderProvider.makeClassResource(is);
             } finally {

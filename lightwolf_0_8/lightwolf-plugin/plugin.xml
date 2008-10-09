@@ -37,7 +37,7 @@
                label="Add/Remove Light Wolf Nature"
                class="org.lightwolf.plugin.ToggleNatureAction"
                menubarPath="additions"
-               enablesFor="+"
+               enablesFor="1"
                id="org.lightwolf.nature.addRemoveNatureAction">
          </action>
       </objectContribution>
