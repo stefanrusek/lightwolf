@@ -3,10 +3,9 @@
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/J2SE-1.5"/>
 	<classpathentry kind="con" path="org.eclipse.pde.core.requiredPlugins"/>
 	<classpathentry kind="src" path="src"/>
-	<classpathentry kind="lib" path="/lightwolf/lib/ant.jar"/>
-	<classpathentry kind="lib" path="/lightwolf/lib/asm-all-3.1.jar"/>
-	<classpathentry kind="lib" path="/lightwolf/lib/commons-io-1.4.jar"/>
-	<classpathentry kind="lib" path="/lightwolf/lib/commons-primitives-1.0.jar"/>
-	<classpathentry kind="lib" path="/lightwolf/output/lightwolf.jar"/>
+	<classpathentry kind="lib" path="lib/asm-all-3.1.jar"/>
+	<classpathentry kind="lib" path="lib/commons-io-1.4.jar"/>
+	<classpathentry kind="lib" path="lib/commons-primitives-1.0.jar"/>
+	<classpathentry kind="lib" path="lib/lightwolf.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
