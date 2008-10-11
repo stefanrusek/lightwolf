@@ -3,36 +3,9 @@
 <repository name='file:/C:/Trabalho/eclipse-workspaces/drafts/lightwolf-updates/ - metadata' type='org.eclipse.equinox.internal.p2.metadata.repository.LocalMetadataRepository' version='1'>
   <properties size='2'>
     <property name='p2.compressed' value='false'/>
-    <property name='p2.timestamp' value='1223463836774'/>
+    <property name='p2.timestamp' value='1223687906037'/>
   </properties>
   <units size='8'>
-    <unit id='org.lightwolf.features.feature.group' version='0.8.2' singleton='false'>
-      <update id='org.lightwolf.features.feature.group' range='[0.0.0,0.8.2)' severity='0'/>
-      <properties size='4'>
-        <property name='org.eclipse.equinox.p2.name' value='Light Wolf Features'/>
-        <property name='org.eclipse.equinox.p2.description' value='Light Wolf project nature and builder.'/>
-        <property name='org.eclipse.equinox.p2.provider' value='Fernando Colombo'/>
-        <property name='org.eclipse.equinox.p2.type.group' value='true'/>
-      </properties>
-      <provides size='1'>
-        <provided namespace='org.eclipse.equinox.p2.iu' name='org.lightwolf.features.feature.group' version='0.8.2'/>
-      </provides>
-      <requires size='3'>
-        <required namespace='org.eclipse.equinox.p2.iu' name='org.eclipse.jdt.core' range='0.0.0'/>
-        <required namespace='org.eclipse.equinox.p2.iu' name='org.lightwolf.nature' range='[0.8.2,0.8.2]'/>
-        <required namespace='org.eclipse.equinox.p2.iu' name='org.lightwolf.features.feature.jar' range='[0.8.2,0.8.2]'>
-          <filter>
-            (org.eclipse.update.install.features=true)
-          </filter>
-        </required>
-      </requires>
-      <touchpoint id='null' version='0.0.0'/>
-      <licenses size='1'>
-        <license>
-          Copyright (c) 2007, Fernando Colombo. All rights reserved.&#xA;Redistribution and use in source and binary forms, with or without&#xA;modification, are permitted provided that the following conditions&#xA;are met:&#xA;1) Redistributions of source code must retain the above copyright&#xA;notice, this list of conditions and the following disclaimer.&#xA;2) Redistributions in binary form must reproduce the above copyright&#xA;notice, this list of conditions and the following disclaimer&#xA;in the documentation and/or other materials provided with the&#xA;distribution.&#xA;THIS SOFTWARE IS PROVIDED &apos;&apos;AS IS&apos;&apos; AND ANY EXPRESS OR IMPLIED&#xA;WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES&#xA;OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.&#xA;IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE&#xA;FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR&#xA;CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT&#xA;OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;&#xA;OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF&#xA;LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING&#xA;NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-        </license>
-      </licenses>
-    </unit>
     <unit id='config.a.jre' version='1.6.0' singleton='false'>
       <hostRequirements size='1'>
         <required namespace='org.eclipse.equinox.p2.iu' name='a.jre' range='1.6.0'/>
@@ -113,23 +86,54 @@
         </instructions>
       </touchpointData>
     </unit>
-    <unit id='org.lightwolf.features.feature.jar' version='0.8.2'>
-      <update id='org.lightwolf.features.feature.jar' range='[0.0.0,0.8.2)' severity='0'/>
+    <unit id='org.lightwolf.plugin.feature.group' version='0.8.2' singleton='false'>
+      <update id='org.lightwolf.plugin.feature.group' range='[0.0.0,0.8.2)' severity='0'/>
+      <properties size='4'>
+        <property name='org.eclipse.equinox.p2.name' value='Light Wolf Plug-in'/>
+        <property name='org.eclipse.equinox.p2.description' value='Light Wolf plug-in, with library, project nature and builder.'/>
+        <property name='org.eclipse.equinox.p2.provider' value='Fernando Colombo'/>
+        <property name='org.eclipse.equinox.p2.type.group' value='true'/>
+      </properties>
+      <provides size='1'>
+        <provided namespace='org.eclipse.equinox.p2.iu' name='org.lightwolf.plugin.feature.group' version='0.8.2'/>
+      </provides>
+      <requires size='7'>
+        <required namespace='org.eclipse.equinox.p2.iu' name='org.eclipse.ui' range='0.0.0'/>
+        <required namespace='org.eclipse.equinox.p2.iu' name='org.eclipse.core.runtime' range='0.0.0'/>
+        <required namespace='org.eclipse.equinox.p2.iu' name='org.eclipse.core.resources' range='0.0.0'/>
+        <required namespace='org.eclipse.equinox.p2.iu' name='org.eclipse.jdt.core' range='0.0.0'/>
+        <required namespace='org.eclipse.equinox.p2.iu' name='org.eclipse.jdt.ui' range='0.0.0'/>
+        <required namespace='org.eclipse.equinox.p2.iu' name='org.lightwolf.nature' range='[0.8.2,0.8.2]'/>
+        <required namespace='org.eclipse.equinox.p2.iu' name='org.lightwolf.plugin.feature.jar' range='[0.8.2,0.8.2]'>
+          <filter>
+            (org.eclipse.update.install.features=true)
+          </filter>
+        </required>
+      </requires>
+      <touchpoint id='null' version='0.0.0'/>
+      <licenses size='1'>
+        <license>
+          Copyright (c) 2007, Fernando Colombo. All rights reserved.&#xA;Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:&#xA;1) Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.&#xA;2) Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.&#xA;THIS SOFTWARE IS PROVIDED &apos;&apos;AS IS&apos;&apos; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+        </license>
+      </licenses>
+    </unit>
+    <unit id='org.lightwolf.plugin.feature.jar' version='0.8.2'>
+      <update id='org.lightwolf.plugin.feature.jar' range='[0.0.0,0.8.2)' severity='0'/>
       <properties size='3'>
-        <property name='org.eclipse.equinox.p2.name' value='Light Wolf Features'/>
-        <property name='org.eclipse.equinox.p2.description' value='Light Wolf project nature and builder.'/>
+        <property name='org.eclipse.equinox.p2.name' value='Light Wolf Plug-in'/>
+        <property name='org.eclipse.equinox.p2.description' value='Light Wolf plug-in, with library, project nature and builder.'/>
         <property name='org.eclipse.equinox.p2.provider' value='Fernando Colombo'/>
       </properties>
       <provides size='3'>
-        <provided namespace='org.eclipse.equinox.p2.iu' name='org.lightwolf.features.feature.jar' version='0.8.2'/>
+        <provided namespace='org.eclipse.equinox.p2.iu' name='org.lightwolf.plugin.feature.jar' version='0.8.2'/>
         <provided namespace='org.eclipse.equinox.p2.eclipse.type' name='feature' version='1.0.0'/>
-        <provided namespace='org.eclipse.update.feature' name='org.lightwolf.features' version='0.8.2'/>
+        <provided namespace='org.eclipse.update.feature' name='org.lightwolf.plugin' version='0.8.2'/>
       </provides>
       <filter>
         (org.eclipse.update.install.features=true)
       </filter>
       <artifacts size='1'>
-        <artifact classifier='org.eclipse.update.feature' id='org.lightwolf.features' version='0.8.2'/>
+        <artifact classifier='org.eclipse.update.feature' id='org.lightwolf.plugin' version='0.8.2'/>
       </artifacts>
       <touchpoint id='org.eclipse.equinox.p2.osgi' version='1.0.0'/>
       <touchpointData size='1'>
@@ -141,7 +145,7 @@
       </touchpointData>
       <licenses size='1'>
         <license>
-          Copyright (c) 2007, Fernando Colombo. All rights reserved.&#xA;Redistribution and use in source and binary forms, with or without&#xA;modification, are permitted provided that the following conditions&#xA;are met:&#xA;1) Redistributions of source code must retain the above copyright&#xA;notice, this list of conditions and the following disclaimer.&#xA;2) Redistributions in binary form must reproduce the above copyright&#xA;notice, this list of conditions and the following disclaimer&#xA;in the documentation and/or other materials provided with the&#xA;distribution.&#xA;THIS SOFTWARE IS PROVIDED &apos;&apos;AS IS&apos;&apos; AND ANY EXPRESS OR IMPLIED&#xA;WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES&#xA;OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.&#xA;IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE&#xA;FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR&#xA;CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT&#xA;OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;&#xA;OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF&#xA;LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING&#xA;NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+          Copyright (c) 2007, Fernando Colombo. All rights reserved.&#xA;Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:&#xA;1) Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.&#xA;2) Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.&#xA;THIS SOFTWARE IS PROVIDED &apos;&apos;AS IS&apos;&apos; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
         </license>
       </licenses>
     </unit>
@@ -307,20 +311,24 @@
         <provided namespace='osgi.bundle' name='org.lightwolf.nature' version='0.8.2'/>
         <provided namespace='org.eclipse.equinox.p2.eclipse.type' name='bundle' version='1.0.0'/>
       </provides>
-      <requires size='4'>
+      <requires size='5'>
         <required namespace='osgi.bundle' name='org.eclipse.ui' range='0.0.0'/>
         <required namespace='osgi.bundle' name='org.eclipse.core.runtime' range='0.0.0'/>
         <required namespace='osgi.bundle' name='org.eclipse.core.resources' range='0.0.0'/>
         <required namespace='osgi.bundle' name='org.eclipse.jdt.core' range='0.0.0'/>
+        <required namespace='osgi.bundle' name='org.eclipse.jdt.ui' range='0.0.0'/>
       </requires>
       <artifacts size='1'>
         <artifact classifier='osgi.bundle' id='org.lightwolf.nature' version='0.8.2'/>
       </artifacts>
       <touchpoint id='org.eclipse.equinox.p2.osgi' version='1.0.0'/>
       <touchpointData size='1'>
-        <instructions size='1'>
+        <instructions size='2'>
           <instruction key='manifest'>
-            Bundle-Vendor: Fernando Colombo&#xA;Bundle-ManifestVersion: 2&#xA;Bundle-Activator: org.lightwolf.plugin.Activator&#xA;Bundle-RequiredExecutionEnvironment: J2SE-1.5&#xA;Bundle-Name: Light Wolf Nature&#xA;Require-Bundle: org.eclipse.ui,org.eclipse.core.runtime,org.eclipse.core.resources,org.eclipse.jdt.core&#xA;Bundle-ClassPath: .,lib/lightwolf.jar,lib/asm-all-3.1.jar,lib/commons-io-1.4.jar,lib/commons-primitives-1.0.jar&#xA;Manifest-Version: 1.0&#xA;Bundle-SymbolicName: org.lightwolf.nature; singleton:=true&#xA;Bundle-Version: 0.8.2&#xA;Eclipse-LazyStart: true&#xA;
+            Bundle-Vendor: Fernando Colombo&#xA;Bundle-ManifestVersion: 2&#xA;Bundle-Activator: org.lightwolf.plugin.LightWolfActivator&#xA;Bundle-RequiredExecutionEnvironment: J2SE-1.5&#xA;Bundle-Name: Light Wolf Nature&#xA;Require-Bundle: org.eclipse.ui,org.eclipse.core.runtime,org.eclipse.core.resources,org.eclipse.jdt.core,org.eclipse.jdt.ui&#xA;Bundle-ClassPath: .,lib/lightwolf.jar,lib/asm-all-3.1.jar,lib/commons-io-1.4.jar,lib/commons-primitives-1.0.jar&#xA;Manifest-Version: 1.0&#xA;Bundle-SymbolicName: org.lightwolf.nature; singleton:=true&#xA;Bundle-Version: 0.8.2&#xA;Eclipse-LazyStart: true&#xA;
+          </instruction>
+          <instruction key='zipped'>
+            true
           </instruction>
         </instructions>
       </touchpointData>

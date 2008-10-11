@@ -1,4 +1,4 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <site>
-   <feature url="features/org.lightwolf.features_0.8.2.jar" id="org.lightwolf.features" version="0.8.2"/>
+   <feature url="features/org.lightwolf.plugin_0.8.2.jar" id="org.lightwolf.plugin" version="0.8.2"/>
 </site>
