@@ -4,15 +4,15 @@ import org.eclipse.jface.resource.ImageDescriptor;
 import org.eclipse.ui.plugin.AbstractUIPlugin;
 import org.osgi.framework.BundleContext;
 
-public class Activator extends AbstractUIPlugin {
+public class LightWolfActivator extends AbstractUIPlugin {
 
     // The plug-in ID
     public static final String PLUGIN_ID = "org.lightwolf.nature";
 
     // The shared instance
-    private static Activator plugin;
+    private static LightWolfActivator plugin;
 
-    public Activator() {}
+    public LightWolfActivator() {}
 
     public void start(BundleContext context) throws Exception {
         super.start(context);
@@ -24,7 +24,7 @@ public class Activator extends AbstractUIPlugin {
         super.stop(context);
     }
 
-    public static Activator getDefault() {
+    public static LightWolfActivator getDefault() {
         return plugin;
     }
 

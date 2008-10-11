@@ -42,5 +42,20 @@
          </action>
       </objectContribution>
    </extension>
+   <extension
+         point="org.eclipse.jdt.core.classpathContainerInitializer">
+      <classpathContainerInitializer
+            class="org.lightwolf.plugin.LightWolfContainerInitializer"
+            id="org.lightwolf.plugin.LIGHTWOLF_CONTAINER">
+      </classpathContainerInitializer>
+   </extension>
+   <extension
+         point="org.eclipse.jdt.ui.classpathContainerPage">
+      <classpathContainerPage
+            class="org.lightwolf.plugin.LightWolfContainerWizard"
+            id="org.lightwolf.plugin.LIGHTWOLF_CONTAINER"
+            name="Light Wolf Library">
+      </classpathContainerPage>
+   </extension>
 
 </plugin>

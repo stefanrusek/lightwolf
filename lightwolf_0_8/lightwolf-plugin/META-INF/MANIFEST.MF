@@ -3,12 +3,13 @@ Bundle-ManifestVersion: 2
 Bundle-Name: Light Wolf Nature
 Bundle-SymbolicName: org.lightwolf.nature; singleton:=true
 Bundle-Version: 0.8.2
-Bundle-Activator: org.lightwolf.plugin.Activator
+Bundle-Activator: org.lightwolf.plugin.LightWolfActivator
 Bundle-Vendor: Fernando Colombo
 Require-Bundle: org.eclipse.ui,
  org.eclipse.core.runtime,
  org.eclipse.core.resources,
- org.eclipse.jdt.core
+ org.eclipse.jdt.core,
+ org.eclipse.jdt.ui
 Bundle-RequiredExecutionEnvironment: J2SE-1.5
 Eclipse-LazyStart: true
 Bundle-ClassPath: .,

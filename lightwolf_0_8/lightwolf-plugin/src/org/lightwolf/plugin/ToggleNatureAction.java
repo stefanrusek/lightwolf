@@ -6,6 +6,10 @@ import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IProjectDescription;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IAdaptable;
+import org.eclipse.core.runtime.IPath;
+import org.eclipse.jdt.core.IClasspathEntry;
+import org.eclipse.jdt.core.IJavaProject;
+import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jface.action.IAction;
 import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.jface.viewers.ISelection;
@@ -81,6 +85,26 @@ public class ToggleNatureAction implements IObjectActionDelegate {
         newNatures[natures.length] = LightWolfNature.NATURE_ID;
         description.setNatureIds(newNatures);
         project.setDescription(description, null);
+
+        IJavaProject javaProject = JavaCore.create(project);
+        IClasspathEntry[] rawClasspath = javaProject.getRawClasspath();
+        boolean add = true;
+        for (IClasspathEntry entry : rawClasspath) {
+            if (entry.getEntryKind() != IClasspathEntry.CPE_CONTAINER) {
+                continue;
+            }
+            IPath path = entry.getPath();
+            if (path.equals(LightWolfContainerInitializer.LIGHTWOLF_CONTAINER_PATH)) {
+                add = false;
+                break;
+            }
+        }
+        if (add) {
+            IClasspathEntry[] newRawClasspath = new IClasspathEntry[rawClasspath.length + 1];
+            System.arraycopy(rawClasspath, 0, newRawClasspath, 0, rawClasspath.length);
+            newRawClasspath[rawClasspath.length] = JavaCore.newContainerEntry(LightWolfContainerInitializer.LIGHTWOLF_CONTAINER_PATH);
+            javaProject.setRawClasspath(newRawClasspath, true, null);
+        }
         return true;
     }
 
