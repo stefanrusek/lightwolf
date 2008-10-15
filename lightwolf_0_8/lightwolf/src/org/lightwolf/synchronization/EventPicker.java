@@ -30,9 +30,9 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.TimeUnit;
 
+import org.lightwolf.Continuation;
 import org.lightwolf.DelayedCallSignal;
 import org.lightwolf.Flow;
-import org.lightwolf.FlowContext;
 import org.lightwolf.FlowLocal;
 import org.lightwolf.FlowMethod;
 
@@ -104,7 +104,7 @@ public class EventPicker {
             // We are handling another event, so we must not wait.
             return false;
         }
-        FlowContext context = Flow.currentContext(st);
+        FlowContext context = currentContext(st);
         if (context == null) {
             assert st.state == HANDLING;
             return true;
@@ -120,7 +120,7 @@ public class EventPicker {
             // We are handling another event, so we must not wait.
             return false;
         }
-        FlowContext context = Flow.currentContext(st);
+        FlowContext context = currentContext(st);
         if (context == null) {
             assert st.state == HANDLING;
             return true;
@@ -173,7 +173,7 @@ public class EventPicker {
     }
 
     private static boolean wakeUp(FlowContext context, Object message) {
-        State st = (State) context.getArgument();
+        State st = context.getState();
         synchronized(st) {
             switch (st.state) {
                 case WAITING:
@@ -186,12 +186,18 @@ public class EventPicker {
             }
         }
         Flow flow = st.flow;
-        flow.setContext(context);
+        context.placeOnCheckpointAndForget(flow);
         flow.activate(message);
         return true;
     }
 
-    private static class State {
+    @FlowMethod
+    private static FlowContext currentContext(State state) {
+        FlowContext cont = new FlowContext(state);
+        return cont.checkpoint() ? cont : null;
+    }
+
+    private static class State extends Continuation {
 
         final Flow flow;
         int state;
@@ -245,6 +251,20 @@ public class EventPicker {
             } finally {
                 notifyDone();
             }
+        }
+
+    }
+
+    private static class FlowContext extends Continuation {
+
+        private final State state;
+
+        FlowContext(State state) {
+            this.state = state;
+        }
+
+        State getState() {
+            return state;
         }
 
     }

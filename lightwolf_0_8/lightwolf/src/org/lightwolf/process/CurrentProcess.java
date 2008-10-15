@@ -31,7 +31,7 @@ import org.lightwolf.FlowMethod;
 
 public class CurrentProcess {
 
-    private static FlowLocal<Process> current = new FlowLocal();
+    private static FlowLocal<Process> current = new FlowLocal<Process>();
 
     public static Process getCurrent() {
         return current.get();

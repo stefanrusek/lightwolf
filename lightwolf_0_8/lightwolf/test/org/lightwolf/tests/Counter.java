@@ -15,7 +15,7 @@ public class Counter implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    private static final HashMap<Integer, Counter> savedCounters = new HashMap();
+    private static final HashMap<Integer, Counter> savedCounters = new HashMap<Integer, Counter>();
 
     static Counter restore(int id) {
         return savedCounters.get(id);

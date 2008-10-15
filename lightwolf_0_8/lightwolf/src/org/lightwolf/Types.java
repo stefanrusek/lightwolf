@@ -1,16 +1,16 @@
 /*
  * Copyright (c) 2007, Fernando Colombo. All rights reserved.
- *
+ * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- *
+ * 
  * 1) Redistributions of source code must retain the above copyright notice,
  * this list of conditions and the following disclaimer.
- *
+ * 
  * 2) Redistributions in binary form must reproduce the above copyright notice,
  * this list of conditions and the following disclaimer in the documentation
  * and/or other materials provided with the distribution.
- *
+ * 
  * THIS SOFTWARE IS PROVIDED ''AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES,
  * INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
  * FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
@@ -63,7 +63,7 @@ class Types {
         }
     }
 
-    static String getMethodDescription(Class owner, String name, String desc) {
+    static String getMethodDescription(Class<?> owner, String name, String desc) {
         StringBuilder temp = new StringBuilder();
         Type retType = Type.getReturnType(desc);
         temp.append(retType.getClassName());
@@ -83,15 +83,15 @@ class Types {
         return temp.toString();
     }
 
-    static Class[] typeToClass(Type[] t) throws ClassNotFoundException {
-        Class[] ret = new Class[t.length];
+    static Class<?>[] typeToClass(Type[] t) throws ClassNotFoundException {
+        Class<?>[] ret = new Class[t.length];
         for (int i = 0; i < ret.length; ++i) {
             ret[i] = typeToClass(t[i]);
         }
         return ret;
     }
 
-    static Class typeToClass(Type type) throws ClassNotFoundException {
+    static Class<?> typeToClass(Type type) throws ClassNotFoundException {
         switch (type.getSort()) {
             case Type.VOID:
                 return void.class;
@@ -121,7 +121,7 @@ class Types {
             }
             case Type.ARRAY: {
                 int[] dims = new int[type.getDimensions()];
-                Class elemType = typeToClass(type.getElementType());
+                Class<?> elemType = typeToClass(type.getElementType());
                 return Array.newInstance(elemType, dims).getClass();
             }
             case Type.OBJECT: {

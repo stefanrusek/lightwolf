@@ -1,16 +1,16 @@
 /*
  * Copyright (c) 2007, Fernando Colombo. All rights reserved.
- *
+ * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- *
+ * 
  * 1) Redistributions of source code must retain the above copyright notice,
  * this list of conditions and the following disclaimer.
- *
+ * 
  * 2) Redistributions in binary form must reproduce the above copyright notice,
  * this list of conditions and the following disclaimer in the documentation
  * and/or other materials provided with the distribution.
- *
+ * 
  * THIS SOFTWARE IS PROVIDED ''AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES,
  * INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
  * FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
@@ -104,8 +104,8 @@ public class LightWolfEnhancer {
     }
 
     private final IClassProvider classProvider;
-    private final HashMap<MethodKey, Boolean> methodCache = new HashMap();
-    private final HashMap<String, String> knownClasses = new HashMap();
+    private final HashMap<MethodKey, Boolean> methodCache = new HashMap<MethodKey, Boolean>();
+    private final HashMap<String, String> knownClasses = new HashMap<String, String>();
 
     public LightWolfEnhancer(IClassProvider classProvider) {
         this.classProvider = classProvider;
@@ -190,7 +190,7 @@ public class LightWolfEnhancer {
         }
         for (AnnotationNode annot : annotations) {
             if (annot.desc.equals("L" + FLOWMETHOD_ANNOT + ";")) {
-                List values = annot.values;
+                List<Object> values = annot.values;
                 if (values != null) {
                     for (int i = 0; i < values.size(); i += 2) {
                         String name = (String) values.get(i);
@@ -220,7 +220,7 @@ public class LightWolfEnhancer {
         InsnList insts = method.instructions;
 
         Frame[] frames = analyzer.analyze(clazz.name, method);
-        ArrayList<ResumeInfo> gotos = new ArrayList();
+        ArrayList<ResumeInfo> gotos = new ArrayList<ResumeInfo>();
 
         int invId = 0;
         AbstractInsnNode last = insts.getLast();
@@ -364,7 +364,7 @@ public class LightWolfEnhancer {
         }
         for (AnnotationNode annot : annotations) {
             if (annot.desc.equals("L" + FLOWMETHOD_ANNOT + ";")) {
-                List values = annot.values;
+                List<Object> values = annot.values;
                 if (values != null) {
                     for (int i = 0; i < values.size(); i += 2) {
                         String name = (String) values.get(i);
@@ -378,7 +378,7 @@ public class LightWolfEnhancer {
                         }
                     }
                 } else {
-                    values = new ArrayList(2);
+                    values = new ArrayList<Object>(2);
                     annot.values = values;
                 }
                 values.add("manual");
@@ -648,7 +648,7 @@ public class LightWolfEnhancer {
      * Saves the value of a variable. Suppose the stack here will be
      * [...,frame], and suppose we must save the variable i, which is a float.
      * Here is how:
-     *
+     * 
      * <pre>
      *    [...,frame]
      *       fload varN
@@ -656,7 +656,7 @@ public class LightWolfEnhancer {
      *       invokevirtual // saveVar(varN), returns frame.
      *    [...,frame]
      * </pre>
-     *
+     * 
      * @param varIndex Local variable index.
      * @param type Local variable type.
      * @param insts Instruction list where code will be generated.
@@ -744,7 +744,7 @@ public class LightWolfEnhancer {
      * variable), and removes it. Suppose the stack here will be
      * [...,A,B,frame]. We must save B and let A and frame in the stack. Here is
      * how:
-     *
+     * 
      * <pre>
      *    [...,A,B,frame]
      *       swap
@@ -752,9 +752,9 @@ public class LightWolfEnhancer {
      *       invokevirtual // save(B), returns frame.
      *    [...,A,frame]
      * </pre>
-     *
+     * 
      * But if B is long or double, then:
-     *
+     * 
      * <pre>
      *    [...,A,B,frame]
      *       dup_x2

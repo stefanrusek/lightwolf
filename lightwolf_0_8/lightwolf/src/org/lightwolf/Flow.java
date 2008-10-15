@@ -1,16 +1,16 @@
 /*
  * Copyright (c) 2007, Fernando Colombo. All rights reserved.
- *
+ * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- *
+ * 
  * 1) Redistributions of source code must retain the above copyright notice,
  * this list of conditions and the following disclaimer.
- *
+ * 
  * 2) Redistributions in binary form must reproduce the above copyright notice,
  * this list of conditions and the following disclaimer in the documentation
  * and/or other materials provided with the distribution.
- *
+ * 
  * THIS SOFTWARE IS PROVIDED ''AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES,
  * INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
  * FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
@@ -31,7 +31,6 @@ import java.io.Serializable;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectableChannel;
 import java.util.WeakHashMap;
 import java.util.concurrent.Callable;
@@ -75,10 +74,10 @@ import org.lightwolf.tools.SimpleFlowManager;
  * method, the flow is kept active and can be queried, but some flow utilities
  * will disabled until the normal method returns to the invoker flow-method.
  * <p>
- * <b>Flow-creator:</b> Whenever a flow-method is invoked by a normal (non-flow)
- * method, it is called the flow-creator method, because it triggers the
- * creation of a new flow (this is done automatically). The flow finishes when
- * the flow-creator completes normally or by exception. If the flow-creator
+ * <b>Flow-creator:</b> Whenever a flow-method is invoked by a normal
+ * (non-flow) method, it is called the flow-creator method, because it triggers
+ * the creation of a new flow (this is done automatically). The flow finishes
+ * when the flow-creator completes normally or by exception. If the flow-creator
  * calls itself or another flow-method, no new flow is created, as described
  * above.
  * <p>
@@ -93,8 +92,8 @@ import org.lightwolf.tools.SimpleFlowManager;
  * {@link #split(int)} and {@link #returnAndContinue()}.
  * <p>
  * According to the above specification, when a flow-method <i>A</i> invokes a
- * normal method <i>B</i>, and then <i>B</i> invokes a flow-method <i>C</i>, a
- * nested flow is created. Regarding the nested flow, <i>B</i> will be the
+ * normal method <i>B</i>, and then <i>B</i> invokes a flow-method <i>C</i>,
+ * a nested flow is created. Regarding the nested flow, <i>B</i> will be the
  * flow-controller and <i>C</i> the flow-creator. If <i>C</i> invokes a flow
  * utility such as {@link #fork(int)}, the effect is applied only to the nested
  * flow. The outer flow, on which <i>A</i> is running, is not affected by the
@@ -103,7 +102,6 @@ import org.lightwolf.tools.SimpleFlowManager;
  * flows are uncommon because usually flow-methods are designed to call other
  * flow-methods, which does not cause the creation of new flow, as mentioned
  * above. Nevertheless, nested flows are allowed as an orthogonality feature.
- *
  * @see FlowMethod
  * @author Fernando Colombo
  */
@@ -119,6 +117,16 @@ public final class Flow implements Serializable {
     private static final String[] stateNames = new String[] { "0", "ACTIVE", "SUSPENDED", "SUSPENDING", "FINISHED" };
 
     private static final ThreadLocal<Flow> current = new ThreadLocal<Flow>();
+
+    /**
+     * Creates and returns a new flow. The new flow will be in {@link #FINISHED}
+     * state, which is suitable for invoking the
+     * {@link #setContext(FlowContext)} method.
+     * @return A newly created flow instance, in {@link #FINISHED} state.
+     */
+    public static Flow newFlow() {
+        return new Flow(FlowManager.getNext(), null);
+    }
 
     public static void execute(Runnable runnable) {
         Flow previous = current();
@@ -216,9 +224,8 @@ public final class Flow implements Serializable {
             if (current.process != null) {
                 if (current.process == process) {
                     throw new IllegalStateException("Flow already belongs to specified process.");
-                } else {
-                    throw new IllegalStateException("Flow belongs to another process.");
                 }
+                throw new IllegalStateException("Flow belongs to another process.");
             }
             process.add(current);
         } finally {
@@ -257,31 +264,6 @@ public final class Flow implements Serializable {
         }
     }
 
-    @FlowMethod(manual = true)
-    public static FlowContext currentContext() {
-        return currentContext(null);
-    }
-
-    @FlowMethod(manual = true)
-    public static FlowContext currentContext(Object argument) {
-        Flow current = Flow.fromInvoker();
-        MethodFrame frame = current.currentFrame;
-        try {
-            if (frame.isInvoking()) {
-                return new FlowContext(frame.copy(null), argument);
-            }
-            return null;
-        } finally {
-            frame.invoked();
-        }
-    }
-
-    public static Object continueWith(FlowContext cont) {
-        Flow flow = new Flow(FlowManager.getNext(), null);
-        flow.setContext(cont);
-        return flow.resume(cont);
-    }
-
     public static Flow snapshot() {
         Flow current = Flow.fromInvoker();
         MethodFrame frame = current.currentFrame;
@@ -306,43 +288,44 @@ public final class Flow implements Serializable {
      * This method creates <i>n</i> {@linkplain #copy() shallow copies} of the
      * current flow, then executes each copy concurrently and starting from the
      * invocation point. In other words, this method is invoked once, but
-     * returns 1+<i>n</i> times: 1 time for the invoker, and <i>n</i> times for
-     * new flows. Notice that {@link #split(int) split(0)} is a no-effect
+     * returns 1+<i>n</i> times: 1 time for the invoker, and <i>n</i> times
+     * for new flows. Notice that {@link #split(int) split(0)} is a no-effect
      * operation.
      * <p>
      * The returned value is an <code>int</code> that identifies the flow to
-     * which the method returned. It will be <code>0</code> for the invoker, and
-     * a distinct positive integer for new flows, ranging from <code>1</code> to
-     * <i>n</i>.
+     * which the method returned. It will be <code>0</code> for the invoker,
+     * and a distinct positive integer for new flows, ranging from
+     * <code>1</code> to <i>n</i>.
      * <p>
      * The following example illustrates this behavior:
-     *
+     * 
      * <pre>
      *    void example() {
-     *        LightWolfLog.println("Before doFlow()");
+     *        System.out.println(&quot;Before doFlow()&quot;);
      *        int i = doFlow();
-     *        LightWolfLog.printf("doFlow(): %d\n", i);
+     *        System.out.printf(&quot;doFlow(): %d\n&quot;, i);
      *    }
-     *
+     * 
      *    &#064;{@link FlowMethod}
      *    int doFlow() {
-     *        LightWolfLog.println("Before performSplit()");
+     *        System.out.println(&quot;Before performSplit()&quot;);
      *        int i = performSplit();
-     *        LightWolfLog.printf("performSplit(): %d\n", i);
+     *        System.out.printf(&quot;performSplit(): %d\n&quot;, i);
      *        return i;
      *    }
-     *
+     * 
      *    &#064;{@link FlowMethod}
      *    int performSplit() {
-     *        LightWolfLog.println("Before split(2)");
+     *        System.out.println(&quot;Before split(2)&quot;);
      *        int i = Flow.split(2);
-     *        LightWolfLog.printf("Split result: %d\n", i);
+     *        System.out.printf(&quot;Split result: %d\n&quot;, i);
      *        return i;
      *    }
      * </pre>
+     * 
      * The above snippet prints the following (under fair scheduling
      * conditions):
-     *
+     * 
      * <pre>
      *     Before doFlow()
      *     Before performSplit()
@@ -355,13 +338,14 @@ public final class Flow implements Serializable {
      *     performSplit(): 2
      *     doFlow(): 0
      * </pre>
+     * 
      * <p>
-     * Each of the created flow runs on a possibly different {@linkplain Thread
-     * thread} (the actual thread is defined by the {@linkplain #getManager()
-     * flow manager}), and will be independent from all other flows, including
-     * the invoker. As defined by the {@linkplain #copy() shallow copy}
-     * behavior, all flows share heap objects referenced by the invoker stack
-     * frames at the time of invocation.
+     * Each of the created flow runs on a possibly different
+     * {@linkplain Thread thread} (the actual thread is defined by the
+     * {@linkplain #getManager() flow manager}), and will be independent from
+     * all other flows, including the invoker. As defined by the
+     * {@linkplain #copy() shallow copy} behavior, all flows share heap objects
+     * referenced by the invoker stack frames at the time of invocation.
      * <p>
      * If there is an active {@linkplain #fork(int) fork} at the time of
      * invocation, the invoker will remain on such fork, hence methods such as
@@ -371,7 +355,6 @@ public final class Flow implements Serializable {
      * {@link #forgetFork()} before an explicit fork on such flows will cause an
      * exception to be thrown.
      * <p>
-     *
      * @param n The number of flows to create. Must be non-negative.
      * @throws IllegalArgumentException If n is negative.
      * @throws IllegalStateException If the invoker is not a {@link FlowMethod}.
@@ -417,9 +400,9 @@ public final class Flow implements Serializable {
      * established. This method changes the behavior of {@link #merge()} and
      * other fork-finishing methods, which always applies to the innermost fork.
      * Because of this, it is recommended to use the structured fork/merge
-     * style, which use <code>try</code>/<code>finally</code> blocks as in the
-     * following example:
-     *
+     * style, which use <code>try</code>/<code>finally</code> blocks as in
+     * the following example:
+     * 
      * <pre>
      *    ... // Single-threaded execution.
      *    int branch = Flow.fork(n);
@@ -430,24 +413,24 @@ public final class Flow implements Serializable {
      *    }
      *    ... // Single-threaded execution.
      * </pre>
+     * 
      * <p>
      * <p>
      * The returned value is an <code>int</code> that identifies the branch to
-     * which the method returned. It will be <code>0</code> for the invoker, and
-     * a distinct positive integer for new branches, ranging from <code>1</code>
-     * to <i>n</i>.
+     * which the method returned. It will be <code>0</code> for the invoker,
+     * and a distinct positive integer for new branches, ranging from
+     * <code>1</code> to <i>n</i>.
      * <p>
      * If parameter <i>n</i> is zero, no new flow will be instantiated and the
      * invoker will continue execution in single-threaded mode. Still, the next
      * fork-finishing operation will apply to such fork.
      * <p>
-     *
      * @param n The number of branches to create. Must be non-negative.
      * @throws IllegalArgumentException If n is negative.
      * @throws IllegalStateException If the invoker is not a {@link FlowMethod}.
      * @return The branch identifier. Zero for the invoker, and a distinct
-     *         integer ranging from <code>1</code> to <code>n</code> for each
-     *         new branch.
+     *         integer ranging from <code>1</code> to <code>n</code> for
+     *         each new branch.
      * @see #merge(long, TimeUnit)
      * @see #forgetFork()
      */
@@ -510,7 +493,6 @@ public final class Flow implements Serializable {
      * <p>
      * Whenever this method returns normally, it is guaranteed that the invoker
      * was the fork-creator and no branch will be active.
-     *
      * @throws InterruptedException If the current thread was interrupted while
      *         there was at least one active branch.
      * @throws IllegalStateException If the invoker is not a {@link FlowMethod}.
@@ -553,17 +535,17 @@ public final class Flow implements Serializable {
      * who is the invoker, the behavior will be different.
      * <p>
      * <b>If the invoker is the fork-creator:</b> This method blocks until each
-     * of the corresponding branches finish (see {@link #merge()}), or until the
-     * given timeout expires, or until this thread is interrupted, whichever
+     * of the corresponding branches finish (see {@link #merge()}), or until
+     * the given timeout expires, or until this thread is interrupted, whichever
      * comes first. If the merge is successful (all branches have finished
      * before the timeout expire), the invoker leaves the fork, restoring the
      * next outer fork, if any, and this method returns <code>true</code>. If
      * the timeout expires while at least on branch is active, the invoker will
-     * stay in the fork, and this method returns <code>false</code>. Otherwise
-     * (the thread is interrupted while at least one branch is active), the
-     * invoker will stay in the fork. If all other branches have finished before
-     * invocation of this method, it will return immediately without checking
-     * the thread's interrupt flag.
+     * stay in the fork, and this method returns <code>false</code>.
+     * Otherwise (the thread is interrupted while at least one branch is
+     * active), the invoker will stay in the fork. If all other branches have
+     * finished before invocation of this method, it will return immediately
+     * without checking the thread's interrupt flag.
      * <p>
      * <b>If the invoker is a branch:</b> This method does not return. It
      * finishes the flow immediately, as if {@link #leave()} were invoked.
@@ -571,7 +553,6 @@ public final class Flow implements Serializable {
      * <p>
      * Whenever this method returns normally, it is guaranteed that the invoker
      * will be the fork-creator.
-     *
      * @return <code>true</code> if all other branches have finished,
      *         <code>false</code> if there was at least one active branch when
      *         the timeout elapsed.
@@ -629,7 +610,6 @@ public final class Flow implements Serializable {
      * finished, and the flow will run "detached" from the fork, as if created
      * by {@link #split(int)}. This means that it might unblock an ongoing call
      * to {@link #merge()} in the fork-creator.
-     *
      * @throws IllegalStateException If the invoker is not a {@link FlowMethod}.
      * @see #fork(int)
      * @see #merge(long, TimeUnit)
@@ -654,7 +634,7 @@ public final class Flow implements Serializable {
     }
 
     @FlowMethod(manual = true)
-    public static void waitFor(SelectableChannel channel, int ops) throws ClosedChannelException {
+    public static void waitFor(SelectableChannel channel, int ops) {
         Flow flow = fromInvoker();
         MethodFrame frame = flow.currentFrame;
         if (frame.isInvoking()) {
@@ -729,29 +709,31 @@ public final class Flow implements Serializable {
      * {@linkplain FlowMethod flow-creator} as it would be if
      * {@link #split(int)} were used. The following snippet illustrates this
      * behavior:
-     *
+     * 
      * <pre>
      *    &#064;{@link FlowMethod}
      *    void example() {
-     *        LightWolfLog.println("Before doFlow()");
+     *        System.out.println(&quot;Before doFlow()&quot;);
      *        int i = doFlow();
-     *        LightWolfLog.printf("doFlow(): %d\n", i);
+     *        System.out.printf(&quot;doFlow(): %d\n&quot;, i);
      *        Thread.sleep(50);
-     *        LightWolfLog.println("Done");
+     *        System.out.println(&quot;Done&quot;);
      *    }
-     *
+     * 
      *    &#064;{@link FlowMethod}
      *    int doFlow() {
-     *        LightWolfLog.println("Before returnAndContinue()");
+     *        System.out.println(&quot;Before returnAndContinue()&quot;);
      *        Flow.returnAndContinue(123);
-     *        LightWolfLog.println("After returnAndContinue()");
+     *        System.out.println(&quot;After returnAndContinue()&quot;);
      *        return 456;
      *    }
-     *
+     * 
+     * 
      * </pre>
+     * 
      * The above snippet prints the following (under fair scheduling
      * conditions):
-     *
+     * 
      * <pre>
      *     Before doFlow()
      *     Before returnAndContinue()
@@ -759,6 +741,7 @@ public final class Flow implements Serializable {
      *     After returnAndContinue()
      *     Done
      * </pre>
+     * 
      * <p>
      * Notice that the new flow finishes when the method <code>doFlow()</code>
      * finishes. Hence the value of the actual <code>return</code> statement (
@@ -766,7 +749,6 @@ public final class Flow implements Serializable {
      * than once in the same method works, but is redundant because in the
      * second and subsequent calls, the work doesn't need to be finished in a
      * new flow.
-     *
      * @param v The value to return to the invoker's invoker.
      * @throws IllegalStateException If the invoker is not a {@link FlowMethod}.
      */
@@ -827,10 +809,9 @@ public final class Flow implements Serializable {
                 }
                 copy.activate();
                 return frame;
-            } else {
-                // We are restoring from a fork.
-                return null;
             }
+            // We are restoring from a fork.
+            return null;
         } finally {
             frame.invoked();
         }
@@ -850,15 +831,15 @@ public final class Flow implements Serializable {
      * Suspends the flow and sends a signal to the flow-controller.
      * <p>
      * This method first suspends the current flow at the point of invocation.
-     * Then it sends the specified signal to the {@linkplain Flow
-     * flow-controller}, as if the signal were thrown by the {@linkplain Flow
-     * flow-creator} (see below). After this, the next actions are fully
-     * determined by the flow-controller, which typically uses the signal to
-     * decide.
+     * Then it sends the specified signal to the
+     * {@linkplain Flow flow-controller}, as if the signal were thrown by the
+     * {@linkplain Flow flow-creator} (see below). After this, the next actions
+     * are fully determined by the flow-controller, which typically uses the
+     * signal to decide.
      * <p>
      * This method returns only when the flow-controller invokes a
-     * <code>resume</code> method (see below) on this flow or on a copy. Notice
-     * that this method may complete on a different flow and it may also
+     * <code>resume</code> method (see below) on this flow or on a copy.
+     * Notice that this method may complete on a different flow and it may also
      * complete more than once, at the discretion of the flow-controller.
      * <p>
      * Although the signal is an exception, this method doesn't throw the signal
@@ -866,45 +847,47 @@ public final class Flow implements Serializable {
      * have been suspended. To the flow-controller, the signal appears to have
      * been thrown by the flow-creator. This mechanism is illustrated in the
      * following snippet:
-     *
+     * 
      * <pre>
      *    void example() { // This is the flow-controller.
      *        try {
      *            doFlow();
-     *            LightWolfLog.println("doFlow() finished");
+     *            System.out.println(&quot;doFlow() finished&quot;);
      *        } catch (FlowSignal signal) {
-     *            LightWolfLog.println("Caught by the flow-controller");
-     *            LightWolfLog.println("Calling Flow.resume()");
+     *            System.out.println(&quot;Caught by the flow-controller&quot;);
+     *            System.out.println(&quot;Calling Flow.resume()&quot;);
      *            signal.getFlow().{@link #resume()};
-     *            LightWolfLog.println("Flow finished");
+     *            System.out.println(&quot;Flow finished&quot;);
      *        }
      *    }
-     *
+     * 
      *    &#064;{@link FlowMethod}
      *    void doFlow() { // This is the flow-creator.
      *        try {
      *            doSignal();
-     *            LightWolfLog.println("doSignal() finished");
+     *            System.out.println(&quot;doSignal() finished&quot;);
      *        } catch (FlowSignal signal) {
-     *            LightWolfLog.println("Caught by the flow-creator");
+     *            System.out.println(&quot;Caught by the flow-creator&quot;);
      *        }
      *    }
-     *
+     * 
      *    &#064;{@link FlowMethod}
      *    void doSignal() { // This is an ordinary flow method.
      *        try {
-     *            LightWolfLog.println("Sending signal");
+     *            System.out.println(&quot;Sending signal&quot;);
      *            FlowSignal signal = new MyFlowSignal();
      *            Flow.signal(signal);
-     *            LightWolfLog.println("Returned from signal (resumed)");
+     *            System.out.println(&quot;Returned from signal (resumed)&quot;);
      *        } catch (FlowSignal signal) {
-     *            LightWolfLog.println("Caught by doSignal()");
+     *            System.out.println(&quot;Caught by doSignal()&quot;);
      *        }
      *    }
-     *
+     * 
+     * 
      * </pre>
+     * 
      * The above snippet prints the following:
-     *
+     * 
      * <pre>
      *     Sending signal
      *     Caught by the flow-controller
@@ -913,12 +896,13 @@ public final class Flow implements Serializable {
      *     doSignal() finished
      *     Flow finished
      * </pre>
+     * 
      * The flow-controller can, among other actions, create a
      * {@linkplain #copy() shallow copy} of this flow, serialize this flow and
      * deserialize in another machine instance, ignore the signal and never
-     * {@linkplain #resume() resume}, or wait for some specific condition before
-     * resuming. To provide satisfactory usability, the flow-controller must
-     * proceed as specified by the received {@linkplain FlowSignal signal}
+     * {@linkplain #resume() resume}, or wait for some specific condition
+     * before resuming. To provide satisfactory usability, the flow-controller
+     * must proceed as specified by the received {@linkplain FlowSignal signal}
      * object. There are some well-known signal classes such as
      * {@link DelayedCallSignal} and {@link SuspendSignal}, but developers are
      * free to create new signals, as long as they provide support for them in
@@ -931,8 +915,8 @@ public final class Flow implements Serializable {
      * <code>null</code>.</li>
      * <li>If the flow is resumed with {@link #resume(Object)}, this method
      * returns the object passed to the <code>resume</code> method.</li>
-     * <li>If the flow is resumed with {@link #resumeThrowing(Throwable)}, this
-     * method throws {@link ResumeException} whose
+     * <li>If the flow is resumed with {@link #resumeThrowing(Throwable)},
+     * this method throws {@link ResumeException} whose
      * {@linkplain Throwable#getCause() cause} is the exception passed to the
      * <code>resumeThrowing</code> method.</li>
      * </ul>
@@ -941,11 +925,11 @@ public final class Flow implements Serializable {
      * {@link ThreadFreeLock}. It is the lowest level API for implementing
      * features such as releasing a pooled thread before completion and
      * serializing thread state for long running processes.
-     *
      * @param signal The signal that will be sent to the flow-controller.
      * @return The object passed to {@link #resume(Object)} method.
      * @throws IllegalStateException If the invoker is not a {@link FlowMethod}.
-     * @throws NullPointerException If <code>signal</code> is <code>null</code>.
+     * @throws NullPointerException If <code>signal</code> is
+     *         <code>null</code>.
      * @throws ResumeException If the flow is resuming through
      *         {@link #resumeThrowing(Throwable)}.
      */
@@ -966,18 +950,17 @@ public final class Flow implements Serializable {
                 signal.flow = current;
                 frame.leaveThread();
                 return null;
-            } else {
-                // We are restoring from suspended state.
-                log("Restored from signal.");
-                assert signal.flow == current : signal.flow;
-                Object result = current.result;
-                current.result = null;
-                if (result instanceof ExceptionEnvelope) {
-                    Throwable exception = ((ExceptionEnvelope) result).exception;
-                    throw new ResumeException(exception);
-                }
-                return result;
             }
+            // We are restoring from suspended state.
+            log("Restored from signal.");
+            assert signal.flow == current : signal.flow;
+            Object result = current.result;
+            current.result = null;
+            if (result instanceof ExceptionEnvelope) {
+                Throwable exception = ((ExceptionEnvelope) result).exception;
+                throw new ResumeException(exception);
+            }
+            return result;
         } finally {
             frame.invoked();
         }
@@ -1027,6 +1010,11 @@ public final class Flow implements Serializable {
         current.set(null);
     }
 
+    @FlowMethod(manual = true)
+    static MethodFrame invokerFrame() {
+        return fromInvoker().currentFrame;
+    }
+
     static MethodFrame enter(Object owner, String name, String desc) {
         Flow cur = current();
         if (cur == null || cur.isPassive()) {
@@ -1035,15 +1023,15 @@ public final class Flow implements Serializable {
         return cur.newFrame(owner, name, desc);
     }
 
-    static Object getLocal(FlowLocal local) {
+    static Object getLocal(FlowLocal<?> local) {
         return safeCurrent().doGetLocal(local);
     }
 
-    static Object setLocal(FlowLocal local, Object value) {
+    static Object setLocal(FlowLocal<?> local, Object value) {
         return safeCurrent().doSetLocal(local, value);
     }
 
-    static Object removeLocal(FlowLocal local) {
+    static Object removeLocal(FlowLocal<?> local) {
         return safeCurrent().doRemoveLocal(local);
     }
 
@@ -1071,7 +1059,7 @@ public final class Flow implements Serializable {
     private MethodFrame suspendedFrame;
     transient Fork currentFork;
     private Object result;
-    private WeakHashMap<FlowLocal, Object> locals;
+    private WeakHashMap<FlowLocal<?>, Object> locals;
 
     private Flow(FlowManager manager, Flow previous) {
         this.manager = manager;
@@ -1103,25 +1091,6 @@ public final class Flow implements Serializable {
         return result;
     }
 
-    public void setContext(FlowContext cont) {
-        switch (state) {
-            case FINISHED:
-                suspendedFrame = cont.fetchFrame();
-                state = SUSPENDED;
-                if (process != null) {
-                    Process process = this.process;
-                    this.process = null;
-                    process.add(this);
-                }
-                break;
-            case SUSPENDED:
-                suspendedFrame = cont.fetchFrame();
-                break;
-            default:
-                throw new IllegalStateException("Cannot set continuation while flow is " + stateNames[state] + '.');
-        }
-    }
-
     public Object resume() {
         return resume(null);
     }
@@ -1143,10 +1112,10 @@ public final class Flow implements Serializable {
             restore();
             setCurrent(this);
             this.result = result;
-            Class clazz = getRootClass();
+            Class<?> clazz = getRootClass();
 
             try {
-                Class[] argClasses = getRootParameterTypes();
+                Class<?>[] argClasses = getRootParameterTypes();
                 Object[] argValues = new Object[argClasses.length];
 
                 /* TODO:
@@ -1233,7 +1202,6 @@ public final class Flow implements Serializable {
      * method cannot be used to copy a running flow. To get the state of a
      * running flow, use {@link #currentContext()}.
      * <p>
-     *
      * @return A flow whose execution context is identical to this flow, sharing
      *         all heap objects referenced by stack frames.
      * @throws IllegalStateException If this flow is not suspended nor finished.
@@ -1296,9 +1264,9 @@ public final class Flow implements Serializable {
         }
     }
 
-    public Class getRootClass() {
+    public Class<?> getRootClass() {
         Object owner = suspendedFrame.target;
-        return owner instanceof Class ? (Class) owner : owner.getClass();
+        return owner instanceof Class ? (Class<?>) owner : owner.getClass();
     }
 
     public String getRootName() {
@@ -1309,7 +1277,7 @@ public final class Flow implements Serializable {
         return suspendedFrame.desc;
     }
 
-    public Class[] getRootParameterTypes() throws ClassNotFoundException {
+    public Class<?>[] getRootParameterTypes() throws ClassNotFoundException {
         Type[] argTypes = Type.getArgumentTypes(suspendedFrame.desc);
         return Types.typeToClass(argTypes);
     }
@@ -1408,6 +1376,25 @@ public final class Flow implements Serializable {
         currentFork = fork;
     }
 
+    synchronized void setSuspendedFrame(MethodFrame frame) {
+        switch (state) {
+            case FINISHED:
+                suspendedFrame = frame;
+                state = SUSPENDED;
+                if (process != null) {
+                    Process process = this.process;
+                    this.process = null;
+                    process.add(this);
+                }
+                break;
+            case SUSPENDED:
+                suspendedFrame = frame;
+                break;
+            default:
+                throw new IllegalStateException("Cannot resume if flow is " + stateNames[state] + '.');
+        }
+    }
+
     private void suspendInPlace() {
         assert state == ACTIVE;
         assert currentFrame != null;
@@ -1456,7 +1443,7 @@ public final class Flow implements Serializable {
         int pv = 0;
         int ov = 0;
         for (int i = 0; i < argClasses.length; ++i) {
-            Class argClass = argClasses[i];
+            Class<?> argClass = argClasses[i];
             if (argClass == boolean.class) {
                 argValues[i] = suspendedFrame.getBoolean(pv++);
             } else if (argClass == char.class) {
@@ -1488,8 +1475,8 @@ public final class Flow implements Serializable {
         return owner;
     }
 
-    private Object doGetLocal(FlowLocal local) {
-        WeakHashMap<FlowLocal, Object> map = getLocals();
+    private Object doGetLocal(FlowLocal<?> local) {
+        WeakHashMap<FlowLocal<?>, Object> map = getLocals();
         Object ret = map.get(local);
         if (ret != null) {
             return ret;
@@ -1501,20 +1488,20 @@ public final class Flow implements Serializable {
         return ret;
     }
 
-    private Object doSetLocal(FlowLocal local, Object value) {
+    private Object doSetLocal(FlowLocal<?> local, Object value) {
         return getLocals().put(local, value);
     }
 
-    private Object doRemoveLocal(FlowLocal local) {
+    private Object doRemoveLocal(FlowLocal<?> local) {
         if (locals != null) {
             return null;
         }
         return locals.remove(local);
     }
 
-    private WeakHashMap<FlowLocal, Object> getLocals() {
+    private WeakHashMap<FlowLocal<?>, Object> getLocals() {
         if (locals == null) {
-            locals = new WeakHashMap<FlowLocal, Object>();
+            locals = new WeakHashMap<FlowLocal<?>, Object>();
         }
         return locals;
     }

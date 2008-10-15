@@ -5,8 +5,8 @@ import java.util.concurrent.SynchronousQueue;
 
 import org.junit.Assert;
 import org.junit.Test;
+import org.lightwolf.Continuation;
 import org.lightwolf.Flow;
-import org.lightwolf.FlowContext;
 import org.lightwolf.FlowMethod;
 
 public class TestBasics {
@@ -105,20 +105,20 @@ public class TestBasics {
     @Test
     public void continuation() {
         Counter c = new Counter();
-        FlowContext cont = doContinuation(c, 0);
+        Continuation cont = doContinuation(c, 0);
         c.assertEquals(1, 1);
-        if (Flow.continueWith(cont) != null) {
+        if (cont.resume() != null) {
             Assert.fail();
         }
         c.assertEquals(2, 1, 2);
     }
 
     @FlowMethod
-    private static FlowContext doContinuation(Counter c, int count) {
+    private static Continuation doContinuation(Counter c, int count) {
         c.count();
         c.assertEquals(++count, 1);
-        FlowContext cont = Flow.currentContext();
-        if (cont == null) {
+        Continuation cont = new Continuation();
+        if (!cont.checkpoint()) {
             c.count();
             c.assertEquals(++count, 1, 2);
             return null;
@@ -129,7 +129,7 @@ public class TestBasics {
 
     @Test
     public void runnable() throws Throwable {
-        final SynchronousQueue<String> q = new SynchronousQueue();
+        final SynchronousQueue<String> q = new SynchronousQueue<String>();
         Runnable obj = new Runnable() {
 
             @FlowMethod
@@ -164,11 +164,11 @@ public class TestBasics {
 
     @Test
     public void callable() throws Throwable {
-        final SynchronousQueue<String> q = new SynchronousQueue();
-        Callable obj = new Callable() {
+        final SynchronousQueue<String> q = new SynchronousQueue<String>();
+        Callable<?> obj = new Callable<String>() {
 
             @FlowMethod
-            public Object call() {
+            public String call() {
                 try {
                     String s;
                     s = q.take();

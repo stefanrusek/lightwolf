@@ -15,7 +15,7 @@ public class TestReturnAndContinue {
     @Test
     @FlowMethod
     public void testBoolean() throws Throwable {
-        ArrayBlockingQueue abq = new ArrayBlockingQueue(1);
+        ArrayBlockingQueue<Object> abq = new ArrayBlockingQueue<Object>(1);
         Counter c = new Counter();
         c.count();
         boolean output = callBoolean(abq, c, false);
@@ -27,7 +27,7 @@ public class TestReturnAndContinue {
     }
 
     @FlowMethod
-    private boolean callBoolean(ArrayBlockingQueue abq, Counter c, boolean input) throws InterruptedException {
+    private boolean callBoolean(ArrayBlockingQueue<Object> abq, Counter c, boolean input) throws InterruptedException {
         c.count();
         Flow.returnAndContinue(!input);
         c.count();
@@ -39,7 +39,7 @@ public class TestReturnAndContinue {
     @Test
     @FlowMethod
     public void testChar() throws Throwable {
-        ArrayBlockingQueue abq = new ArrayBlockingQueue(1);
+        ArrayBlockingQueue<Object> abq = new ArrayBlockingQueue<Object>(1);
         Counter c = new Counter();
         c.count();
         char input = 12;
@@ -53,7 +53,7 @@ public class TestReturnAndContinue {
     }
 
     @FlowMethod
-    private char callChar(ArrayBlockingQueue abq, Counter c, char input) throws InterruptedException {
+    private char callChar(ArrayBlockingQueue<Object> abq, Counter c, char input) throws InterruptedException {
         ++input;
         c.count();
         Flow.returnAndContinue(input);
@@ -67,7 +67,7 @@ public class TestReturnAndContinue {
     @Test
     @FlowMethod
     public void testByte() throws Throwable {
-        ArrayBlockingQueue abq = new ArrayBlockingQueue(1);
+        ArrayBlockingQueue<Object> abq = new ArrayBlockingQueue<Object>(1);
         Counter c = new Counter();
         c.count();
         byte input = 12;
@@ -81,7 +81,7 @@ public class TestReturnAndContinue {
     }
 
     @FlowMethod
-    private byte callByte(ArrayBlockingQueue abq, Counter c, byte input) throws InterruptedException {
+    private byte callByte(ArrayBlockingQueue<Object> abq, Counter c, byte input) throws InterruptedException {
         ++input;
         c.count();
         Flow.returnAndContinue(input);
@@ -95,7 +95,7 @@ public class TestReturnAndContinue {
     @Test
     @FlowMethod
     public void testShort() throws Throwable {
-        ArrayBlockingQueue abq = new ArrayBlockingQueue(1);
+        ArrayBlockingQueue<Object> abq = new ArrayBlockingQueue<Object>(1);
         Counter c = new Counter();
         c.count();
         short input = 12;
@@ -109,7 +109,7 @@ public class TestReturnAndContinue {
     }
 
     @FlowMethod
-    private short callShort(ArrayBlockingQueue abq, Counter c, short input) throws InterruptedException {
+    private short callShort(ArrayBlockingQueue<Object> abq, Counter c, short input) throws InterruptedException {
         ++input;
         c.count();
         Flow.returnAndContinue(input);
@@ -123,7 +123,7 @@ public class TestReturnAndContinue {
     @Test
     @FlowMethod
     public void testInteger() throws Throwable {
-        ArrayBlockingQueue abq = new ArrayBlockingQueue(1);
+        ArrayBlockingQueue<Object> abq = new ArrayBlockingQueue<Object>(1);
         Counter c = new Counter();
         c.count();
         int input = 12;
@@ -137,7 +137,7 @@ public class TestReturnAndContinue {
     }
 
     @FlowMethod
-    private int callInteger(ArrayBlockingQueue abq, Counter c, int input) throws InterruptedException {
+    private int callInteger(ArrayBlockingQueue<Object> abq, Counter c, int input) throws InterruptedException {
         ++input;
         c.count();
         Flow.returnAndContinue(input);
@@ -151,7 +151,7 @@ public class TestReturnAndContinue {
     @Test
     @FlowMethod
     public void testLong() throws Throwable {
-        ArrayBlockingQueue abq = new ArrayBlockingQueue(1);
+        ArrayBlockingQueue<Object> abq = new ArrayBlockingQueue<Object>(1);
         Counter c = new Counter();
         c.count();
         long input = 12;
@@ -165,7 +165,7 @@ public class TestReturnAndContinue {
     }
 
     @FlowMethod
-    private long callLong(ArrayBlockingQueue abq, Counter c, long input) throws InterruptedException {
+    private long callLong(ArrayBlockingQueue<Object> abq, Counter c, long input) throws InterruptedException {
         ++input;
         c.count();
         Flow.returnAndContinue(input);
@@ -179,7 +179,7 @@ public class TestReturnAndContinue {
     @Test
     @FlowMethod
     public void testFloat() throws Throwable {
-        ArrayBlockingQueue abq = new ArrayBlockingQueue(1);
+        ArrayBlockingQueue<Object> abq = new ArrayBlockingQueue<Object>(1);
         Counter c = new Counter();
         c.count();
         float input = 12;
@@ -193,7 +193,7 @@ public class TestReturnAndContinue {
     }
 
     @FlowMethod
-    private float callFloat(ArrayBlockingQueue abq, Counter c, float input) throws InterruptedException {
+    private float callFloat(ArrayBlockingQueue<Object> abq, Counter c, float input) throws InterruptedException {
         ++input;
         c.count();
         Flow.returnAndContinue(input);
@@ -207,7 +207,7 @@ public class TestReturnAndContinue {
     @Test
     @FlowMethod
     public void testDouble() throws Throwable {
-        ArrayBlockingQueue abq = new ArrayBlockingQueue(1);
+        ArrayBlockingQueue<Object> abq = new ArrayBlockingQueue<Object>(1);
         Counter c = new Counter();
         c.count();
         double input = 12;
@@ -221,7 +221,7 @@ public class TestReturnAndContinue {
     }
 
     @FlowMethod
-    private double callDouble(ArrayBlockingQueue abq, Counter c, double input) throws InterruptedException {
+    private double callDouble(ArrayBlockingQueue<Object> abq, Counter c, double input) throws InterruptedException {
         ++input;
         c.count();
         Flow.returnAndContinue(input);
@@ -235,7 +235,7 @@ public class TestReturnAndContinue {
     @Test
     @FlowMethod
     public void testObject() throws Throwable {
-        ArrayBlockingQueue abq = new ArrayBlockingQueue(1);
+        ArrayBlockingQueue<Object> abq = new ArrayBlockingQueue<Object>(1);
         Counter c = new Counter();
         c.count();
         String input = "ABC";
@@ -249,7 +249,7 @@ public class TestReturnAndContinue {
     }
 
     @FlowMethod
-    private String callObject(ArrayBlockingQueue abq, Counter c, String input) throws InterruptedException {
+    private String callObject(ArrayBlockingQueue<Object> abq, Counter c, String input) throws InterruptedException {
         c.count();
         Flow.returnAndContinue(input + "XYZ");
         c.count();
@@ -301,7 +301,7 @@ public class TestReturnAndContinue {
 
     @Test
     public void testSuspend() throws Throwable {
-        ArrayBlockingQueue abq = new ArrayBlockingQueue(1);
+        ArrayBlockingQueue<Object> abq = new ArrayBlockingQueue<Object>(1);
         Counter c = new Counter();
         c.count();
         SuspendSignal signal;
@@ -334,7 +334,7 @@ public class TestReturnAndContinue {
     }
 
     @FlowMethod
-    private String callAndSuspend(ArrayBlockingQueue abq, Counter c, String s1) throws InterruptedException {
+    private String callAndSuspend(ArrayBlockingQueue<Object> abq, Counter c, String s1) throws InterruptedException {
         c.count();
         String s2 = (String) Flow.suspend();
         c.count();
@@ -345,7 +345,7 @@ public class TestReturnAndContinue {
 
     @Test
     public void testSuspendObj() throws Throwable {
-        ArrayBlockingQueue abq = new ArrayBlockingQueue(1);
+        ArrayBlockingQueue<Object> abq = new ArrayBlockingQueue<Object>(1);
         Counter c = new Counter();
         c.count();
         SuspendSignal signal;
@@ -380,7 +380,7 @@ public class TestReturnAndContinue {
     }
 
     @FlowMethod
-    private String callAndSuspendObj(ArrayBlockingQueue abq, Counter c, String s1) throws InterruptedException {
+    private String callAndSuspendObj(ArrayBlockingQueue<Object> abq, Counter c, String s1) throws InterruptedException {
         c.count();
         String s2 = (String) Flow.suspend("(" + s1 + ")");
         c.count();
@@ -391,7 +391,7 @@ public class TestReturnAndContinue {
 
     @Test
     public void testSuspendThrowing() throws Throwable {
-        ArrayBlockingQueue abq = new ArrayBlockingQueue(1);
+        ArrayBlockingQueue<Object> abq = new ArrayBlockingQueue<Object>(1);
         Counter c = new Counter();
         c.count();
         SuspendSignal signal;
@@ -426,7 +426,7 @@ public class TestReturnAndContinue {
     }
 
     @FlowMethod
-    private String callAndSuspendCatching(ArrayBlockingQueue abq, Counter c, String s1) throws InterruptedException {
+    private String callAndSuspendCatching(ArrayBlockingQueue<Object> abq, Counter c, String s1) throws InterruptedException {
         c.count();
         String s2;
         try {
@@ -441,7 +441,7 @@ public class TestReturnAndContinue {
         return s1 + s2;
     }
 
-    private Object putAndGet(ArrayBlockingQueue abq, Object input) throws InterruptedException {
+    private Object putAndGet(ArrayBlockingQueue<Object> abq, Object input) throws InterruptedException {
         abq.put(input);
         for (int i = 0; i < 10; ++i) {
             Object got = abq.peek();

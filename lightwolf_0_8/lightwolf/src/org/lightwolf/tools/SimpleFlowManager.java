@@ -1,16 +1,16 @@
 /*
  * Copyright (c) 2007, Fernando Colombo. All rights reserved.
- *
+ * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- *
+ * 
  * 1) Redistributions of source code must retain the above copyright notice,
  * this list of conditions and the following disclaimer.
- *
+ * 
  * 2) Redistributions in binary form must reproduce the above copyright notice,
  * this list of conditions and the following disclaimer in the documentation
  * and/or other materials provided with the distribution.
- *
+ * 
  * THIS SOFTWARE IS PROVIDED ''AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES,
  * INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
  * FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
@@ -59,10 +59,12 @@ public class SimpleFlowManager extends FlowManager implements Serializable {
         activeManagers.put(key, this);
     }
 
-    protected <V> ScheduledFuture<V> schedule(Callable<V> callable, long delay, TimeUnit unit) {
+    @Override
+    protected ScheduledFuture<?> schedule(Callable<?> callable, long delay, TimeUnit unit) {
         return executor.schedule(callable, delay, unit);
     }
 
+    @Override
     protected void fork(Flow requester, int n) {
         if (n < 0) {
             throw new IllegalArgumentException("Number of forks must be non-negative.");
@@ -77,10 +79,12 @@ public class SimpleFlowManager extends FlowManager implements Serializable {
         }
     }
 
+    @Override
     protected void doStreamedFork(Flow requester, int n) {
         throw new AssertionError("Pending...");
     }
 
+    @Override
     protected Future<?> submit(final Flow flow, final Object message) {
         Runnable command = new Runnable() {
 

@@ -12,11 +12,11 @@ import org.lightwolf.SuspendSignal;
 public class TestSerialization implements Serializable {
 
     private static final long serialVersionUID = 1L;
-    private static ArrayBlockingQueue abq;
+    private static ArrayBlockingQueue<Object> abq;
 
     @Test
     public void testSuspend() throws Throwable {
-        abq = new ArrayBlockingQueue(1);
+        abq = new ArrayBlockingQueue<Object>(1);
         Counter c = new Counter();
         c.count();
         SuspendSignal signal;

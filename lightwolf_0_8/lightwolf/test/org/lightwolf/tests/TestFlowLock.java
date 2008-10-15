@@ -45,7 +45,7 @@ public class TestFlowLock {
     private void timeout() throws Throwable {
         ThreadFreeLock lock = new ThreadFreeLock();
         lock.lock();
-        SynchronousQueue<String> queue = new SynchronousQueue();
+        SynchronousQueue<String> queue = new SynchronousQueue<String>();
         doTimeout(lock, queue);
         String result;
         result = queue.take();

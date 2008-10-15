@@ -1,16 +1,16 @@
 /*
  * Copyright (c) 2007, Fernando Colombo. All rights reserved.
- *
+ * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- *
+ * 
  * 1) Redistributions of source code must retain the above copyright notice,
  * this list of conditions and the following disclaimer.
- *
+ * 
  * 2) Redistributions in binary form must reproduce the above copyright notice,
  * this list of conditions and the following disclaimer in the documentation
  * and/or other materials provided with the distribution.
- *
+ * 
  * THIS SOFTWARE IS PROVIDED ''AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES,
  * INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
  * FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
@@ -25,8 +25,6 @@
 package org.lightwolf;
 
 import java.io.Serializable;
-
-import org.lightwolf.tools.LightWolfLog;
 
 public final class MethodFrame implements Serializable {
 
@@ -193,11 +191,11 @@ public final class MethodFrame implements Serializable {
     }
 
     public void monitorEnter(Object o) {
-        LightWolfLog.println("-- Ignoring monitor enter! --");
+        // LightWolfLog.println("-- Ignoring monitor enter! --");
     }
 
     public void monitorExit(Object o) {
-        LightWolfLog.println("-- Ignoring monitor exit! --");
+        // LightWolfLog.println("-- Ignoring monitor exit! --");
     }
 
     public int getPrimitiveCount() {
@@ -523,7 +521,8 @@ public final class MethodFrame implements Serializable {
     void checkMatch(Object target, String name, String desc) {
         assert this.target == target : "This target: " + this.target + ", arg target: " + target;
         assert this.name.equals(name) : "This name: " + this.name + ", arg name: " + name;
-        assert this.desc.equals(desc) : "This desc: " + this.desc + ", arg desc: " + desc;
+        // TODO: Does not cope with generics.
+        //assert this.desc.equals(desc) : "This desc: " + this.desc + ", arg desc: " + desc;
     }
 
     void checkResultType(char resultType) {
@@ -533,7 +532,7 @@ public final class MethodFrame implements Serializable {
                 return;
             }
         }
-        Class clazz = target instanceof Class ? (Class) target : target.getClass();
+        Class<?> clazz = target instanceof Class ? (Class<?>) target : target.getClass();
         throw new IllegalReturnValueException("Attempt to return " + Types.getName(resultType) + " from method '" + Types.getMethodDescription(clazz, name, desc) + "'.");
     }
 
