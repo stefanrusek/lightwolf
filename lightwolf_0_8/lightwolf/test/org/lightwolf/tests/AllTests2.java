@@ -10,6 +10,7 @@ public class AllTests2 {
         TestSuite suite = new TestSuite("Test for soft.test");
         //$JUnit-BEGIN$
         suite.addTest(new JUnit4TestAdapter(TestBasics.class));
+        suite.addTest(new JUnit4TestAdapter(TestParallel.class));
         suite.addTest(new JUnit4TestAdapter(TestReturnAndContinue.class));
         suite.addTest(new JUnit4TestAdapter(TestSerialization.class));
         suite.addTest(new JUnit4TestAdapter(TestLocalFork.class));

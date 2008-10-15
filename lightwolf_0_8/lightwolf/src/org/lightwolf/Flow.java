@@ -102,6 +102,7 @@ import org.lightwolf.tools.SimpleFlowManager;
  * flows are uncommon because usually flow-methods are designed to call other
  * flow-methods, which does not cause the creation of new flow, as mentioned
  * above. Nevertheless, nested flows are allowed as an orthogonality feature.
+ * 
  * @see FlowMethod
  * @author Fernando Colombo
  */
@@ -122,6 +123,7 @@ public final class Flow implements Serializable {
      * Creates and returns a new flow. The new flow will be in {@link #FINISHED}
      * state, which is suitable for invoking the
      * {@link #setContext(FlowContext)} method.
+     * 
      * @return A newly created flow instance, in {@link #FINISHED} state.
      */
     public static Flow newFlow() {
@@ -355,6 +357,7 @@ public final class Flow implements Serializable {
      * {@link #forgetFork()} before an explicit fork on such flows will cause an
      * exception to be thrown.
      * <p>
+     * 
      * @param n The number of flows to create. Must be non-negative.
      * @throws IllegalArgumentException If n is negative.
      * @throws IllegalStateException If the invoker is not a {@link FlowMethod}.
@@ -425,6 +428,7 @@ public final class Flow implements Serializable {
      * invoker will continue execution in single-threaded mode. Still, the next
      * fork-finishing operation will apply to such fork.
      * <p>
+     * 
      * @param n The number of branches to create. Must be non-negative.
      * @throws IllegalArgumentException If n is negative.
      * @throws IllegalStateException If the invoker is not a {@link FlowMethod}.
@@ -493,6 +497,7 @@ public final class Flow implements Serializable {
      * <p>
      * Whenever this method returns normally, it is guaranteed that the invoker
      * was the fork-creator and no branch will be active.
+     * 
      * @throws InterruptedException If the current thread was interrupted while
      *         there was at least one active branch.
      * @throws IllegalStateException If the invoker is not a {@link FlowMethod}.
@@ -553,6 +558,7 @@ public final class Flow implements Serializable {
      * <p>
      * Whenever this method returns normally, it is guaranteed that the invoker
      * will be the fork-creator.
+     * 
      * @return <code>true</code> if all other branches have finished,
      *         <code>false</code> if there was at least one active branch when
      *         the timeout elapsed.
@@ -610,6 +616,7 @@ public final class Flow implements Serializable {
      * finished, and the flow will run "detached" from the fork, as if created
      * by {@link #split(int)}. This means that it might unblock an ongoing call
      * to {@link #merge()} in the fork-creator.
+     * 
      * @throws IllegalStateException If the invoker is not a {@link FlowMethod}.
      * @see #fork(int)
      * @see #merge(long, TimeUnit)
@@ -749,6 +756,7 @@ public final class Flow implements Serializable {
      * than once in the same method works, but is redundant because in the
      * second and subsequent calls, the work doesn't need to be finished in a
      * new flow.
+     * 
      * @param v The value to return to the invoker's invoker.
      * @throws IllegalStateException If the invoker is not a {@link FlowMethod}.
      */
@@ -925,6 +933,7 @@ public final class Flow implements Serializable {
      * {@link ThreadFreeLock}. It is the lowest level API for implementing
      * features such as releasing a pooled thread before completion and
      * serializing thread state for long running processes.
+     * 
      * @param signal The signal that will be sent to the flow-controller.
      * @return The object passed to {@link #resume(Object)} method.
      * @throws IllegalStateException If the invoker is not a {@link FlowMethod}.
@@ -1202,6 +1211,7 @@ public final class Flow implements Serializable {
      * method cannot be used to copy a running flow. To get the state of a
      * running flow, use {@link #currentContext()}.
      * <p>
+     * 
      * @return A flow whose execution context is identical to this flow, sharing
      *         all heap objects referenced by stack frames.
      * @throws IllegalStateException If this flow is not suspended nor finished.

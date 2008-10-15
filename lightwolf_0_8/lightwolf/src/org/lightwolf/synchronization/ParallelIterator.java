@@ -1,15 +1,12 @@
 package org.lightwolf.synchronization;
 
-import java.util.Iterator;
-
 import org.lightwolf.FlowMethod;
 
-public interface ParallelIterator<T> extends Iterator<T> {
+public interface ParallelIterator<T> {
 
     @FlowMethod
     boolean hasNext();
 
-    @FlowMethod
     T next();
 
 }
