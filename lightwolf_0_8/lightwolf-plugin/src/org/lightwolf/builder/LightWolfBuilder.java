@@ -25,6 +25,7 @@ import org.eclipse.jdt.core.IJavaElement;
 import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.core.JavaModelException;
+import org.lightwolf.plugin.LightWolfActivator;
 import org.lightwolf.tools.ClassLoaderProvider;
 import org.lightwolf.tools.IClassProvider;
 import org.lightwolf.tools.IClassResource;
@@ -36,68 +37,79 @@ public class LightWolfBuilder extends IncrementalProjectBuilder {
 
     public static final String BUILDER_ID = "org.lightwolf.nature.lightwolfBuilder";
 
+    private IJavaProject javaProject;
     private ArrayList<IPath> outputs;
-    private IJavaProject project;
     private LightWolfEnhancer enhancer;
 
     protected IProject[] build(int kind, Map args, IProgressMonitor monitor) throws CoreException {
-        LightWolfLog.printf("Building project %s...\n", getProject().getName());
-        IJavaProject project = JavaCore.create(getProject());
+
+        IProject project = getProject();
         if (project == null) {
-            LightWolfLog.println("Not a Java project.");
+            LightWolfLog.println("Project is null.");
             return null;
         }
-        ArrayList<IPath> outputs = new ArrayList<IPath>(4);
+
+        String projectName = project.getName();
+        LightWolfLog.printf("Building project %s...\n", projectName);
+
+        IPath path = project.getWorkingLocation(LightWolfActivator.PLUGIN_ID);
+        if (path == null) {
+            LightWolfLog.printf("Project %s working location for %s is null.\n", projectName, LightWolfActivator.PLUGIN_ID);
+            return null;
+        }
+
         try {
-            IPath defaultOutput = project.getOutputLocation();
-            if (defaultOutput != null) {
-                // Who knows if it will return null?
-                outputs.add(defaultOutput.removeFirstSegments(1));
+
+            javaProject = JavaCore.create(project);
+            if (javaProject == null) {
+                LightWolfLog.printf("%s is not a Java project.\n", projectName);
+                return null;
             }
-        } catch (JavaModelException e) {
-            // Bizarre API - throws exception instead of returning null. Check JavaDoc.
-        }
-        IClasspathEntry[] classpath = project.getRawClasspath();
-        for (IClasspathEntry cpEntry : classpath) {
-            if (cpEntry.getEntryKind() != IClasspathEntry.CPE_SOURCE) {
-                continue;
+
+            outputs = new ArrayList<IPath>(4);
+            try {
+                IPath defaultOutput = javaProject.getOutputLocation();
+                if (defaultOutput != null) {
+                    outputs.add(defaultOutput.removeFirstSegments(1));
+                }
+            } catch (JavaModelException e) {
+                // Bizarre API - throws exception instead of returning null. Check JavaDoc.
             }
-            IPath output = cpEntry.getOutputLocation();
-            if (output != null) {
-                outputs.add(output.removeFirstSegments(1));
+            IClasspathEntry[] classpath = javaProject.getRawClasspath();
+            for (IClasspathEntry cpEntry : classpath) {
+                if (cpEntry.getEntryKind() != IClasspathEntry.CPE_SOURCE) {
+                    continue;
+                }
+                IPath output = cpEntry.getOutputLocation();
+                if (output != null) {
+                    outputs.add(output.removeFirstSegments(1));
+                }
             }
-        }
-        if (outputs.isEmpty()) {
-            LightWolfLog.printf("Couldn't find output folders in project %s.\n", getProject().getName());
-            return null;
-        }
-        this.outputs = outputs;
-        this.project = project;
-        enhancer = new LightWolfEnhancer(new ClassProvider());
-        LightWolfLog.printf("Listing output folders for project %s:\n", getProject().getName());
-        for (IPath output : outputs) {
-            LightWolfLog.printf("   %s\n", output.toString());
-        }
-        if (kind == FULL_BUILD) {
-            fullBuild(monitor);
-        } else {
-            IResourceDelta delta = getDelta(getProject());
-            if (delta == null) {
-                fullBuild(monitor);
+            if (outputs.isEmpty()) {
+                LightWolfLog.printf("Couldn't find output folders in project %s.\n", projectName);
+                return null;
+            }
+            enhancer = new LightWolfEnhancer(new ClassProvider());
+            LightWolfLog.printf("Listing output folders for project %s:\n", projectName);
+            for (IPath output : outputs) {
+                LightWolfLog.printf("   %s\n", output.toString());
+            }
+            if (kind == FULL_BUILD) {
+                project.accept(new ResourceVisitor());
             } else {
-                incrementalBuild(delta, monitor);
+                IResourceDelta delta = getDelta(project);
+                if (delta == null) {
+                    project.accept(new ResourceVisitor());
+                } else {
+                    delta.accept(new ResourceDeltaVisitor());
+                }
             }
+        } finally {
+            outputs = null;
+            javaProject = null;
+            enhancer = null;
         }
         return null;
-    }
-
-    private void fullBuild(final IProgressMonitor monitor) throws CoreException {
-        getProject().accept(new ResourceVisitor());
-    }
-
-    private void incrementalBuild(IResourceDelta delta, IProgressMonitor monitor) throws CoreException {
-        // the visitor does the work.
-        delta.accept(new ResourceDeltaVisitor());
     }
 
     void processResource(IResource resource) throws CoreException {
@@ -167,7 +179,7 @@ public class LightWolfBuilder extends IncrementalProjectBuilder {
             IJavaElement element;
             if (javaName != null) {
                 try {
-                    element = project.findElement(Path.fromPortableString(javaName));
+                    element = javaProject.findElement(Path.fromPortableString(javaName));
                 } catch (JavaModelException e) {
                     e.printStackTrace();
                     return null;
@@ -178,7 +190,7 @@ public class LightWolfBuilder extends IncrementalProjectBuilder {
                 }
             } else {
                 try {
-                    element = project.findElement(Path.fromPortableString(resName));
+                    element = javaProject.findElement(Path.fromPortableString(resName));
                 } catch (JavaModelException e) {
                     e.printStackTrace();
                     return null;
@@ -211,11 +223,11 @@ public class LightWolfBuilder extends IncrementalProjectBuilder {
 
         private IClassResource fromCompilationUnit(ICompilationUnit compilationUnit, String resName) throws IOException {
             IPath path = compilationUnit.getPath();
-            project = compilationUnit.getJavaProject();
+            javaProject = compilationUnit.getJavaProject();
             IPath outputFolder = null;
             IClasspathEntry[] classpath;
             try {
-                classpath = project.getRawClasspath();
+                classpath = javaProject.getRawClasspath();
             } catch (JavaModelException e) {
                 e.printStackTrace();
                 return null;
@@ -229,7 +241,7 @@ public class LightWolfBuilder extends IncrementalProjectBuilder {
                     outputFolder = entry.getOutputLocation();
                     if (outputFolder == null) {
                         try {
-                            outputFolder = project.getOutputLocation();
+                            outputFolder = javaProject.getOutputLocation();
                         } catch (JavaModelException e) {
                             e.printStackTrace();
                             return null;
@@ -244,7 +256,7 @@ public class LightWolfBuilder extends IncrementalProjectBuilder {
                 return null;
             }
             IPath outputFile = outputFolder.append(resName);
-            IFile file = project.getProject().getFile(outputFile);
+            IFile file = javaProject.getProject().getFile(outputFile);
             return fromFile(file);
         }
 
