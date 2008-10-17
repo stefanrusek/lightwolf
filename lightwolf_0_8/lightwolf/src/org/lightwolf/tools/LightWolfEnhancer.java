@@ -125,7 +125,7 @@ public class LightWolfEnhancer {
         reader.accept(cv, 0);
         boolean changed = false;
         List<MethodNode> methods = clazz.methods;
-        Analyzer analyzer = new Analyzer(new SimpleVerifier());
+        Analyzer analyzer = new Analyzer(new Verifier());
         for (MethodNode method : methods) {
             if (isFlowMethod(method)) {
                 try {
@@ -181,10 +181,10 @@ public class LightWolfEnhancer {
         if (method.name.charAt(0) == '<') {
             return false;
         }
-        return supportsSavepoints(method.invisibleAnnotations) || supportsSavepoints(method.visibleAnnotations);
+        return containsFlowMethodAnnot(method.invisibleAnnotations) || containsFlowMethodAnnot(method.visibleAnnotations);
     }
 
-    private static boolean supportsSavepoints(List<AnnotationNode> annotations) {
+    private static boolean containsFlowMethodAnnot(List<AnnotationNode> annotations) {
         if (annotations == null) {
             return false;
         }
@@ -250,7 +250,7 @@ public class LightWolfEnhancer {
                 case Opcodes.INVOKEINTERFACE:
                 case Opcodes.INVOKESPECIAL: {
                     MethodInsnNode ins = (MethodInsnNode) cur;
-                    if (!supportsSavepoints(ins)) {
+                    if (!isFlowMethod(ins)) {
                         break;
                     }
                     Type[] vars = getVarTypes(frames[index], isStatic);
@@ -545,12 +545,12 @@ public class LightWolfEnhancer {
         }
     }
 
-    private boolean supportsSavepoints(MethodInsnNode ins) {
+    private boolean isFlowMethod(MethodInsnNode ins) {
         MethodKey mk = new MethodKey(ins.owner, ins.name, ins.desc);
-        return supportsSavepoints(mk);
+        return isFlowMethod(mk);
     }
 
-    private boolean supportsSavepoints(MethodKey mk) {
+    private boolean isFlowMethod(MethodKey mk) {
         Boolean ret = methodCache.get(mk);
         if (ret != null) {
             return ret;
@@ -589,10 +589,8 @@ public class LightWolfEnhancer {
             return;
         }
         knownClasses.put(className, null);
-        String resName = className + ".class";
-        IClassResource clazz = classProvider.getClass(resName);
+        IClassResource clazz = getClassResource(className);
         if (clazz == null) {
-            LightWolfLog.println("Resource not found: " + resName);
             return;
         }
         String superName = clazz.getSuperName();
@@ -621,6 +619,16 @@ public class LightWolfEnhancer {
         for (MethodKey key : falseMethods) {
             methodCache.put(key, false);
         }
+    }
+
+    private IClassResource getClassResource(String className) throws IOException {
+        String resName = className + ".class";
+        IClassResource clazz = classProvider.getClass(resName);
+        if (clazz == null) {
+            LightWolfLog.println("Resource not found: " + resName);
+            return null;
+        }
+        return clazz;
     }
 
     private static Type[] getVarTypes(Frame frame, boolean isStatic) {
@@ -997,6 +1005,145 @@ public class LightWolfEnhancer {
                 return true;
         }
         return false;
+    }
+
+    private class Verifier extends SimpleVerifier {
+
+        @Override
+        protected boolean isInterface(Type t) {
+            try {
+                return super.isInterface(t);
+            } catch (MustUseClassResource e) {
+                if (t.getSort() != Type.OBJECT) {
+                    return false;
+                }
+                IClassResource clazz = typeToClass(t);
+                return clazz != null ? clazz.isInterface() : false;
+            }
+        }
+
+        @Override
+        protected Type getSuperClass(Type t) {
+            try {
+                return super.getSuperClass(t);
+            } catch (MustUseClassResource e) {
+                switch (t.getSort()) {
+                    case Type.ARRAY:
+                        return Type.getObjectType("java/lang/Object");
+                    case Type.OBJECT:
+                        if (t.getInternalName().equals("java/lang/Object")) {
+                            return null;
+                        }
+                        IClassResource clazz = typeToClass(t);
+                        if (clazz != null && clazz.getSuperName() != null) {
+                            return Type.getObjectType(clazz.getSuperName());
+                        }
+                        return Type.getObjectType("java/lang/Object");
+                    default:
+                        return null;
+                }
+            }
+        }
+
+        @Override
+        protected boolean isAssignableFrom(Type t, Type u) {
+            try {
+                return super.isAssignableFrom(t, u);
+            } catch (MustUseClassResource e) {
+                int tsort = t.getSort();
+                int usort = u.getSort();
+                if (tsort == Type.ARRAY && usort == Type.ARRAY) {
+                    Type tet = t.getElementType();
+                    Type uet = u.getElementType();
+                    return isAssignableFrom(tet, uet);
+                }
+                if (tsort == Type.OBJECT && usort == Type.ARRAY) {
+                    String tn = t.getInternalName();
+                    return tn.equals("null") || //
+                            tn.equals("java/lang/Object") || //
+                            tn.equals("java/lang/Cloneable") || // 
+                            tn.equals("java/io/Serializable");
+                }
+
+                if (tsort == Type.OBJECT && usort == Type.OBJECT) {
+                    String tn = t.getInternalName();
+                    if (tn.equals("null") || tn.equals("java/lang/Object")) {
+                        return true;
+                    }
+                    String un = u.getInternalName();
+                    if (un.equals("java/lang/Object")) {
+                        return false;
+                    }
+                    IClassResource tc = typeToClass(t);
+                    IClassResource uc = typeToClass(u);
+                    if (!tc.isInterface()) {
+                        if (uc.isInterface()) {
+                            return false;
+                        }
+                        for (;;) {
+                            String usuper = uc.getSuperName();
+                            if (usuper == null) {
+                                return false;
+                            }
+                            if (usuper.equals(tn)) {
+                                return true;
+                            }
+                            uc = typeToClass(Type.getObjectType(usuper));
+                            if (uc == null) {
+                                return false;
+                            }
+                        }
+                    }
+                    if (uc.isInterface()) {
+                        return isBaseOfSomeIntf(t, uc);
+                    }
+                    for (;;) {
+                        if (isBaseOfSomeIntf(t, uc)) {
+                            return true;
+                        }
+                        String usuper = uc.getSuperName();
+                        if (usuper == null) {
+                            return false;
+                        }
+                        uc = typeToClass(Type.getObjectType(usuper));
+                        if (uc == null) {
+                            return false;
+                        }
+                    }
+                }
+                return false;
+            }
+        }
+
+        private boolean isBaseOfSomeIntf(Type t, IClassResource uc) {
+            String[] uintfs = uc.getInterfaces();
+            for (String uintf : uintfs) {
+                if (isAssignableFrom(t, Type.getObjectType(uintf))) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        @Override
+        protected Class<?> getClass(Type t) {
+            throw new MustUseClassResource();
+        }
+
+        private IClassResource typeToClass(Type t) {
+            try {
+                return getClassResource(t.getInternalName());
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+    }
+
+    private static class MustUseClassResource extends RuntimeException {
+
+        private static final long serialVersionUID = 1L;
+
     }
 
     private static class ResumeInfo {

@@ -10,6 +10,7 @@ import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.commons.EmptyVisitor;
 
 public class ClassLoaderProvider implements IClassProvider {
@@ -42,6 +43,7 @@ public class ClassLoaderProvider implements IClassProvider {
             public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
                 ret.superName = superName;
                 ret.interfaces = interfaces == null ? IClassResource.NO_INTERFACES : interfaces;
+                ret.isInterface = (access & Opcodes.ACC_INTERFACE) != 0;
             }
 
             @Override
@@ -83,6 +85,7 @@ public class ClassLoaderProvider implements IClassProvider {
         String superName;
         String[] interfaces;
         IMethod[] methods;
+        boolean isInterface;
 
         public String getSuperName() {
             return superName;
@@ -94,6 +97,10 @@ public class ClassLoaderProvider implements IClassProvider {
 
         public IMethod[] getMethods() {
             return methods;
+        }
+
+        public boolean isInterface() {
+            return isInterface;
         }
 
     }

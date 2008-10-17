@@ -13,5 +13,4 @@
 <selectedElements exportClassFiles="true" exportJavaFiles="false" exportOutputFolder="false">
 <javaElement handleIdentifier="=lightwolf/src"/>
 </selectedElements>
-<fatjar builder="org.eclipse.jdt.ui.plain_jar_builder" launchConfig=""/>
 </jardesc>
