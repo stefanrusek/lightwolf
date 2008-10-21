@@ -125,7 +125,7 @@ public class Continuation implements Cloneable {
      * The new flow will execute synchronously. This method returns only then
      * the {@linkplain Flow flow-creator} returns, as if by invocation of
      * {@link Flow#resume()}. If the resumed flow sends a
-     * {@linkplain #signal(FlowSignal) signal}, this method throws the
+     * {@linkplain Flow#signal(FlowSignal) signal}, this method throws the
      * corresponding {@link FlowSignal}. In other words, the invoker will be
      * the {@linkplain Flow flow-controller}.
      * <p>

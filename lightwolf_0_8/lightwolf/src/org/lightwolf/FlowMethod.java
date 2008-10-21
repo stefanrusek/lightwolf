@@ -1,16 +1,16 @@
 /*
  * Copyright (c) 2007, Fernando Colombo. All rights reserved.
- *
+ * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- *
+ * 
  * 1) Redistributions of source code must retain the above copyright notice,
  * this list of conditions and the following disclaimer.
- *
+ * 
  * 2) Redistributions in binary form must reproduce the above copyright notice,
  * this list of conditions and the following disclaimer in the documentation
  * and/or other materials provided with the distribution.
- *
+ * 
  * THIS SOFTWARE IS PROVIDED ''AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES,
  * INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
  * FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
@@ -33,8 +33,8 @@ import org.lightwolf.synchronization.ThreadFreeLock;
 import org.lightwolf.tools.LightWolfAntTask;
 
 /**
- * Makes a method execute in the context of a {@link Flow}. The method will be a
- * {@link Flow flow-method}, which enables functionality of flow-specific
+ * Makes a method execute in the context of a {@link Flow}. The method will be
+ * a {@link Flow flow-method}, which enables functionality of flow-specific
  * utilities such as {@link Flow#fork(int)}, {@link Flow#suspend()},
  * {@link ThreadFreeLock} and others.
  * <p>
@@ -45,9 +45,10 @@ import org.lightwolf.tools.LightWolfAntTask;
  * desired flow-methods.
  * <p>
  * <b>NOTE TO NEW USERS:</b> To work as expected, a flow-method must have its
- * bytecode enhanced. In this version of the library, the only way to enhance
- * bytecode is through the {@link LightWolfAntTask}.
- *
+ * bytecode enhanced. This can be done by the Light Wolf Eclipse Plug-in. For
+ * more information, please check <a
+ * href="http://lightwolf-j.blogspot.com">http://lightwolf-j.blogspot.com</a>.
+ * 
  * @see Flow
  * @author Fernando Colombo
  */

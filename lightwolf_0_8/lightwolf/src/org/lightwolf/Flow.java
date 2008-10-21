@@ -59,7 +59,7 @@ import org.lightwolf.tools.SimpleFlowManager;
  * for the {@linkplain #waitComplete() completion} of an I/O operation, without
  * consuming a Java thread meanwhile, and thus releasing a pooled thread for
  * increased concurrency.</li>
- * <li>Flows can use utilities such as {@link #currentContext()},
+ * <li>Flows can use utilities such as {@link Continuation},
  * {@link #fork(int)}, and {@link #returnAndContinue()}.</li>
  * </ul>
  * <p>
@@ -121,8 +121,8 @@ public final class Flow implements Serializable {
 
     /**
      * Creates and returns a new flow. The new flow will be in {@link #FINISHED}
-     * state, which is suitable for invoking the
-     * {@link #setContext(FlowContext)} method.
+     * state, which is suitable to be passed as argument to methods such as
+     * {@link Continuation#resume(Flow)}.
      * 
      * @return A newly created flow instance, in {@link #FINISHED} state.
      */
@@ -1209,7 +1209,7 @@ public final class Flow implements Serializable {
      * <p>
      * The target flow must be either suspended or finished, and hence this
      * method cannot be used to copy a running flow. To get the state of a
-     * running flow, use {@link #currentContext()}.
+     * running flow, use {@link Continuation}.
      * <p>
      * 
      * @return A flow whose execution context is identical to this flow, sharing
