@@ -1,9 +1,14 @@
 package org.lightwolf.builder;
 
 import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Map;
 
 import org.apache.commons.io.IOUtils;
@@ -39,9 +44,14 @@ public class LightWolfBuilder extends IncrementalProjectBuilder {
 
     private IJavaProject javaProject;
     private ArrayList<IPath> outputs;
+    private File origContDir;
     private LightWolfEnhancer enhancer;
 
-    protected IProject[] build(int kind, Map args, IProgressMonitor monitor) throws CoreException {
+    @Override
+    protected IProject[] build(int kind, //
+            @SuppressWarnings("unchecked")
+            Map args, //
+            IProgressMonitor monitor) throws CoreException {
 
         IProject project = getProject();
         if (project == null) {
@@ -89,21 +99,33 @@ public class LightWolfBuilder extends IncrementalProjectBuilder {
                 LightWolfLog.printf("Couldn't find output folders in project %s.\n", projectName);
                 return null;
             }
-            enhancer = new LightWolfEnhancer(new ClassProvider());
             LightWolfLog.printf("Listing output folders for project %s:\n", projectName);
             for (IPath output : outputs) {
                 LightWolfLog.printf("   %s\n", output.toString());
             }
-            if (kind == FULL_BUILD) {
-                project.accept(new ResourceVisitor());
-            } else {
-                IResourceDelta delta = getDelta(project);
-                if (delta == null) {
-                    project.accept(new ResourceVisitor());
-                } else {
-                    delta.accept(new ResourceDeltaVisitor());
+
+            IPath pluginDirPath = project.getWorkingLocation(LightWolfActivator.PLUGIN_ID);
+            origContDir = pluginDirPath == null ? null : new File(pluginDirPath.toFile(), "original_contents");
+            if (!origContDir.exists()) {
+                origContDir.mkdirs();
+                if (!origContDir.exists()) {
+                    origContDir = null;
                 }
             }
+
+            enhancer = new LightWolfEnhancer(new ClassProvider());
+            project.accept(new ResourceVisitor());
+
+            //            if (kind == FULL_BUILD) {
+            //                project.accept(new ResourceVisitor());
+            //            } else {
+            //                IResourceDelta delta = getDelta(project);
+            //                if (delta == null) {
+            //                    project.accept(new ResourceVisitor());
+            //                } else {
+            //                    delta.accept(new ResourceDeltaVisitor());
+            //                }
+            //            }
         } finally {
             outputs = null;
             javaProject = null;
@@ -116,8 +138,7 @@ public class LightWolfBuilder extends IncrementalProjectBuilder {
         if (!(resource instanceof IFile)) {
             return;
         }
-        if (!resource.getName().endsWith(".class")) {
-            // TODO: Is it possible a class file ends with upper-case letters (.CLASS or .ClAsS)?
+        if (!resource.getName().toLowerCase().endsWith(".class")) {
             return;
         }
         IFile file = (IFile) resource;
@@ -133,21 +154,55 @@ public class LightWolfBuilder extends IncrementalProjectBuilder {
             return;
         }
         try {
-            PublicByteArrayOutputStream pbaos = new PublicByteArrayOutputStream();
+            PublicByteArrayOutputStream oldContents = new PublicByteArrayOutputStream();
             InputStream contents = file.getContents();
             try {
-                IOUtils.copy(contents, pbaos);
+                IOUtils.copy(contents, oldContents);
                 contents.close();
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
-            if (enhancer.transform(pbaos)) {
-                LightWolfLog.printf("Enhancing class %s...\n", file.getName());
-                ByteArrayInputStream bais = new ByteArrayInputStream(pbaos.getBuffer(), 0, pbaos.size());
-                file.setContents(bais, false, false, null);
-                LightWolfLog.printf("Class %s sucessfully enhanced.\n", file.getName());
+
+            PublicByteArrayOutputStream newContents = oldContents.clone();
+
+            int result = enhancer.transform(newContents);
+            switch (result) {
+                case LightWolfEnhancer.TRANSFORMED:
+                    setOldContents(file, oldContents);
+                    break;
+                case LightWolfEnhancer.DONT_NEED_TRANSFORM:
+                    setOldContents(file, null);
+                    return;
+                case LightWolfEnhancer.WAS_TRANSFORMED_BEFORE:
+                    PublicByteArrayOutputStream origContents = getOldContents(file);
+                    if (origContents == null) {
+                        throw new IllegalStateException("Could not find original contents of file " + file.getFullPath().toPortableString());
+                    }
+                    newContents = origContents;
+                    result = enhancer.transform(newContents);
+                    switch (result) {
+                        case LightWolfEnhancer.TRANSFORMED:
+                            break;
+                        case LightWolfEnhancer.DONT_NEED_TRANSFORM:
+                            setOldContents(file, null);
+                            break;
+                        default:
+                            throw new IllegalStateException("Bad transformation result for original contents of file " + file.getFullPath().toPortableString() + ": " + LightWolfEnhancer.getResultName(result));
+                    }
+                    break;
+                default:
+                    throw new IllegalStateException("Bad transformation result for file " + file.getFullPath().toPortableString() + ": " + LightWolfEnhancer.getResultName(result));
+
             }
+
+            if (!Arrays.equals(oldContents.getBuffer(), newContents.getBuffer())) {
+                ByteArrayInputStream bais = new ByteArrayInputStream(newContents.getBuffer(), 0, newContents.size());
+                file.setContents(bais, false, false, null);
+                LightWolfLog.printf("Class %s successfully enhanced.\n", file.getFullPath());
+            }
+
         } catch (Throwable e) {
+            LightWolfLog.printf("Error enhancing class %s...\n", file.getFullPath());
             LightWolfLog.printTrace(e);
             if (e instanceof Error) {
                 throw (Error) e;
@@ -158,7 +213,35 @@ public class LightWolfBuilder extends IncrementalProjectBuilder {
             if (e instanceof CoreException) {
                 throw (CoreException) e;
             }
-            throw new AssertionError(e);
+            throw new RuntimeException(e);
+        }
+    }
+
+    private PublicByteArrayOutputStream getOldContents(IFile file) throws IOException {
+        File origCont = new File(origContDir, file.getProjectRelativePath().toString());
+        if (!origCont.exists()) {
+            return null;
+        }
+        PublicByteArrayOutputStream ret = new PublicByteArrayOutputStream();
+        InputStream contents = new FileInputStream(origCont);
+        IOUtils.copy(contents, ret);
+        contents.close();
+        return ret;
+    }
+
+    private void setOldContents(IFile file, PublicByteArrayOutputStream oldContents) throws IOException {
+        File origCont = new File(origContDir, file.getProjectRelativePath().toString());
+        if (oldContents == null) {
+            origCont.delete();
+            return;
+        }
+        File parent = origCont.getParentFile();
+        parent.mkdirs();
+        OutputStream contents = new FileOutputStream(origCont);
+        try {
+            contents.write(oldContents.getBuffer());
+        } finally {
+            contents.close();
         }
     }
 
@@ -185,7 +268,7 @@ public class LightWolfBuilder extends IncrementalProjectBuilder {
                     return null;
                 }
                 if (element == null) {
-                    LightWolfLog.println("Could not find element for " + javaName);
+                    LightWolfLog.printf("Could not find element for %s.\n", javaName);
                     return null;
                 }
             } else {
@@ -196,7 +279,7 @@ public class LightWolfBuilder extends IncrementalProjectBuilder {
                     return null;
                 }
                 if (element == null) {
-                    LightWolfLog.println("Could not find element for " + resName);
+                    LightWolfLog.printf("Could not find element for %s.\n", resName);
                     return null;
                 }
                 if (element instanceof IClassFile) {
@@ -206,7 +289,7 @@ public class LightWolfBuilder extends IncrementalProjectBuilder {
             if (element instanceof ICompilationUnit) {
                 return fromCompilationUnit((ICompilationUnit) element, resName);
             }
-            LightWolfLog.printf("Element for " + resName + " is of unknown class: %s.\n", element.getClass().getName());
+            LightWolfLog.printf("Element for %s is of unknown class: %s.\n", resName, element.getClass().getName());
             return null;
         }
 
@@ -223,7 +306,7 @@ public class LightWolfBuilder extends IncrementalProjectBuilder {
 
         private IClassResource fromCompilationUnit(ICompilationUnit compilationUnit, String resName) throws IOException {
             IPath path = compilationUnit.getPath();
-            javaProject = compilationUnit.getJavaProject();
+            IJavaProject javaProject = compilationUnit.getJavaProject();
             IPath outputFolder = null;
             IClasspathEntry[] classpath;
             try {

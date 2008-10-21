@@ -37,6 +37,8 @@ import org.apache.commons.io.IOUtils;
 import org.lightwolf.FlowMethod;
 import org.lightwolf.MethodFrame;
 import org.objectweb.asm.AnnotationVisitor;
+import org.objectweb.asm.Attribute;
+import org.objectweb.asm.ByteVector;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
@@ -71,20 +73,41 @@ import org.objectweb.asm.util.AbstractVisitor;
 
 public class LightWolfEnhancer {
 
+    public static final int DONT_NEED_TRANSFORM = 0;
+    public static final int NEED_TRANSFORM = 1;
+    public static final int WAS_TRANSFORMED_BEFORE = 2;
+    public static final int TRANSFORMED = 3;
+
     private static final Type OBJECT_TYPE = Type.getObjectType("java/lang/Object");
     private static final String FRAME_CLASS = MethodFrame.class.getName().replace('.', '/').intern();
     private static final String FLOWMETHOD_ANNOT = FlowMethod.class.getName().replace('.', '/').intern();
+    private static final String LIGHTWOLF_ENHANCED = "LightWolfEnhanced";
 
     // TODO: Field for testing purposes; move from here when done.
     public static boolean changeFile = true;
 
-    private static boolean requiresTransform(ClassReader reader) {
-        final boolean requires[] = new boolean[] { false };
+    public static String getResultName(int result) {
+        switch (result) {
+            case DONT_NEED_TRANSFORM:
+                return "DONT_NEED_TRANSFORM";
+            case NEED_TRANSFORM:
+                return "NEED_TRANSFORM";
+            case WAS_TRANSFORMED_BEFORE:
+                return "WAS_TRANSFORMED_BEFORE";
+            case TRANSFORMED:
+                return "TRANSFORMED";
+            default:
+                throw new IllegalStateException("Unknown result code: " + result);
+        }
+    }
+
+    private static int getTransformState(ClassReader reader) {
+        final int requires[] = new int[] { DONT_NEED_TRANSFORM };
         ClassVisitor classVisitor = new EmptyVisitor() {
 
             @Override
             public MethodVisitor visitMethod(int access, String name, String desc, String signature, String[] exceptions) {
-                if (requires[0]) {
+                if (requires[0] != DONT_NEED_TRANSFORM) {
                     return null;
                 }
                 return new EmptyVisitor() {
@@ -92,11 +115,34 @@ public class LightWolfEnhancer {
                     @Override
                     public AnnotationVisitor visitAnnotation(String desc, boolean visible) {
                         if (desc.equals("L" + FLOWMETHOD_ANNOT + ";")) {
-                            requires[0] = true;
+                            final boolean[] isManual = new boolean[] { false };
+                            return new EmptyVisitor() {
+
+                                @Override
+                                public void visit(String name, Object value) {
+                                    if (name.equals("manual") && value.equals(Boolean.TRUE)) {
+                                        isManual[0] = true;
+                                    }
+                                }
+
+                                @Override
+                                public void visitEnd() {
+                                    if (!isManual[0]) {
+                                        requires[0] = NEED_TRANSFORM;
+                                    }
+                                }
+                            };
                         }
                         return null;
                     }
                 };
+            }
+
+            @Override
+            public void visitAttribute(Attribute attr) {
+                if (attr.type.equals(LIGHTWOLF_ENHANCED)) {
+                    requires[0] = WAS_TRANSFORMED_BEFORE;
+                }
             }
         };
         reader.accept(classVisitor, ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
@@ -105,6 +151,7 @@ public class LightWolfEnhancer {
 
     private final IClassProvider classProvider;
     private final HashMap<MethodKey, Boolean> methodCache = new HashMap<MethodKey, Boolean>();
+    private final HashMap<String, IClassResource> classCache = new HashMap<String, IClassResource>();
     private final HashMap<String, String> knownClasses = new HashMap<String, String>();
 
     public LightWolfEnhancer(IClassProvider classProvider) {
@@ -115,12 +162,13 @@ public class LightWolfEnhancer {
         classProvider = new ClassLoaderProvider(classLoader);
     }
 
-    public boolean transform(PublicByteArrayOutputStream classBytes) {
+    public int transform(PublicByteArrayOutputStream classBytes) {
         ClassNode clazz = new ClassNode();
         ClassVisitor cv = clazz;
         ClassReader reader = new ClassReader(classBytes.getBuffer(), 0, classBytes.size());
-        if (!requiresTransform(reader)) {
-            return false;
+        int result = getTransformState(reader);
+        if (result != NEED_TRANSFORM) {
+            return result;
         }
         reader.accept(cv, 0);
         boolean changed = false;
@@ -136,9 +184,11 @@ public class LightWolfEnhancer {
                 changed = true;
             }
         }
-        if (!changed) {
-            return false;
+        assert changed;
+        if (clazz.attrs == null) {
+            clazz.attrs = new ArrayList<Object>(1);
         }
+        clazz.attrs.add(new LightWolfEnhancedAttribute());
         ClassWriter writer = new ClassWriter(0);
         clazz.accept(writer);
         classBytes.reset();
@@ -147,10 +197,10 @@ public class LightWolfEnhancer {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        return true;
+        return TRANSFORMED;
     }
 
-    public boolean transform(File f) throws IOException {
+    public int transform(File f) throws IOException {
         PublicByteArrayOutputStream pbaos;
         FileInputStream fis = new FileInputStream(f);
         try {
@@ -159,8 +209,9 @@ public class LightWolfEnhancer {
         } finally {
             fis.close();
         }
-        if (!transform(pbaos)) {
-            return false;
+        int result = transform(pbaos);
+        if (result != TRANSFORMED) {
+            return result;
         }
         if (changeFile) {
             FileOutputStream fos = new FileOutputStream(f);
@@ -171,7 +222,7 @@ public class LightWolfEnhancer {
                 fos.close();
             }
         }
-        return true;
+        return result;
     }
 
     private static boolean isFlowMethod(MethodNode method) {
@@ -622,12 +673,17 @@ public class LightWolfEnhancer {
     }
 
     private IClassResource getClassResource(String className) throws IOException {
+        IClassResource clazz = classCache.get(className);
+        if (clazz != null) {
+            return clazz;
+        }
         String resName = className + ".class";
-        IClassResource clazz = classProvider.getClass(resName);
+        clazz = classProvider.getClass(resName);
         if (clazz == null) {
             LightWolfLog.println("Resource not found: " + resName);
             return null;
         }
+        classCache.put(className, clazz);
         return clazz;
     }
 
@@ -846,6 +902,7 @@ public class LightWolfEnhancer {
         }
     }
 
+    @SuppressWarnings("unused")
     private static void printTrace(MethodNode method, Frame[] frames, InsnList insts) {
         LightWolfLog.println(method.name + ", " + method.signature);
         for (int i = 0; i < insts.size(); ++i) {
@@ -1166,6 +1223,19 @@ public class LightWolfEnhancer {
             this.objVarCount = objVarCount;
             this.stackVarCount = stackVarCount;
             this.stackObjVarCount = stackObjVarCount;
+        }
+
+    }
+
+    private static class LightWolfEnhancedAttribute extends Attribute {
+
+        private LightWolfEnhancedAttribute() {
+            super(LIGHTWOLF_ENHANCED);
+        }
+
+        @Override
+        protected ByteVector write(ClassWriter cw, byte[] code, int len, int maxStack, int maxLocals) {
+            return new ByteVector();
         }
 
     }

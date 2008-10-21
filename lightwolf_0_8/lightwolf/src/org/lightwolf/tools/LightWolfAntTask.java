@@ -80,11 +80,9 @@ public class LightWolfAntTask extends MatchingTask {
                 String[] files = ds.getIncludedFiles();
                 for (String s : files) {
                     File f = new File(dir, s);
-                    LightWolfLog.print("Looking file " + f.getAbsolutePath() + "... ");
-                    if (enhancer.transform(f)) {
-                        LightWolfLog.println("     ENHANCED!");
-                    } else {
-                        LightWolfLog.println();
+                    int result = enhancer.transform(f);
+                    if (result != LightWolfEnhancer.DONT_NEED_TRANSFORM) {
+                        System.out.printf("%s: %s.\n", f.getAbsolutePath(), LightWolfEnhancer.getResultName(result));
                     }
                 }
 

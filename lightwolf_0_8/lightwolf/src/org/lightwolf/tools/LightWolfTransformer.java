@@ -43,8 +43,7 @@ class LightWolfTransformer implements ClassFileTransformer {
         }
     }
 
-    public byte[] transform(ClassLoader loader, String className, Class<?> classBeingRedefined,
-            ProtectionDomain protectionDomain, byte[] classfileBuffer) {
+    public byte[] transform(ClassLoader loader, String className, Class<?> classBeingRedefined, ProtectionDomain protectionDomain, byte[] classfileBuffer) {
         LightWolfLog.println(className);
         if (true) {
             return null;
@@ -53,7 +52,7 @@ class LightWolfTransformer implements ClassFileTransformer {
             LightWolfEnhancer enhancer = getEnhancer(loader);
             PublicByteArrayOutputStream pbaos = new PublicByteArrayOutputStream();
             pbaos.write(classfileBuffer);
-            if (enhancer.transform(pbaos)) {
+            if (enhancer.transform(pbaos) == LightWolfEnhancer.TRANSFORMED) {
                 return pbaos.toByteArray();
             }
         } catch (Throwable e) {

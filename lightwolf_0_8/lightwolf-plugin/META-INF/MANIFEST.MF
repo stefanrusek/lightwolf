@@ -2,7 +2,7 @@ Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
 Bundle-Name: Light Wolf Nature
 Bundle-SymbolicName: org.lightwolf.nature; singleton:=true
-Bundle-Version: 0.8.2
+Bundle-Version: 0.8.3
 Bundle-Activator: org.lightwolf.plugin.LightWolfActivator
 Bundle-Vendor: Fernando Colombo
 Require-Bundle: org.eclipse.ui,
