@@ -2,7 +2,7 @@
 <feature
       id="org.lightwolf.plugin"
       label="Light Wolf Plug-in"
-      version="0.8.3"
+      version="0.8.4"
       provider-name="Fernando Colombo">
 
    <description>
@@ -27,8 +27,8 @@ THIS SOFTWARE IS PROVIDED &apos;&apos;AS IS&apos;&apos; AND ANY EXPRESS OR IMPLI
 
    <plugin
          id="org.lightwolf.nature"
-         download-size="0"
-         install-size="0"
-         version="0.8.3"/>
+         download-size="650"
+         install-size="980"
+         version="0.8.4"/>
 
 </feature>
