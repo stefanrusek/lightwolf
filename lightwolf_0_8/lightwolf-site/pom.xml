@@ -1,0 +1,49 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<groupId>org.lightwolf</groupId>
+	<artifactId>lightwolf-site</artifactId>
+	<name>Light Wolf</name>
+	<version>0.8.5</version>
+	<packaging>pom</packaging>
+	<description>
+		A Java library that simplifies thread development.
+	</description>
+	<url>http://lightwolf.sourceforge.net</url>
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-site-plugin</artifactId>
+				<configuration>
+					<templateDirectory>${basedir}/src/site</templateDirectory>
+					<template>site.vm</template>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
+	<reporting>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>
+					maven-project-info-reports-plugin
+				</artifactId>
+				<reportSets>
+					<reportSet>
+						<reports>
+							<!-->report>dependencies</report>
+								<report>project-team</report>
+								<report>mailing-list</report>
+								<report>cim</report>
+								<report>issue-tracking</report>
+								<report>license</report>
+								<report>scm</report-->
+						</reports>
+					</reportSet>
+				</reportSets>
+			</plugin>
+		</plugins>
+	</reporting>
+</project>

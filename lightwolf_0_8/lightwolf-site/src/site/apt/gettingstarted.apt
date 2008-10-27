@@ -1,0 +1,82 @@
+    -----
+    Getting Started
+    -----
+    Fernando Colombo
+    -----
+    -----
+
+Installing Light Wolf Binaries
+
+    Download the package
+
+Installing Light Wolf on Eclipse
+
+    This guide is based on Eclipse 3.3. Light Wolf was tested on Eclipse 3.4 and works, but the
+    steps to download and install are a bit different, since this mechanism was changed on Eclipse
+    3.4. Hence you should get no trouble to download and install on Eclipses newer than 3.3.
+
+    First download and install the <<Light Wolf Plug-in>> for Eclipse from the following update
+    site:
+
+---
+    http://lightwolf.sourceforge.net/updates/
+---
+
+    You can accomplish this by going to the Find and Install menu of Eclipse:
+    
+[images/eclipse-find-and-install.gif]
+    
+    Then you choose <<Search for new features to install>> and click on the <<New Remote Site...>>
+    button. This will bring up a dialog box, on which you can type the following values:
+
+[images/eclipse-new-upd-site.gif]
+
+    Once you clicked OK, check only the <<Light Wolf>> item on the list box, and then click
+    <<Next>>. Wait for the server response and choose the Light Wolf Plug-in. There should be only
+    one version available. Read and accept the license (if you want), wait for the download to
+    finish, and restart Eclipse.
+
+    Now that you are back on Eclipse, right-click on any Java project, and choose the <<Add/Remove
+    Light Wolf Nature>> option:
+    
+[images/eclipse-project-menu.gif]
+
+    You should get a message about the success of this operation:
+
+[images/eclipse-nature-added.gif]
+
+    Before you can play with utilities, check if the project builder page is listing the <<Light
+    Wolf Builder>>. Such builder must always be the last builder in the list:
+
+[images/eclipse-project-builder.gif]
+
+    Also check if the <<Light Wolf Library>> was added to the project's build path:
+
+[images/eclipse-project-libraries.gif]
+
+    If you accidentally remove this library, you can add it again by using the <<Add Library...>>
+    button on that page.
+
+    Now let's make the test. Create a new class and paste a sample from the
+    {{{index.html}home page}}. Then you can run it as ay ordinary Java class. You can simply
+    right-click the class in Eclipse's Package Explorer, and choose <<Run As>>, <<Java
+    Application>>. If your choice for a sample was the {{{index.html#aForkMerge}fork/merge}}, you
+    should be looking to something like this:
+
+[images/eclipse-running-sample.gif]
+
+    That's all. Now you should be able to use Light Wolf utilities within your project's code.
+
+Some Important Advice
+
+    * This project is in early stages of development. It still in Alpha on SourceForge. If you
+      find some bug, please post a "bug artifact" on Light Wolf's 
+      {{{http://sourceforge.net/tracker/?group_id=241050}tracker}}.
+
+    * If Eclipse reports an error message from Light Wolf Builder, this might be due to manual
+      changes to .classpath file or .class files (not all possible changes are being detected by
+      the Light Wolf Plug-in). If you perform a clean-up on all projects and rebuild, the build
+      should be correct and the error should not appear on any subsequent builds.
+
+    * Remember to use the {{{javadoc/org/lightwolf/FlowMethod.html}FlowMethod}} annotation!!! It is
+      required to enhance the method so Light Wolf utilities can be invoked from it.

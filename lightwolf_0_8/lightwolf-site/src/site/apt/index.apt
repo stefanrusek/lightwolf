@@ -1,0 +1,197 @@
+    -----
+    Home
+    -----
+    Fernando Colombo
+    -----
+    -----
+
+Welcome to Light Wolf
+
+    Light Wolf is a Java library that simplifies thread development. Here is a short summary of 
+    features:
+
+        * Threads can be created and finished using the simple {{{aForkMerge}fork/merge}} utility.
+        
+        * A method can return to its invoker while {{{aReturn_And_Continue}continuing}} with some other task,
+          asynchronously.
+        
+        * A program's execution position can be saved and restored in the future, so a program can
+          continue from that point.
+          
+        * It is possible to wait for a lock without consuming a real thread.
+        
+        * A simple loop can be broken into {{{aParallel_Iterator}many threads}} without creation of
+          additional classes or methods.
+
+        * There is an utility similar to BPEL's <<<pick>>> construct.
+
+The {"Fork/Merge"} Utility
+
+    The fork/merge utility is straightforward. It can be easily understood with a simple example:
+
++--
+import java.util.Random;
+import org.lightwolf.Flow;
+import org.lightwolf.FlowMethod;
+
+public class ForkMergeSample {
+
+    @FlowMethod
+    public static void main(String[] args) throws InterruptedException {
+
+        Random r = new Random(0);
+        System.out.println("Single threaded.");
+        int branch = Flow.fork(2); // Create 2 additional threads.
+        try {
+            System.out.printf("Starting branch %d.\n", branch);
+            Thread.sleep(r.nextInt(100)); // Simulates some processing.
+            System.out.printf("Done with branch %d.\n", branch);
+        } finally {
+            Flow.merge();
+        }
+        System.out.println("Single threaded, again.");
+
+    }
+
+}
++--
+
+    The code between <<<Flow.fork(2)>>> and <<<Fork.merge()>>> runs on three threads: one thread for
+    the invoker (the main thread), and two new threads created at the point of <<<Flow.fork(2)>>>.
+    Any previously declared variable is accessible from the fork block, such as <<<Random r>>> in
+    the example. Notice that all threads share the same <<<Random>>> instance.
+    The above example prints something like this:
+
++--
+Single threaded.
+Starting branch 1.
+Starting branch 0.
+Starting branch 2.
+Done with branch 1.
+Done with branch 2.
+Done with branch 0.
+Single threaded, again.
++--
+
+The {"Return and Continue"} Utility
+
+    This utility allows execution of simple asynchronous tasks. Consider the example:
+
++--
+import java.util.Random;
+import org.lightwolf.Flow;
+import org.lightwolf.FlowMethod;
+
+public class ReturnAndContinueSample {
+
+    public static void main(String[] args) throws InterruptedException {
+
+        System.out.println("Calling doSomething().");
+        double result = doSomething();
+        System.out.printf("doSomething() returned %f.\n", result);
+        for (int i = 1; i <= 4; ++i) {
+            System.out.printf("main() counter: %d.\n", i);
+            Thread.sleep(100);
+        }
+
+    }
+
+    @FlowMethod
+    private static double doSomething() throws InterruptedException {
+        // Returns 1.25 to the invoker and continue processing.
+        Flow.returnAndContinue(1.25);
+        for (int i = 1; i <= 4; ++i) {
+            System.out.printf("doSomething() counter: %d.\n", i);
+            Thread.sleep(100);
+        }
+        return 0.0; // Return no nobody.
+    }
+
+}
++--
+    
+    The <<<doSomething()>>> method is invoking <<<Flow.returnAndContinue(1.25)>>>. This causes the
+    invoker (<<<main()>>> in the example) to resume as if <<<doSomething()>>> have returned
+    normally. But the method <<<doSomething()>>> actually continues execution in another thread.
+    This behavior makes the program output to be something like this:  
+
++--
+Calling doSomething().
+doSomething() returned 1.250000.
+doSomething() counter: 1.
+main() counter: 1.
+doSomething() counter: 2.
+main() counter: 2.
+main() counter: 3.
+doSomething() counter: 3.
+main() counter: 4.
+doSomething() counter: 4.
++--
+
+The {"Parallel Iterator"} Utility
+
+    Transforms a simple, ordinary loop into a parallel/concurrent loop. Again, an example is worth
+    of a thousand words:
+
++--
+import java.util.Random;
+import org.lightwolf.Flow;
+import org.lightwolf.FlowMethod;
+import org.lightwolf.synchronization.ParallelArray;
+import org.lightwolf.synchronization.ParallelIterator;
+
+public class ParallelIteratorSample {
+
+    @FlowMethod
+    public static void main(String[] args) throws InterruptedException {
+        // Build an array with mock elements to be processed.
+        Random random = new Random(0);
+        Element[] data = new Element[8];
+        for (int i = 0; i < data.length; ++i) {
+            data[i] = new Element(i + 1, random.nextInt(400));
+        }
+        // Process elements in parallel.
+        ParallelArray<Element> array = new ParallelArray<Element>(data);
+        for (ParallelIterator<Element> iterator = array.iterator(); iterator.hasNext();) {
+            Element elem = iterator.next();
+            System.out.printf("Starting %d.\n", elem.number);
+            Thread.sleep(elem.cost); // Simulates the of processing this element.
+            System.out.printf("Done %d.\n", elem.number);
+        }
+    }
+
+    static class Element {
+        int number;
+        int cost;
+        Element(int number, int size) {
+            this.number = number;
+            this.cost = size;
+        }
+    }
+
+}
++--
+
+    The block that processes each element in the <<<ParallelIterator>>> is executed exactly 8 times
+    (which is the size of the <<<data>>> array), but it runs on <N> different threads. The default
+    number of threads is <N = 4>. Hence the above program produces an output similar to the
+    following: 
+
++--
+Starting 1.
+Starting 2.
+Starting 3.
+Starting 4.
+Done 3.
+Starting 5.
+Done 4.
+Starting 6.
+Done 1.
+Starting 7.
+Done 7.
+Starting 8.
+Done 6.
+Done 5.
+Done 2.
+Done 8.
++--
