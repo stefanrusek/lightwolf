@@ -1,6 +1,6 @@
-<project name="ASM" default="main">
-  <taskdef name="enhance" classname="org.lightwolf.tools.LightWolfAntTask"/>
-  <target name="main">
-    <enhance classesdir="bin"/>
-  </target>
+<project name="Sample" default="main">
+	<taskdef name="lightwolf" classname="org.lightwolf.tools.LightWolfAntTask" />
+	<target name="main">
+		<lightwolf classesdir="bin" />
+	</target>
 </project>

@@ -176,7 +176,7 @@ public class LightWolfBuilder extends IncrementalProjectBuilder {
                 case LightWolfEnhancer.WAS_TRANSFORMED_BEFORE:
                     PublicByteArrayOutputStream origContents = getOldContents(file);
                     if (origContents == null) {
-                        throw new IllegalStateException("Could not find original contents of file " + file.getFullPath().toPortableString());
+                        throw new IllegalStateException("Could not find original contents of file " + file.getFullPath().toPortableString() + ". Cleaning this project might solve this problem.");
                     }
                     newContents = origContents;
                     result = enhancer.transform(newContents);

@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project default="javadoc">
-<target name="javadoc">
-<javadoc access="protected" author="true" classpath="C:\persist\eclipse\plugins\org.junit4_4.3.1\junit.jar;lib/commons-primitives-1.0.jar;lib/asm-all-3.1.jar;lib/ant.jar;lib/commons-io-1.4.jar" destdir="../wolfcrow/doc" nodeprecated="false" nodeprecatedlist="false" noindex="false" nonavbar="false" notree="false" packagenames="org.lightwolf.process,org.lightwolf.synchronization,org.lightwolf.tools" source="1.5" sourcefiles="src/org/lightwolf/FlowManager.java,src/org/lightwolf/FlowInterruptedException.java,src/org/lightwolf/MethodFrame.java,src/org/lightwolf/FlowSignal.java,src/org/lightwolf/FlowLocal.java,src/org/lightwolf/Process.java,src/org/lightwolf/SuspendSignal.java,src/org/lightwolf/FlowContext.java,src/org/lightwolf/Fork.java,src/org/lightwolf/Types.java,src/org/lightwolf/FlowSignalException.java,src/org/lightwolf/IllegalReturnValueException.java,src/org/lightwolf/ResumeException.java,src/org/lightwolf/FlowMethod.java,src/org/lightwolf/DelayedCallSignal.java,src/org/lightwolf/ExceptionEnvelope.java,src/org/lightwolf/Flow.java" sourcepath="src;test" splitindex="false" use="true" version="true">
-<link href="http://java.sun.com/j2se/1.5.0/docs/api/"/>
-</javadoc>
-</target>
+	<target name="javadoc">
+		<javadoc access="protected" author="true" classpath="C:\persist\eclipse\plugins\org.junit4_4.3.1\junit.jar;../asm/output/eclipse;../asm/test/lib/aspectjweaver.jar;lib/commons-primitives-1.0.jar;C:\persist\eclipse\plugins\org.junit_3.8.2.v200706111738\junit.jar;lib/ant.jar;../asm/test/lib/serp.jar;../asm/test/lib/janino-2.3.4.jar;../asm/test/lib/bcel-5.1.jar;../asm/test/lib/xalan-2.6.0.jar;lib/commons-io-1.4.jar;../asm/test/lib/javassist.jar;../asm/test/lib/saxon7.jar;../asm/test/lib/jd.xslt-1.5.5.jar" destdir="../lightwolf-site/target/site/javadoc" nodeprecated="false" nodeprecatedlist="false" noindex="false" nonavbar="false" notree="false" source="1.5" sourcepath="src" splitindex="true" use="true" version="true">
+			<link href="http://java.sun.com/j2se/1.5.0/docs/api/" />
+			<link href="http://www.jajakarta.org/ant/ant-1.6.1/docs/en/manual/api/" />
+		</javadoc>
+	</target>
 </project>
