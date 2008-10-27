@@ -33,6 +33,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
 import org.lightwolf.DelayedCallSignal;
@@ -55,8 +56,9 @@ public class SimpleFlowManager extends FlowManager implements Serializable {
 
     public SimpleFlowManager(String name) {
         key = new Key(name);
-        executor = new ScheduledThreadPoolExecutor(8);
+        executor = new ScheduledThreadPoolExecutor(8, new SimpleThreadFactory(name));
         activeManagers.put(key, this);
+        Runtime.getRuntime().addShutdownHook(new ShutdownManager());
     }
 
     @Override
@@ -154,4 +156,48 @@ public class SimpleFlowManager extends FlowManager implements Serializable {
         }
 
     }
+
+    private static class SimpleThreadFactory implements ThreadFactory {
+
+        private final ThreadGroup group;
+        private final String namePrefix;
+        private int nextNumber;
+
+        SimpleThreadFactory(String ownerName) {
+            SecurityManager s = System.getSecurityManager();
+            group = (s != null) ? s.getThreadGroup() : Thread.currentThread().getThreadGroup();
+            namePrefix = ownerName + "-";
+        }
+
+        public Thread newThread(Runnable r) {
+            int index;
+            synchronized(this) {
+                index = nextNumber++;
+            }
+            Thread ret = new Thread(group, r, namePrefix + index);
+            if (!ret.isDaemon()) {
+                ret.setDaemon(true);
+            }
+            if (ret.getPriority() != Thread.NORM_PRIORITY) {
+                ret.setPriority(Thread.NORM_PRIORITY);
+            }
+            return ret;
+        }
+
+    }
+
+    private class ShutdownManager extends Thread {
+
+        @Override
+        public void run() {
+            executor.shutdown();
+            try {
+                executor.awaitTermination(4 * 60 * 60, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+    }
+
 }

@@ -47,7 +47,8 @@ import org.lightwolf.tools.LightWolfAntTask;
  * <b>NOTE TO NEW USERS:</b> To work as expected, a flow-method must have its
  * bytecode enhanced. This can be done by the Light Wolf Eclipse Plug-in. For
  * more information, please check <a
- * href="http://lightwolf-j.blogspot.com">http://lightwolf-j.blogspot.com</a>.
+ * href="http://lightwolf.sourceforge.net">http://lightwolf.sourceforge.net</a>.
+ * You can also use the {@link LightWolfAntTask} to enhance bytecode.
  * 
  * @see Flow
  * @author Fernando Colombo

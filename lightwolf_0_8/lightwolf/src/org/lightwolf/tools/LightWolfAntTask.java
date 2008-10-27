@@ -35,7 +35,79 @@ import org.apache.tools.ant.DirectoryScanner;
 import org.apache.tools.ant.Project;
 import org.apache.tools.ant.taskdefs.MatchingTask;
 import org.apache.tools.ant.types.Path;
+import org.lightwolf.FlowMethod;
 
+/**
+ * An Ant task that enhances classes that uses {@link FlowMethod} annotation.
+ * This task reads the specified .class files, looking for
+ * {@linkplain FlowMethod flow methods} in each file. If a class contains flow
+ * methods, each of them will have its bytecode enhanced, and the class is
+ * rewritten to file system. Classes without flow methods are untouched.
+ * <p>
+ * The classes to enhance are specified in the <code>classesdir</code>
+ * attribute, which contains directories separated by semicolon. If an entry in
+ * the <code>classesdir</code> is a JAR or ZIP, such file is not itself
+ * transformed or changed in any way, but their classes are read to check
+ * whether they contain flow methods that are referenced by enhanced classes.
+ * <p>
+ * This task is a matching task, which means that you can add selectors such as
+ * <code>&lt;exclude&gt;</code> and <code>&lt;different&gt;</code>. Below
+ * are some examples:
+ * <p>
+ * Example 1: enhances all classes in the <code>bin</code> directory:
+ * 
+ * <pre>
+ * &lt;project name=&quot;Sample&quot; default=&quot;main&quot;&gt;
+ *     &lt;taskdef name=&quot;lightwolf&quot; classname=&quot;org.lightwolf.tools.LightWolfAntTask&quot; /&gt;
+ *     &lt;target name=&quot;main&quot;&gt;
+ *         &lt;lightwolf classesdir=&quot;bin&quot;/&gt;
+ *     &lt;/target&gt;
+ * &lt;/project&gt;
+ * </pre>
+ * 
+ * Example 2: enhances all classes in the <code>bin</code> directory, except
+ * <code>Test*</code> classes:
+ * 
+ * <pre>
+ * &lt;project name=&quot;Sample&quot; default=&quot;main&quot;&gt;
+ *     &lt;taskdef name=&quot;lightwolf&quot; classname=&quot;org.lightwolf.tools.LightWolfAntTask&quot; /&gt;
+ *     &lt;target name=&quot;main&quot;&gt;
+ *         &lt;lightwolf classesdir=&quot;bin&quot;&gt;
+ *             &lt;exclude name=&quot;&#42;&#42;/Test*&quot;/&gt;
+ *         &lt;/lightwolf&gt;
+ *     &lt;/target&gt;
+ * &lt;/project&gt;
+ * </pre>
+ * 
+ * Example 3: enhances all classes in the <code>lwbin</code> directory, except
+ * those that are identical to classes in the <code>bin</code> directory:
+ * 
+ * <pre>
+ * &lt;project name=&quot;Sample&quot; default=&quot;main&quot;&gt;
+ *     &lt;taskdef name=&quot;lightwolf&quot; classname=&quot;org.lightwolf.tools.LightWolfAntTask&quot; /&gt;
+ *     &lt;target name=&quot;main&quot;&gt;
+ *         &lt;lightwolf classesdir=&quot;lwbin&quot;&gt;
+ *             &lt;different targetdir=&quot;bin&quot; ignoreFileTimes=&quot;true&quot;/&gt;
+ *         &lt;/lightwolf&gt;
+ *     &lt;/target&gt;
+ * &lt;/project&gt;
+ * </pre>
+ * 
+ * Example 4: enhances all classes in the <code>bin1</code> and
+ * <code>bin2</code> directories, considering flow methods that might be in
+ * the <code>referenced.jar</code> file.
+ * 
+ * <pre>
+ * &lt;project name=&quot;Sample&quot; default=&quot;main&quot;&gt;
+ *     &lt;taskdef name=&quot;lightwolf&quot; classname=&quot;org.lightwolf.tools.LightWolfAntTask&quot; /&gt;
+ *     &lt;target name=&quot;main&quot;&gt;
+ *         &lt;lightwolf classesdir=&quot;bin1;bin2;referenced.jar&quot;/&gt;
+ *     &lt;/target&gt;
+ * &lt;/project&gt;
+ * </pre>
+ * 
+ * @author Fernando Colombo
+ */
 public class LightWolfAntTask extends MatchingTask {
 
     public static void main(String[] args) {
@@ -73,6 +145,9 @@ public class LightWolfAntTask extends MatchingTask {
 
             for (int i = 0; i < list.length; i++) {
                 File dir = getProject().resolveFile(list[i]);
+                if (dir.isFile()) {
+                    continue;
+                }
                 if (!dir.exists()) {
                     throw new BuildException("Directory \"" + dir.getPath() + "\" does not exist!", getLocation());
                 }

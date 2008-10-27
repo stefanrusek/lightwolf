@@ -33,7 +33,7 @@ import org.lightwolf.tools.SimpleFlowManager;
 
 public abstract class FlowManager {
 
-    private static FlowManager _default = new SimpleFlowManager("default");
+    private static FlowManager _default = new SimpleFlowManager("defaultFlowManager");
     private static final ThreadLocal<FlowManager> next = new ThreadLocal<FlowManager>();
 
     public static FlowManager getDefault() {
