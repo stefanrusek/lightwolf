@@ -9,6 +9,7 @@ import org.lightwolf.FlowMethod;
 import org.lightwolf.IllegalReturnValueException;
 import org.lightwolf.ResumeException;
 import org.lightwolf.SuspendSignal;
+import org.lightwolf.tools.SimpleFlowManager;
 
 public class TestReturnAndContinue {
 
@@ -286,6 +287,18 @@ public class TestReturnAndContinue {
             Assert.fail("JVM is not enforcing structured locking.");
         } catch (IllegalMonitorStateException e) {
             // Ok.
+        }
+        Thread.sleep(200); // Allow the other thread to start.
+        SimpleFlowManager sfm = (SimpleFlowManager) Flow.current().getManager();
+        for (int i = 0; i < 30; ++i) {
+            if (sfm.getActiveCount() == 0) {
+                break;
+            }
+            Thread.sleep(100);
+        }
+        int ac = sfm.getActiveCount();
+        if (ac != 0) {
+            Assert.fail("There are " + ac + " active thread(s).");
         }
         synchronized(lock) {
             Thread.yield();

@@ -30,7 +30,6 @@ import java.io.Serializable;
 import java.util.WeakHashMap;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadFactory;
@@ -52,13 +51,17 @@ public class SimpleFlowManager extends FlowManager implements Serializable {
     }
 
     private final Key key;
-    private final ScheduledExecutorService executor;
+    private final ScheduledThreadPoolExecutor executor;
 
     public SimpleFlowManager(String name) {
         key = new Key(name);
         executor = new ScheduledThreadPoolExecutor(8, new SimpleThreadFactory(name));
         activeManagers.put(key, this);
         Runtime.getRuntime().addShutdownHook(new ShutdownManager());
+    }
+
+    public int getActiveCount() {
+        return executor.getActiveCount();
     }
 
     @Override
@@ -118,7 +121,6 @@ public class SimpleFlowManager extends FlowManager implements Serializable {
     private void notifyException(Throwable e) {
         Flow.log("Threw exception: " + e.getMessage());
         LightWolfLog.printTrace(e);
-        // TODO: Check another way of making the test fail.
     }
 
     private Object writeReplace() {
