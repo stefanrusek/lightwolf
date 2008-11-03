@@ -328,7 +328,7 @@ public class TestReturnAndContinue {
         c.count();
         Flow susp = signal.getFlow();
         Assert.assertTrue(susp.isSuspended());
-        Assert.assertFalse(susp.isFinished());
+        Assert.assertFalse(susp.isEnded());
         Assert.assertFalse(susp.isActive());
 
         abq.put("MNO");
@@ -336,7 +336,7 @@ public class TestReturnAndContinue {
         c.count();
         Assert.assertEquals("ABCXYZ", output);
         Assert.assertFalse(susp.isSuspended());
-        Assert.assertTrue(susp.isFinished());
+        Assert.assertTrue(susp.isEnded());
         Assert.assertFalse(susp.isActive());
 
         output = (String) abq.take();
@@ -372,7 +372,7 @@ public class TestReturnAndContinue {
         c.count();
         Flow susp = signal.getFlow();
         Assert.assertTrue(susp.isSuspended());
-        Assert.assertFalse(susp.isFinished());
+        Assert.assertFalse(susp.isEnded());
         Assert.assertFalse(susp.isActive());
 
         Assert.assertEquals("(ABC)", signal.getArgument());
@@ -382,7 +382,7 @@ public class TestReturnAndContinue {
         c.count();
         Assert.assertEquals("ABCXYZ", output);
         Assert.assertFalse(susp.isSuspended());
-        Assert.assertTrue(susp.isFinished());
+        Assert.assertTrue(susp.isEnded());
         Assert.assertFalse(susp.isActive());
 
         output = (String) abq.take();
@@ -418,7 +418,7 @@ public class TestReturnAndContinue {
         c.count();
         Flow susp = signal.getFlow();
         Assert.assertTrue(susp.isSuspended());
-        Assert.assertFalse(susp.isFinished());
+        Assert.assertFalse(susp.isEnded());
         Assert.assertFalse(susp.isActive());
 
         Assert.assertEquals("(ABC)", signal.getArgument());
@@ -428,7 +428,7 @@ public class TestReturnAndContinue {
         c.count();
         Assert.assertEquals("ABCDEF", output);
         Assert.assertFalse(susp.isSuspended());
-        Assert.assertTrue(susp.isFinished());
+        Assert.assertTrue(susp.isEnded());
         Assert.assertFalse(susp.isActive());
 
         output = (String) abq.take();

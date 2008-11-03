@@ -59,8 +59,8 @@ import org.lightwolf.tools.SimpleFlowManager;
  * for the {@linkplain #waitComplete() completion} of an I/O operation, without
  * consuming a Java thread meanwhile, and thus releasing a pooled thread for
  * increased concurrency.</li>
- * <li>Flows can use utilities such as {@link Continuation},
- * {@link #fork(int)}, and {@link #returnAndContinue()}.</li>
+ * <li>Flows can use utilities such as {@link Continuation}, {@link #fork(int)},
+ * and {@link #returnAndContinue()}.</li>
  * </ul>
  * <p>
  * There are some important concepts regarding flows.
@@ -74,12 +74,11 @@ import org.lightwolf.tools.SimpleFlowManager;
  * method, the flow is kept active and can be queried, but some flow utilities
  * will disabled until the normal method returns to the invoker flow-method.
  * <p>
- * <b>Flow-creator:</b> Whenever a flow-method is invoked by a normal
- * (non-flow) method, it is called the flow-creator method, because it triggers
- * the creation of a new flow (this is done automatically). The flow finishes
- * when the flow-creator completes normally or by exception. If the flow-creator
- * calls itself or another flow-method, no new flow is created, as described
- * above.
+ * <b>Flow-creator:</b> Whenever a flow-method is invoked by a normal (non-flow)
+ * method, it is called the flow-creator method, because it triggers the
+ * creation of a new flow (this is done automatically). The flow ends when the
+ * flow-creator completes normally or by exception. If the flow-creator calls
+ * itself or another flow-method, no new flow is created, as described above.
  * <p>
  * <b>Flow-controller:</b> The flow-controller is a normal (non-flow) method
  * that invokes a flow-method. The flow-controller receives
@@ -92,12 +91,12 @@ import org.lightwolf.tools.SimpleFlowManager;
  * {@link #split(int)} and {@link #returnAndContinue()}.
  * <p>
  * According to the above specification, when a flow-method <i>A</i> invokes a
- * normal method <i>B</i>, and then <i>B</i> invokes a flow-method <i>C</i>,
- * a nested flow is created. Regarding the nested flow, <i>B</i> will be the
+ * normal method <i>B</i>, and then <i>B</i> invokes a flow-method <i>C</i>, a
+ * nested flow is created. Regarding the nested flow, <i>B</i> will be the
  * flow-controller and <i>C</i> the flow-creator. If <i>C</i> invokes a flow
  * utility such as {@link #fork(int)}, the effect is applied only to the nested
  * flow. The outer flow, on which <i>A</i> is running, is not affected by the
- * fork. When the nested flow finishes or is suspended, the outer flow becomes
+ * fork. When the nested flow ends or is suspended, the outer flow becomes
  * active again. The number of nesting levels is limited only by memory. Nested
  * flows are uncommon because usually flow-methods are designed to call other
  * flow-methods, which does not cause the creation of new flow, as mentioned
@@ -113,18 +112,18 @@ public final class Flow implements Serializable {
     public static final int ACTIVE = 1;
     public static final int SUSPENDED = 2;
     public static final int SUSPENDING = 3;
-    public static final int FINISHED = 4;
+    public static final int ENDED = 4;
 
-    private static final String[] stateNames = new String[] { "0", "ACTIVE", "SUSPENDED", "SUSPENDING", "FINISHED" };
+    private static final String[] stateNames = new String[] { "0", "ACTIVE", "SUSPENDED", "SUSPENDING", "ENDED" };
 
     private static final ThreadLocal<Flow> current = new ThreadLocal<Flow>();
 
     /**
-     * Creates and returns a new flow. The new flow will be in {@link #FINISHED}
+     * Creates and returns a new flow. The new flow will be in {@link #ENDED}
      * state, which is suitable to be passed as argument to methods such as
      * {@link Continuation#resume(Flow)}.
      * 
-     * @return A newly created flow instance, in {@link #FINISHED} state.
+     * @return A newly created flow instance, in {@link #ENDED} state.
      */
     public static Flow newFlow() {
         return new Flow(FlowManager.getNext(), null);
@@ -290,14 +289,14 @@ public final class Flow implements Serializable {
      * This method creates <i>n</i> {@linkplain #copy() shallow copies} of the
      * current flow, then executes each copy concurrently and starting from the
      * invocation point. In other words, this method is invoked once, but
-     * returns 1+<i>n</i> times: 1 time for the invoker, and <i>n</i> times
-     * for new flows. Notice that {@link #split(int) split(0)} is a no-effect
+     * returns 1+<i>n</i> times: 1 time for the invoker, and <i>n</i> times for
+     * new flows. Notice that {@link #split(int) split(0)} is a no-effect
      * operation.
      * <p>
      * The returned value is an <code>int</code> that identifies the flow to
-     * which the method returned. It will be <code>0</code> for the invoker,
-     * and a distinct positive integer for new flows, ranging from
-     * <code>1</code> to <i>n</i>.
+     * which the method returned. It will be <code>0</code> for the invoker, and
+     * a distinct positive integer for new flows, ranging from <code>1</code> to
+     * <i>n</i>.
      * <p>
      * The following example illustrates this behavior:
      * 
@@ -324,7 +323,6 @@ public final class Flow implements Serializable {
      *        return i;
      *    }
      * </pre>
-     * 
      * The above snippet prints the following (under fair scheduling
      * conditions):
      * 
@@ -340,14 +338,13 @@ public final class Flow implements Serializable {
      *     performSplit(): 2
      *     doFlow(): 0
      * </pre>
-     * 
      * <p>
-     * Each of the created flow runs on a possibly different
-     * {@linkplain Thread thread} (the actual thread is defined by the
-     * {@linkplain #getManager() flow manager}), and will be independent from
-     * all other flows, including the invoker. As defined by the
-     * {@linkplain #copy() shallow copy} behavior, all flows share heap objects
-     * referenced by the invoker stack frames at the time of invocation.
+     * Each of the created flow runs on a possibly different {@linkplain Thread
+     * thread} (the actual thread is defined by the {@linkplain #getManager()
+     * flow manager}), and will be independent from all other flows, including
+     * the invoker. As defined by the {@linkplain #copy() shallow copy}
+     * behavior, all flows share heap objects referenced by the invoker stack
+     * frames at the time of invocation.
      * <p>
      * If there is an active {@linkplain #fork(int) fork} at the time of
      * invocation, the invoker will remain on such fork, hence methods such as
@@ -388,7 +385,7 @@ public final class Flow implements Serializable {
     }
 
     /**
-     * Initiates fork on the invoker. A fork is a temporary work executed by
+     * Starts a fork on the invoker. A fork is a temporary work executed by
      * concurrent {@linkplain Flow flows}.
      * <p>
      * This method is similar to {@link #split(int)}. In addition to create new
@@ -401,10 +398,10 @@ public final class Flow implements Serializable {
      * <p>
      * If this method is invoked during a previous fork, a nested fork is
      * established. This method changes the behavior of {@link #merge()} and
-     * other fork-finishing methods, which always applies to the innermost fork.
+     * other fork-ending methods, which always applies to the innermost fork.
      * Because of this, it is recommended to use the structured fork/merge
-     * style, which use <code>try</code>/<code>finally</code> blocks as in
-     * the following example:
+     * style, which use <code>try</code>/<code>finally</code> blocks as in the
+     * following example:
      * 
      * <pre>
      *    ... // Single-threaded execution.
@@ -416,25 +413,24 @@ public final class Flow implements Serializable {
      *    }
      *    ... // Single-threaded execution.
      * </pre>
-     * 
      * <p>
      * <p>
      * The returned value is an <code>int</code> that identifies the branch to
-     * which the method returned. It will be <code>0</code> for the invoker,
-     * and a distinct positive integer for new branches, ranging from
-     * <code>1</code> to <i>n</i>.
+     * which the method returned. It will be <code>0</code> for the invoker, and
+     * a distinct positive integer for new branches, ranging from <code>1</code>
+     * to <i>n</i>.
      * <p>
      * If parameter <i>n</i> is zero, no new flow will be instantiated and the
      * invoker will continue execution in single-threaded mode. Still, the next
-     * fork-finishing operation will apply to such fork.
+     * fork-ending operation will apply to such fork.
      * <p>
      * 
      * @param n The number of branches to create. Must be non-negative.
      * @throws IllegalArgumentException If n is negative.
      * @throws IllegalStateException If the invoker is not a {@link FlowMethod}.
      * @return The branch identifier. Zero for the invoker, and a distinct
-     *         integer ranging from <code>1</code> to <code>n</code> for
-     *         each new branch.
+     *         integer ranging from <code>1</code> to <code>n</code> for each
+     *         new branch.
      * @see #merge(long, TimeUnit)
      * @see #forgetFork()
      */
@@ -459,41 +455,42 @@ public final class Flow implements Serializable {
     }
 
     /**
-     * Finishes a fork by restoring single-threaded execution. This method
-     * causes the invoker to leave the current {@linkplain #fork(int) fork}.
-     * Depending on who is the invoker, the behavior will be different.
+     * Ends a fork by restoring single-threaded execution. This method causes
+     * the invoker to exit the current {@linkplain #fork(int) fork}. Depending
+     * on who is the invoker, the behavior will be different.
      * <p>
      * <b>If the invoker is the fork-creator:</b> This method blocks until each
-     * of the corresponding branches finish (see below), or until this thread is
+     * of the corresponding branches ends (see below), or until this thread is
      * interrupted, whichever comes first. If the merge is successful (all
-     * branches have finished), the invoker leaves the fork, restoring the next
+     * branches have ended), the invoker exits the fork, restoring the next
      * outer fork, if any. Otherwise (the thread is interrupted while at least
      * one branch is active), the invoker will stay in the fork. If all other
-     * branches have finished before invocation of this method, it will return
+     * branches have ended before invocation of this method, it will return
      * immediately without checking the thread's interrupt flag.
      * <p>
-     * <b>If the invoker is a branch:</b> This method does not return. It
-     * finishes the flow immediately, as if {@link #leave()} were invoked.
-     * Notice that even <code>finally</code> blocks will not execute.
+     * <b>If the invoker is a branch:</b> This method does not return. It ends
+     * the flow immediately, as if {@link #end()} were invoked. Notice that even
+     * <code>finally</code> blocks will not execute.
      * <p>
      * This method considers only branches created by the last invocation of
      * {@link #fork(int)}.
      * <p>
-     * A branch will be active (that is, it will not finish) until one of the
+     * A branch will be active (that is, it will not end) until one of the
      * following happens:
      * <ul>
      * <li>The {@linkplain Flow flow creator} method completes normally or by
      * exception.</li>
-     * <li>The branch calls {@link Flow#leave()}.</li>
+     * <li>The branch calls {@link Flow#end()}.</li>
      * <li>The branch calls a merge method, either {@link #merge()} or
      * {@link #merge(long, TimeUnit)}.</li>
      * <li>The branch forgets the fork by calling {@link #forgetFork()}.</li>
+     * <li>The branch ends the fork by calling {@link #endFork()}.</li>
      * </ul>
      * A suspended branch is considered to be active. Hence, this method will
      * block the fork-creator even if all other branches are suspended. If this
      * happens on a real scenario, another thread must resume the branches,
-     * which will allow them to finish normally, so this method can return to
-     * the fork-creator.
+     * which will allow them to end normally, so this method can return to the
+     * fork-creator.
      * <p>
      * Whenever this method returns normally, it is guaranteed that the invoker
      * was the fork-creator and no branch will be active.
@@ -509,15 +506,13 @@ public final class Flow implements Serializable {
     public static void merge() throws InterruptedException {
         Flow current = fromInvoker();
         MethodFrame frame = current.currentFrame;
-        boolean leaving = false;
         try {
             Fork fork = current.currentFork;
             if (fork != null) {
                 switch (fork.merge(0, null)) {
-                    case Fork.LEAVE:
+                    case Fork.EXIT:
                         assert fork.previous == null;
                         current.currentFrame.leaveThread();
-                        leaving = true;
                         return;
                     case Fork.MERGED:
                         current.currentFork = fork.previous;
@@ -528,42 +523,40 @@ public final class Flow implements Serializable {
             }
             throw new IllegalStateException("No active fork.");
         } finally {
-            if (!leaving) {
-                frame.invoked();
-            }
+            frame.invoked();
         }
     }
 
     /**
-     * Attempts to finish a fork, or give-up after a timeout elapses. This
-     * method is the time-constrained version of {@link #merge()}. Depending on
-     * who is the invoker, the behavior will be different.
+     * Attempts to end a fork, or give-up after a timeout elapses. This method
+     * is the time-constrained version of {@link #merge()}. Depending on who is
+     * the invoker, the behavior will be different.
      * <p>
      * <b>If the invoker is the fork-creator:</b> This method blocks until each
-     * of the corresponding branches finish (see {@link #merge()}), or until
-     * the given timeout expires, or until this thread is interrupted, whichever
-     * comes first. If the merge is successful (all branches have finished
-     * before the timeout expire), the invoker leaves the fork, restoring the
-     * next outer fork, if any, and this method returns <code>true</code>. If
-     * the timeout expires while at least on branch is active, the invoker will
-     * stay in the fork, and this method returns <code>false</code>.
-     * Otherwise (the thread is interrupted while at least one branch is
-     * active), the invoker will stay in the fork. If all other branches have
-     * finished before invocation of this method, it will return immediately
-     * without checking the thread's interrupt flag.
+     * of the corresponding branches ends (see {@link #merge()}), or until the
+     * given timeout expires, or until this thread is interrupted, whichever
+     * comes first. If the merge is successful (all branches have ended before
+     * the timeout expire), the invoker exits the fork, restoring the next outer
+     * fork, if any, and this method returns <code>true</code>. If the timeout
+     * expires while at least on branch is active, the invoker will stay in the
+     * fork, and this method returns <code>false</code>. Otherwise (the thread
+     * is interrupted while at least one branch is active), the invoker will
+     * stay in the fork. If all other branches have ended before invocation of
+     * this method, it will return immediately without checking the thread's
+     * interrupt flag.
      * <p>
-     * <b>If the invoker is a branch:</b> This method does not return. It
-     * finishes the flow immediately, as if {@link #leave()} were invoked.
-     * Notice that even <code>finally</code> blocks will not execute.
+     * <b>If the invoker is a branch:</b> This method does not return. It ends
+     * the flow immediately, as if {@link #end()} were invoked. Notice that even
+     * <code>finally</code> blocks will not execute.
      * <p>
      * Whenever this method returns normally, it is guaranteed that the invoker
      * will be the fork-creator.
      * 
-     * @return <code>true</code> if all other branches have finished,
+     * @return <code>true</code> if all other branches have ended,
      *         <code>false</code> if there was at least one active branch when
      *         the timeout elapsed.
      * @throws InterruptedException If the current thread was interrupted during
-     *         the wait branches to finish.
+     *         the wait for branches to end.
      * @throws IllegalStateException If the invoker is not a {@link FlowMethod}.
      * @throws NullPointerException If <code>unit</code> is null.
      * @see #fork(int)
@@ -574,7 +567,6 @@ public final class Flow implements Serializable {
     public static boolean merge(long timeout, TimeUnit unit) throws InterruptedException {
         Flow current = fromInvoker();
         MethodFrame frame = current.currentFrame;
-        boolean leaving = false;
         try {
             if (unit == null) {
                 throw new NullPointerException();
@@ -584,10 +576,9 @@ public final class Flow implements Serializable {
                 throw new IllegalStateException("No active fork.");
             }
             switch (fork.merge(timeout, unit)) {
-                case Fork.LEAVE:
+                case Fork.EXIT:
                     assert fork.previous == null;
                     current.currentFrame.leaveThread();
-                    leaving = true;
                     return false;
                 case Fork.MERGED:
                     current.currentFork = fork.previous;
@@ -598,28 +589,30 @@ public final class Flow implements Serializable {
                     throw new AssertionError();
             }
         } finally {
-            if (!leaving) {
-                frame.invoked();
-            }
+            frame.invoked();
         }
     }
 
     /**
-     * Ignores the current fork, restoring the next outer fork, if any. This
-     * method is used leave the current fork without waiting for, nor causing,
-     * any branch to finish.
+     * Forgets the current fork without waiting for any branch. This method is
+     * used to exit the current fork without waiting for, nor causing, any
+     * branch to end.
      * <p>
-     * This method does not cause the current flow to leave, even if the invoker
-     * is a branch. If it's necessary that only the fork-creator remains active,
-     * one should call {@link #merge(long, TimeUnit) merge(0, TimeUnit.SECONDS)}
-     * instead of this method. If the invoker is a branch, it will be considered
-     * finished, and the flow will run "detached" from the fork, as if created
-     * by {@link #split(int)}. This means that it might unblock an ongoing call
-     * to {@link #merge()} in the fork-creator.
+     * If the invoker is the fork-creator, this method exits the fork and
+     * restores the next outer fork, if any, and then immediately returns. If
+     * the invoker is a branch, the flow will continue to run on the same
+     * thread, but "detached" from the fork, as if created by
+     * {@link #split(int)}. Therefore the fork-creator will consider this branch
+     * as ended, which means that it might unblock an ongoing call to
+     * {@link #merge()} in the fork-creator.
+     * <p>
+     * This method does not cause the current flow to end, even if the invoker
+     * is a branch. If you need this, use {@link #endFork()} instead.
      * 
      * @throws IllegalStateException If the invoker is not a {@link FlowMethod}.
      * @see #fork(int)
      * @see #merge(long, TimeUnit)
+     * @see #endFork()
      */
     @FlowMethod(manual = true)
     public static void forgetFork() {
@@ -634,6 +627,41 @@ public final class Flow implements Serializable {
                 current.currentFork = fork.previous;
             } else {
                 assert fork.previous == null;
+            }
+        } finally {
+            frame.invoked();
+        }
+    }
+
+    /**
+     * Ends the current fork without waiting for any branch. This method is used
+     * to exit the current fork without waiting for any branch to end.
+     * <p>
+     * If the invoker is the fork-creator, this method exits the fork and
+     * restores the next outer fork, if any, and then immediately returns. If
+     * the invoker is a branch, it will end the flow immediately, as if
+     * {@link #end()} were invoked. This means that it might unblock an ongoing
+     * call to {@link #merge()} in the fork-creator.
+     * 
+     * @throws IllegalStateException If the invoker is not a {@link FlowMethod}.
+     * @see #fork(int)
+     * @see #merge(long, TimeUnit)
+     * @see #forgetFork()
+     */
+    @FlowMethod(manual = true)
+    public static void endFork() {
+        Flow current = fromInvoker();
+        MethodFrame frame = current.currentFrame;
+        try {
+            Fork fork = current.currentFork;
+            if (fork == null) {
+                throw new IllegalStateException("No active fork.");
+            }
+            if (fork.unfork()) {
+                current.currentFork = fork.previous;
+            } else {
+                assert fork.previous == null;
+                frame.leaveThread();
             }
         } finally {
             frame.invoked();
@@ -656,8 +684,11 @@ public final class Flow implements Serializable {
         throw new AssertionError("Pending implementation.");
     }
 
+    /**
+     * Ends the current flow.
+     */
     @FlowMethod(manual = true)
-    public static void leave() {
+    public static void end() {
         Flow current = fromInvoker();
         MethodFrame frame = current.currentFrame;
         frame.leaveThread();
@@ -737,7 +768,6 @@ public final class Flow implements Serializable {
      * 
      * 
      * </pre>
-     * 
      * The above snippet prints the following (under fair scheduling
      * conditions):
      * 
@@ -748,14 +778,13 @@ public final class Flow implements Serializable {
      *     After returnAndContinue()
      *     Done
      * </pre>
-     * 
      * <p>
-     * Notice that the new flow finishes when the method <code>doFlow()</code>
-     * finishes. Hence the value of the actual <code>return</code> statement (
+     * Notice that the new flow ends when the method <code>doFlow()</code> ends.
+     * Hence the value of the actual <code>return</code> statement (
      * <code>456</code> in the example) is discarded. Calling this method more
      * than once in the same method works, but is redundant because in the
-     * second and subsequent calls, the work doesn't need to be finished in a
-     * new flow.
+     * second and subsequent calls, the work doesn't need to be done in a new
+     * flow.
      * 
      * @param v The value to return to the invoker's invoker.
      * @throws IllegalStateException If the invoker is not a {@link FlowMethod}.
@@ -839,15 +868,15 @@ public final class Flow implements Serializable {
      * Suspends the flow and sends a signal to the flow-controller.
      * <p>
      * This method first suspends the current flow at the point of invocation.
-     * Then it sends the specified signal to the
-     * {@linkplain Flow flow-controller}, as if the signal were thrown by the
-     * {@linkplain Flow flow-creator} (see below). After this, the next actions
-     * are fully determined by the flow-controller, which typically uses the
-     * signal to decide.
+     * Then it sends the specified signal to the {@linkplain Flow
+     * flow-controller}, as if the signal were thrown by the {@linkplain Flow
+     * flow-creator} (see below). After this, the next actions are fully
+     * determined by the flow-controller, which typically uses the signal to
+     * decide.
      * <p>
      * This method returns only when the flow-controller invokes a
-     * <code>resume</code> method (see below) on this flow or on a copy.
-     * Notice that this method may complete on a different flow and it may also
+     * <code>resume</code> method (see below) on this flow or on a copy. Notice
+     * that this method may complete on a different flow and it may also
      * complete more than once, at the discretion of the flow-controller.
      * <p>
      * Although the signal is an exception, this method doesn't throw the signal
@@ -860,12 +889,12 @@ public final class Flow implements Serializable {
      *    void example() { // This is the flow-controller.
      *        try {
      *            doFlow();
-     *            System.out.println(&quot;doFlow() finished&quot;);
+     *            System.out.println(&quot;doFlow() returned&quot;);
      *        } catch (FlowSignal signal) {
      *            System.out.println(&quot;Caught by the flow-controller&quot;);
      *            System.out.println(&quot;Calling Flow.resume()&quot;);
      *            signal.getFlow().{@link #resume()};
-     *            System.out.println(&quot;Flow finished&quot;);
+     *            System.out.println(&quot;Flow ended&quot;);
      *        }
      *    }
      * 
@@ -873,7 +902,7 @@ public final class Flow implements Serializable {
      *    void doFlow() { // This is the flow-creator.
      *        try {
      *            doSignal();
-     *            System.out.println(&quot;doSignal() finished&quot;);
+     *            System.out.println(&quot;doSignal() returned&quot;);
      *        } catch (FlowSignal signal) {
      *            System.out.println(&quot;Caught by the flow-creator&quot;);
      *        }
@@ -893,7 +922,6 @@ public final class Flow implements Serializable {
      * 
      * 
      * </pre>
-     * 
      * The above snippet prints the following:
      * 
      * <pre>
@@ -901,16 +929,15 @@ public final class Flow implements Serializable {
      *     Caught by the flow-controller
      *     Calling Flow.resume()
      *     Returned from signal (resumed)
-     *     doSignal() finished
-     *     Flow finished
+     *     doSignal() returned
+     *     Flow ended
      * </pre>
-     * 
      * The flow-controller can, among other actions, create a
      * {@linkplain #copy() shallow copy} of this flow, serialize this flow and
      * deserialize in another machine instance, ignore the signal and never
-     * {@linkplain #resume() resume}, or wait for some specific condition
-     * before resuming. To provide satisfactory usability, the flow-controller
-     * must proceed as specified by the received {@linkplain FlowSignal signal}
+     * {@linkplain #resume() resume}, or wait for some specific condition before
+     * resuming. To provide satisfactory usability, the flow-controller must
+     * proceed as specified by the received {@linkplain FlowSignal signal}
      * object. There are some well-known signal classes such as
      * {@link DelayedCallSignal} and {@link SuspendSignal}, but developers are
      * free to create new signals, as long as they provide support for them in
@@ -923,8 +950,8 @@ public final class Flow implements Serializable {
      * <code>null</code>.</li>
      * <li>If the flow is resumed with {@link #resume(Object)}, this method
      * returns the object passed to the <code>resume</code> method.</li>
-     * <li>If the flow is resumed with {@link #resumeThrowing(Throwable)},
-     * this method throws {@link ResumeException} whose
+     * <li>If the flow is resumed with {@link #resumeThrowing(Throwable)}, this
+     * method throws {@link ResumeException} whose
      * {@linkplain Throwable#getCause() cause} is the exception passed to the
      * <code>resumeThrowing</code> method.</li>
      * </ul>
@@ -937,8 +964,7 @@ public final class Flow implements Serializable {
      * @param signal The signal that will be sent to the flow-controller.
      * @return The object passed to {@link #resume(Object)} method.
      * @throws IllegalStateException If the invoker is not a {@link FlowMethod}.
-     * @throws NullPointerException If <code>signal</code> is
-     *         <code>null</code>.
+     * @throws NullPointerException If <code>signal</code> is <code>null</code>.
      * @throws ResumeException If the flow is resuming through
      *         {@link #resumeThrowing(Throwable)}.
      */
@@ -1073,7 +1099,7 @@ public final class Flow implements Serializable {
     private Flow(FlowManager manager, Flow previous) {
         this.manager = manager;
         this.previous = previous;
-        state = FINISHED;
+        state = ENDED;
     }
 
     public FlowManager getManager() {
@@ -1092,8 +1118,8 @@ public final class Flow implements Serializable {
         return state == SUSPENDED;
     }
 
-    public boolean isFinished() {
-        return state == FINISHED;
+    public boolean isEnded() {
+        return state == ENDED;
     }
 
     public Object getResult() {
@@ -1170,7 +1196,7 @@ public final class Flow implements Serializable {
             }
         } finally {
             if (success) {
-                assert state == FINISHED || state == SUSPENDED : "state==" + state;
+                assert state == ENDED || state == SUSPENDED : "state==" + state;
             }
         }
     }
@@ -1207,14 +1233,14 @@ public final class Flow implements Serializable {
      * implementation of utilities such as {@link #split(int)} and
      * {@link EventPicker}.
      * <p>
-     * The target flow must be either suspended or finished, and hence this
-     * method cannot be used to copy a running flow. To get the state of a
-     * running flow, use {@link Continuation}.
+     * The target flow must be either suspended or ended, and hence this method
+     * cannot be used to copy a running flow. To get the state of a running
+     * flow, use {@link Continuation}.
      * <p>
      * 
      * @return A flow whose execution context is identical to this flow, sharing
      *         all heap objects referenced by stack frames.
-     * @throws IllegalStateException If this flow is not suspended nor finished.
+     * @throws IllegalStateException If this flow is not suspended nor ended.
      */
     public Flow copy() {
         checkSteady();
@@ -1247,7 +1273,7 @@ public final class Flow implements Serializable {
             case SUSPENDED:
                 assert suspendedFrame != null;
                 break;
-            case FINISHED:
+            case ENDED:
                 assert suspendedFrame == null;
                 break;
             default:
@@ -1293,7 +1319,7 @@ public final class Flow implements Serializable {
     }
 
     public synchronized Object join() throws InterruptedException {
-        while (state != FINISHED) {
+        while (state != ENDED) {
             wait();
         }
         return result;
@@ -1307,7 +1333,7 @@ public final class Flow implements Serializable {
     }
 
     public synchronized Object waitNotRunning() throws InterruptedException {
-        while (state != SUSPENDED && state != FINISHED) {
+        while (state != SUSPENDED && state != ENDED) {
             wait();
         }
         return result;
@@ -1337,7 +1363,7 @@ public final class Flow implements Serializable {
                     this.process = process;
                 }
                 synchronized(this) {
-                    state = FINISHED;
+                    state = ENDED;
                     currentFrame = null;
                     notifyAll();
                 }
@@ -1388,7 +1414,7 @@ public final class Flow implements Serializable {
 
     synchronized void setSuspendedFrame(MethodFrame frame) {
         switch (state) {
-            case FINISHED:
+            case ENDED:
                 suspendedFrame = frame;
                 state = SUSPENDED;
                 if (process != null) {

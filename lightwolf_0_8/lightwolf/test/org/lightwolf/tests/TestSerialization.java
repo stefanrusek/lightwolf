@@ -30,7 +30,7 @@ public class TestSerialization implements Serializable {
         c.count();
         Flow susp = signal.getFlow();
         Assert.assertTrue(susp.isSuspended());
-        Assert.assertFalse(susp.isFinished());
+        Assert.assertFalse(susp.isEnded());
         Assert.assertFalse(susp.isActive());
 
         susp = (Flow) Util.streamedCopy(susp);
@@ -40,7 +40,7 @@ public class TestSerialization implements Serializable {
         c.count();
         Assert.assertEquals("ABCXYZ", output);
         Assert.assertFalse(susp.isSuspended());
-        Assert.assertTrue(susp.isFinished());
+        Assert.assertTrue(susp.isEnded());
 
         Assert.assertFalse(susp.isActive());
 

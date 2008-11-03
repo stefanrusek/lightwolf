@@ -108,7 +108,7 @@ public class SimpleFlowManager extends FlowManager implements Serializable {
                     } catch (SuspendSignal s) {
                         return;
                     }
-                    assert flow.isFinished();
+                    assert flow.isEnded();
                 } catch (Throwable e) {
                     notifyException(e);
                 }

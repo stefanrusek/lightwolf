@@ -150,7 +150,7 @@ public class Process {
                 Flow.log("pp - owner.exit.");
                 owner.exit();
                 Flow.log("pp - leave.");
-                Flow.leave();
+                Flow.end();
                 throw new AssertionError();
             }
             int fork = Flow.fork(1);
@@ -176,7 +176,7 @@ public class Process {
                 Flow.log("join - owner.exit.");
                 owner.exit();
                 Flow.log("join - leave.");
-                Flow.leave();
+                Flow.end();
                 throw new AssertionError();
             }
             Flow.log("join - let-it-go.");

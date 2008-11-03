@@ -28,7 +28,7 @@ import java.util.concurrent.TimeUnit;
 
 final class Fork {
 
-    static final int LEAVE = 1;
+    static final int EXIT = 1;
     static final int MERGED = 2;
     static final int TIMEOUT = 3;
 
@@ -49,7 +49,7 @@ final class Fork {
     int merge(long timeout, TimeUnit unit) throws InterruptedException {
         checkActive();
         if (number > 0) {
-            return LEAVE;
+            return EXIT;
         }
         return waitJoin(timeout, unit) ? MERGED : TIMEOUT;
     }

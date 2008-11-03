@@ -4,7 +4,7 @@ import junit.framework.JUnit4TestAdapter;
 import junit.framework.Test;
 import junit.framework.TestSuite;
 
-public class AllTests2 {
+public class AllLightWolfTests {
 
     public static Test suite() {
         TestSuite suite = new TestSuite("Test for soft.test");

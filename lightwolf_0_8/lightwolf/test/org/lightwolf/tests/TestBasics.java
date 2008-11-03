@@ -159,7 +159,7 @@ public class TestBasics {
         s = q.take();
         Assert.assertEquals("789GHI456", s);
         flow.join();
-        Assert.assertTrue(flow.isFinished());
+        Assert.assertTrue(flow.isEnded());
     }
 
     @Test
@@ -195,7 +195,7 @@ public class TestBasics {
         s = q.take();
         Assert.assertEquals("789GHI456", s);
         flow.join();
-        Assert.assertTrue(flow.isFinished());
+        Assert.assertTrue(flow.isEnded());
     }
 
 }
