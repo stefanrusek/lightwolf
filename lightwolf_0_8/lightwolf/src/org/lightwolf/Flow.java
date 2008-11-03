@@ -685,7 +685,49 @@ public final class Flow implements Serializable {
     }
 
     /**
-     * Ends the current flow.
+     * Ends the current flow. This method does not return. It causes execution
+     * to continue after the {@linkplain Flow flow-creator}. The following
+     * sample illustrates this behavior:
+     * 
+     * <pre>
+     *    void example() {
+     *        System.out.println(&quot;Before doFlow()&quot;);
+     *        int i = doFlow();
+     *        System.out.printf(&quot;doFlow(): %d\n&quot;, i);
+     *    }
+     * 
+     *    &#064;{@link FlowMethod}
+     *    int doFlow() {
+     *        System.out.println(&quot;Before end()&quot;);
+     *        Flow.end();
+     *        System.out.println(&quot;After end()&quot;);
+     *        return 5;
+     *    }
+     * 
+     * </pre>
+     * 
+     * The above snippet prints the following:
+     * 
+     * <pre>
+     *     Before doFlow()
+     *     Before end()
+     *     doFlow(): 0
+     * </pre>
+     * <p>
+     * This method causes the flow-creator to return a "zero" value
+     * corresponding to its return type:
+     * <ul>
+     * <li><b>Reference-type:</b> returns <code>null</code>.</li>
+     * <li><b>Numeric-type:</b> returns <code>0</code>.</li>
+     * <li><b>boolean:</b> returns <code>false</code>.</li>
+     * <li><b>char:</b> returns <code>(char) 0</code>.</li>
+     * </ul>
+     * <p>
+     * If the current flow was created by an utility such as {@link #split(int)}
+     * or {@link #returnAndContinue()}, this method never returns and simply
+     * releases the current thread.
+     * 
+     * @throws IllegalStateException If the invoker is not a {@link FlowMethod}.
      */
     @FlowMethod(manual = true)
     public static void end() {
