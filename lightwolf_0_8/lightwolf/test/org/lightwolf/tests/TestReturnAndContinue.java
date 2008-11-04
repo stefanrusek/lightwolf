@@ -261,6 +261,27 @@ public class TestReturnAndContinue {
 
     @Test
     @FlowMethod
+    public void testClassCast() throws Throwable {
+        String output = callClassCast();
+        if (output != "123") {
+            Assert.fail("Wrong output: " + output);
+        }
+    }
+
+    @FlowMethod
+    private String callClassCast() {
+        Integer notAtString = new Integer(123);
+        try {
+            Flow.returnAndContinue(notAtString);
+            Assert.fail("Class cast wasn't thrown.");
+        } catch (ClassCastException e) {
+            // fine.
+        }
+        return "123";
+    }
+
+    @Test
+    @FlowMethod
     public void testInvalidBooleanResult() throws Throwable {
         byte ret = returnBooleanOnByte();
         Assert.assertEquals(2, ret);
@@ -281,6 +302,9 @@ public class TestReturnAndContinue {
     @Test
     @FlowMethod
     public void testReturnInSynchronized() throws Throwable {
+        if (true) {
+            Assert.fail();
+        }
         Object lock = new Object();
         try {
             returnInSynchronized(lock);

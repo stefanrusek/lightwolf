@@ -56,7 +56,9 @@ public class SimpleFlowManager extends FlowManager implements Serializable {
     public SimpleFlowManager(String name) {
         key = new Key(name);
         executor = new ScheduledThreadPoolExecutor(8, new SimpleThreadFactory(name));
-        activeManagers.put(key, this);
+        synchronized(activeManagers) {
+            activeManagers.put(key, this);
+        }
         Runtime.getRuntime().addShutdownHook(new ShutdownManager());
     }
 

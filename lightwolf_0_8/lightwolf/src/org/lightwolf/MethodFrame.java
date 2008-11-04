@@ -191,11 +191,11 @@ public final class MethodFrame implements Serializable {
     }
 
     public void monitorEnter(Object o) {
-        // LightWolfLog.println("-- Ignoring monitor enter! --");
+    // LightWolfLog.println("-- Ignoring monitor enter! --");
     }
 
     public void monitorExit(Object o) {
-        // LightWolfLog.println("-- Ignoring monitor exit! --");
+    // LightWolfLog.println("-- Ignoring monitor exit! --");
     }
 
     public int getPrimitiveCount() {
@@ -542,6 +542,29 @@ public final class MethodFrame implements Serializable {
         }
         assert prior.state == INVOKING;
         state = LEAVING_METHOD;
+    }
+
+    public Class<?> getTargetClass() {
+        Object owner = target;
+        return owner instanceof Class ? (Class<?>) owner : owner.getClass();
+    }
+
+    public String getMethodName() {
+        return name;
+    }
+
+    public String getMethodDesc() {
+        return desc;
+    }
+
+    public Class<?>[] getMethodParameterTypes() throws ClassNotFoundException {
+        Type[] argTypes = Type.getArgumentTypes(desc);
+        return Types.typeToClass(argTypes);
+    }
+
+    public Class<?> getMethodReturnType() throws ClassNotFoundException {
+        Type returnType = Type.getReturnType(desc);
+        return Types.typeToClass(returnType);
     }
 
 }

@@ -736,6 +736,59 @@ public final class Flow implements Serializable {
         frame.leaveThread();
     }
 
+    /**
+     * Performs <code>return</code> while continuing asynchronously.
+     * <p>
+     * This method is used to perform a local {@linkplain #split(int) split}
+     * operation. In the current flow, it works as if <code>return</code> were
+     * executed. In a newly created flow, the invoker is resumed from the point
+     * of invocation. The new flow starts from the invoker method, and not from
+     * the original {@linkplain FlowMethod flow-creator} as it would be if
+     * {@link #split(int)} were used. The following example illustrates this
+     * behavior:
+     * 
+     * <pre>
+     *    &#064;{@link FlowMethod}
+     *    void example() {
+     *        System.out.println(&quot;Before doFlow()&quot;);
+     *        doFlow();
+     *        System.out.println(&quot;After doFlow()&quot;);
+     *        Thread.sleep(50); // Schedule the new flow's thread. 
+     *        System.out.println(&quot;Done&quot;);
+     *    }
+     * 
+     *    &#064;{@link FlowMethod}
+     *    void doFlow() {
+     *        System.out.println(&quot;Before returnAndContinue()&quot;);
+     *        Flow.returnAndContinue();
+     *        System.out.println(&quot;After returnAndContinue()&quot;);
+     *    }
+     * 
+     * 
+     * </pre>
+     * <p>
+     * The above example prints the following:
+     * 
+     * <pre>
+     *     Before doFlow()
+     *     Before returnAndContinue()
+     *     After doFlow()
+     *     After returnAndContinue()
+     *     Done
+     * </pre>
+     * <p>
+     * Notice that the new flow ends when the method <code>doFlow()</code> ends.
+     * Calling this method more than once in the same method works, but is
+     * redundant because in the second and subsequent calls, the work doesn't
+     * need to be done in a new flow.
+     * <p>
+     * This method must be called only by a <code>void</code> method. There is
+     * one version of this method for each possible return value.
+     * 
+     * @throws IllegalStateException If the invoker is not a {@link FlowMethod}.
+     * @throws IllegalReturnValueException If the invoker is not a
+     *         <code>void</code> method.
+     */
     @FlowMethod(manual = true)
     public static void returnAndContinue() {
         MethodFrame frame = forkAndReturn(Types.TYPE_CODE_VOID);
@@ -744,6 +797,16 @@ public final class Flow implements Serializable {
         }
     }
 
+    /**
+     * Performs <code>return</code> <i>boolean-value</i> while continuing
+     * asynchronously. This method is similar to {@link #returnAndContinue(int)}
+     * , except for that it must be invoked for a <code>boolean</code> method.
+     * 
+     * @param v The value to return.
+     * @throws IllegalStateException If the invoker is not a {@link FlowMethod}.
+     * @throws IllegalReturnValueException If the invoker is not a
+     *         <code>boolean</code> method.
+     */
     @FlowMethod(manual = true)
     public static void returnAndContinue(boolean v) {
         MethodFrame frame = forkAndReturn(Types.TYPE_CODE_BOOLEAN);
@@ -752,6 +815,16 @@ public final class Flow implements Serializable {
         }
     }
 
+    /**
+     * Performs <code>return</code> <i>char-value</i> while continuing
+     * asynchronously. This method is similar to {@link #returnAndContinue(int)}
+     * , except for that it must be invoked for a <code>char</code> method.
+     * 
+     * @param v The value to return.
+     * @throws IllegalStateException If the invoker is not a {@link FlowMethod}.
+     * @throws IllegalReturnValueException If the invoker is not a
+     *         <code>char</code> method.
+     */
     @FlowMethod(manual = true)
     public static void returnAndContinue(char v) {
         MethodFrame frame = forkAndReturn(Types.TYPE_CODE_CHAR);
@@ -760,6 +833,16 @@ public final class Flow implements Serializable {
         }
     }
 
+    /**
+     * Performs <code>return</code> <i>byte-value</i> while continuing
+     * asynchronously. This method is similar to {@link #returnAndContinue(int)}
+     * , except for that it must be invoked for a <code>byte</code> method.
+     * 
+     * @param v The value to return.
+     * @throws IllegalStateException If the invoker is not a {@link FlowMethod}.
+     * @throws IllegalReturnValueException If the invoker is not a
+     *         <code>byte</code> method.
+     */
     @FlowMethod(manual = true)
     public static void returnAndContinue(byte v) {
         MethodFrame frame = forkAndReturn(Types.TYPE_CODE_BYTE);
@@ -768,6 +851,16 @@ public final class Flow implements Serializable {
         }
     }
 
+    /**
+     * Performs <code>return</code> <i>short-value</i> while continuing
+     * asynchronously. This method is similar to {@link #returnAndContinue(int)}
+     * , except for that it must be invoked for a <code>short</code> method.
+     * 
+     * @param v The value to return.
+     * @throws IllegalStateException If the invoker is not a {@link FlowMethod}.
+     * @throws IllegalReturnValueException If the invoker is not a
+     *         <code>short</code> method.
+     */
     @FlowMethod(manual = true)
     public static void returnAndContinue(short v) {
         MethodFrame frame = forkAndReturn(Types.TYPE_CODE_SHORT);
@@ -781,14 +874,13 @@ public final class Flow implements Serializable {
      * asynchronously.
      * <p>
      * This method is used to perform a local {@linkplain #split(int) split}
-     * operation. In the current flow, the invoker returns the <code>int</code>
-     * to its invoker, as if it were executed <code>return v</code> instead of
-     * calling this method. The invoker method is resumed from the point of
-     * invocation, in a new flow created by this method. The new flow appears to
-     * have been started from the invoker method, and not from the original
-     * {@linkplain FlowMethod flow-creator} as it would be if
-     * {@link #split(int)} were used. The following snippet illustrates this
+     * operation. In the current flow, it works as if <code>return v</code> were
+     * executed. In a newly created flow, the invoker is resumed from the point
+     * of invocation. The new flow starts from the invoker method, and not from
+     * the original {@linkplain FlowMethod flow-creator} as it would be if
+     * {@link #split(int)} were used. The following example illustrates this
      * behavior:
+     * <p>
      * 
      * <pre>
      *    &#064;{@link FlowMethod}
@@ -796,7 +888,7 @@ public final class Flow implements Serializable {
      *        System.out.println(&quot;Before doFlow()&quot;);
      *        int i = doFlow();
      *        System.out.printf(&quot;doFlow(): %d\n&quot;, i);
-     *        Thread.sleep(50);
+     *        Thread.sleep(50); // Schedule the new flow's thread. 
      *        System.out.println(&quot;Done&quot;);
      *    }
      * 
@@ -810,8 +902,7 @@ public final class Flow implements Serializable {
      * 
      * 
      * </pre>
-     * The above snippet prints the following (under fair scheduling
-     * conditions):
+     * The above example prints the following:
      * 
      * <pre>
      *     Before doFlow()
@@ -827,9 +918,14 @@ public final class Flow implements Serializable {
      * than once in the same method works, but is redundant because in the
      * second and subsequent calls, the work doesn't need to be done in a new
      * flow.
+     * <p>
+     * This method must be called only by an <code>int</code> method. There is
+     * one version of this method for each possible return value.
      * 
-     * @param v The value to return to the invoker's invoker.
+     * @param v The value to return.
      * @throws IllegalStateException If the invoker is not a {@link FlowMethod}.
+     * @throws IllegalReturnValueException If the invoker is not an
+     *         <code>int</code> method.
      */
     @FlowMethod(manual = true)
     public static void returnAndContinue(int v) {
@@ -839,6 +935,16 @@ public final class Flow implements Serializable {
         }
     }
 
+    /**
+     * Performs <code>return</code> <i>long-value</i> while continuing
+     * asynchronously. This method is similar to {@link #returnAndContinue(int)}
+     * , except for that it must be invoked for a <code>long</code> method.
+     * 
+     * @param v The value to return.
+     * @throws IllegalStateException If the invoker is not a {@link FlowMethod}.
+     * @throws IllegalReturnValueException If the invoker is not a
+     *         <code>long</code> method.
+     */
     @FlowMethod(manual = true)
     public static void returnAndContinue(long v) {
         MethodFrame frame = forkAndReturn(Types.TYPE_CODE_LONG);
@@ -847,6 +953,16 @@ public final class Flow implements Serializable {
         }
     }
 
+    /**
+     * Performs <code>return</code> <i>float-value</i> while continuing
+     * asynchronously. This method is similar to {@link #returnAndContinue(int)}
+     * , except for that it must be invoked for a <code>float</code> method.
+     * 
+     * @param v The value to return.
+     * @throws IllegalStateException If the invoker is not a {@link FlowMethod}.
+     * @throws IllegalReturnValueException If the invoker is not a
+     *         <code>float</code> method.
+     */
     @FlowMethod(manual = true)
     public static void returnAndContinue(float v) {
         MethodFrame frame = forkAndReturn(Types.TYPE_CODE_FLOAT);
@@ -855,6 +971,16 @@ public final class Flow implements Serializable {
         }
     }
 
+    /**
+     * Performs <code>return</code> <i>double-value</i> while continuing
+     * asynchronously. This method is similar to {@link #returnAndContinue(int)}
+     * , except for that it must be invoked for a <code>double</code> method.
+     * 
+     * @param v The value to return.
+     * @throws IllegalStateException If the invoker is not a {@link FlowMethod}.
+     * @throws IllegalReturnValueException If the invoker is not a
+     *         <code>double</code> method.
+     */
     @FlowMethod(manual = true)
     public static void returnAndContinue(double v) {
         MethodFrame frame = forkAndReturn(Types.TYPE_CODE_DOUBLE);
@@ -863,12 +989,55 @@ public final class Flow implements Serializable {
         }
     }
 
+    /**
+     * Performs <code>return</code> <i>reference-value</i> while continuing
+     * asynchronously. This method is similar to {@link #returnAndContinue(int)}
+     * , except for that it must be invoked for an reference method.
+     * <p>
+     * 
+     * @param v The value to return.
+     * @throws IllegalStateException If the invoker is not a {@link FlowMethod}.
+     * @throws IllegalReturnValueException If the invoker is not a reference
+     *         method.
+     * @throws ClassCastException If the returned object is not assignable to
+     *         the invoker's return type.
+     */
     @FlowMethod(manual = true)
     public static void returnAndContinue(Object v) {
-        // Use ';' because an object descriptor is "L<package>/<class>;" .
-        MethodFrame frame = forkAndReturn(';');
-        if (frame != null) {
-            frame.result(v);
+        Flow current = fromInvoker();
+        MethodFrame returning;
+        MethodFrame frame = current.currentFrame;
+        try {
+            // Use ';' because an object descriptor is "L<package>/<class>;" .
+            frame.checkResultType(';');
+            if (v != null) {
+                Class<?> clazz;
+                try {
+                    clazz = frame.getMethodReturnType();
+                } catch (ClassNotFoundException e) {
+                    throw new RuntimeException(e);
+                }
+                clazz.cast(v);
+            }
+            if (frame.isInvoking()) {
+                // We are performing a fork.
+                Flow copy;
+                current.suspendInPlace();
+                try {
+                    copy = current.frameCopy();
+                } finally {
+                    current.restoreInPlace();
+                }
+                copy.activate();
+                returning = frame;
+            } else {
+                returning = null;
+            }
+        } finally {
+            frame.invoked();
+        }
+        if (returning != null) {
+            returning.result(v);
         }
     }
 
@@ -876,13 +1045,13 @@ public final class Flow implements Serializable {
         Flow current = fromInvoker();
         MethodFrame frame = current.currentFrame;
         try {
-            current.currentFrame.checkResultType(type);
+            frame.checkResultType(type);
             if (frame.isInvoking()) {
                 // We are performing a fork.
                 Flow copy;
                 current.suspendInPlace();
                 try {
-                    copy = current.shallowCopy();
+                    copy = current.frameCopy();
                 } finally {
                     current.restoreInPlace();
                 }
@@ -1164,10 +1333,6 @@ public final class Flow implements Serializable {
         return state == ENDED;
     }
 
-    public Object getResult() {
-        return result;
-    }
-
     public Object resume() {
         return resume(null);
     }
@@ -1180,19 +1345,21 @@ public final class Flow implements Serializable {
     }
 
     public Object resume(Object result) {
-        if (state != SUSPENDED) {
-            throw new IllegalStateException("Cannot resume if the flow is " + stateNames[state] + '.');
+        synchronized(this) {
+            if (state != SUSPENDED) {
+                throw new IllegalStateException("Cannot resume if the flow is " + stateNames[state] + '.');
+            }
+            state = ACTIVE;
         }
         boolean success = false;
-        state = ACTIVE;
         try {
             restore();
             setCurrent(this);
             this.result = result;
-            Class<?> clazz = getRootClass();
+            Class<?> clazz = suspendedFrame.getTargetClass();
 
             try {
-                Class<?>[] argClasses = getRootParameterTypes();
+                Class<?>[] argClasses = suspendedFrame.getMethodParameterTypes();
                 Object[] argValues = new Object[argClasses.length];
 
                 /* TODO:
@@ -1205,7 +1372,7 @@ public final class Flow implements Serializable {
                 NoSuchMethodException fe = null;
                 for (;;) {
                     try {
-                        Method m = clazz.getDeclaredMethod(getRootName(), argClasses);
+                        Method m = clazz.getDeclaredMethod(suspendedFrame.getMethodName(), argClasses);
                         m.setAccessible(true);
                         Object owner = getRootValues(m, argValues);
                         Object ret = m.invoke(owner, argValues);
@@ -1284,7 +1451,7 @@ public final class Flow implements Serializable {
      *         all heap objects referenced by stack frames.
      * @throws IllegalStateException If this flow is not suspended nor ended.
      */
-    public Flow copy() {
+    public synchronized Flow copy() {
         checkSteady();
         Flow ret = new Flow(manager, null);
         ret.state = state;
@@ -1297,7 +1464,7 @@ public final class Flow implements Serializable {
         return ret;
     }
 
-    public Flow shallowCopy() {
+    private synchronized Flow frameCopy() {
         checkSteady();
         Flow ret = new Flow(manager, null);
         ret.state = state;
@@ -1340,24 +1507,6 @@ public final class Flow implements Serializable {
         } catch (ClassNotFoundException e) {
             throw new RuntimeException(e);
         }
-    }
-
-    public Class<?> getRootClass() {
-        Object owner = suspendedFrame.target;
-        return owner instanceof Class ? (Class<?>) owner : owner.getClass();
-    }
-
-    public String getRootName() {
-        return suspendedFrame.name;
-    }
-
-    public String getRootDesc() {
-        return suspendedFrame.desc;
-    }
-
-    public Class<?>[] getRootParameterTypes() throws ClassNotFoundException {
-        Type[] argTypes = Type.getArgumentTypes(suspendedFrame.desc);
-        return Types.typeToClass(argTypes);
     }
 
     public synchronized Object join() throws InterruptedException {
@@ -1482,7 +1631,7 @@ public final class Flow implements Serializable {
         currentFrame = null;
     }
 
-    private void restoreInPlace() {
+    private synchronized void restoreInPlace() {
         assert state == SUSPENDED;
         assert currentFrame == null;
         assert suspendedFrame != null;
