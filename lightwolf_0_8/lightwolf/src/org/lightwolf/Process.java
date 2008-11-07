@@ -26,6 +26,7 @@ package org.lightwolf;
 
 import java.util.HashSet;
 
+
 public class Process {
 
     public static Process current() {
@@ -40,20 +41,39 @@ public class Process {
         }
         return ret;
     }
-
-    @FlowMethod(manual = true)
+    
+    @FlowMethod
     public static Object receive(Object matcher) {
-        return safeCurrent().doReceive(matcher);
+        return safeCurrent().manager.receive(matcher);
     }
 
-    @FlowMethod(manual = true)
+    @FlowMethod
+    public static Object receiveMany(Object matcher) {
+        return safeCurrent().manager.receiveMany(matcher);
+    }
+
+    @FlowMethod
     public static void send(Object key, Object message) {
+        if (message == null) {
+            throw new NullPointerException();
+        }
         safeCurrent().manager.send(key, message);
     }
 
-    @FlowMethod(manual = true)
-    private Object doReceive(Object matcher) {
-        return manager.receive(matcher);
+    public static Connection accept(Object matcher) {
+        return safeCurrent().manager.accept(matcher);
+    }
+
+    public static Connection acceptMany(Object matcher) {
+        return safeCurrent().manager.acceptMany(matcher);
+    }
+
+    public static Connection connect(Object matcher) {
+        return safeCurrent().manager.connect(matcher);
+    }
+
+    public static Connection connectAll(Object matcher) {
+        return safeCurrent().manager.connectAll(matcher);
     }
 
     private final ProcessManager manager;

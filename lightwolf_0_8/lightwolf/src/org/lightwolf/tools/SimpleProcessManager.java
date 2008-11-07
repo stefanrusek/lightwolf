@@ -84,6 +84,9 @@ public class SimpleProcessManager extends ProcessManager {
     private void dispatch(Object message, LinkedList<Flow> list) {
         for (;;) {
             Flow flow = list.poll();
+            if (flow == null) {
+                return;
+            }
             flow.activate(message);
         }
     }

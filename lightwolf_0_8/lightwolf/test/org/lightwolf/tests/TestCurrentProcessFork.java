@@ -150,6 +150,7 @@ public class TestCurrentProcessFork {
 
     @FlowMethod
     private void callString(boolean fork, String arg, Counter c) {
+        System.out.println(arg);
         if (fork) {
             CurrentProcess.fork();
             for (int i = 0; i < 2; ++i) {
@@ -165,6 +166,7 @@ public class TestCurrentProcessFork {
 
     @FlowMethod
     private void callInteger(boolean fork, Integer arg, Counter c) {
+        System.out.println(arg);
         if (fork) {
             CurrentProcess.fork();
             for (int i = 0; i < 2; ++i) {

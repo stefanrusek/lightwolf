@@ -205,10 +205,10 @@ public final class Flow implements Serializable {
 
     @FlowMethod(manual = true)
     public static Process process() {
-        Flow current = Flow.fromInvoker();
-        MethodFrame frame = current.currentFrame;
+        Flow cur = Flow.fromInvoker();
+        MethodFrame frame = cur.currentFrame;
         try {
-            return current.process;
+            return cur.process;
         } finally {
             frame.invoked();
         }
@@ -216,19 +216,19 @@ public final class Flow implements Serializable {
 
     @FlowMethod(manual = true)
     public static void joinProcess(Process process) {
-        Flow current = Flow.fromInvoker();
-        MethodFrame frame = current.currentFrame;
+        Flow cur = Flow.fromInvoker();
+        MethodFrame frame = cur.currentFrame;
         try {
             if (process == null) {
                 throw new NullPointerException();
             }
-            if (current.process != null) {
-                if (current.process == process) {
+            if (cur.process != null) {
+                if (cur.process == process) {
                     throw new IllegalStateException("Flow already belongs to specified process.");
                 }
                 throw new IllegalStateException("Flow belongs to another process.");
             }
-            process.add(current);
+            process.add(cur);
         } finally {
             frame.invoked();
         }
@@ -236,14 +236,14 @@ public final class Flow implements Serializable {
 
     @FlowMethod(manual = true)
     public static void leaveProcess() {
-        Flow current = Flow.fromInvoker();
-        MethodFrame frame = current.currentFrame;
+        Flow cur = Flow.fromInvoker();
+        MethodFrame frame = cur.currentFrame;
         try {
-            Process process = current.process;
+            Process process = cur.process;
             if (process == null) {
                 throw new IllegalStateException("Flow does not belong to any process.");
             }
-            process.remove(current);
+            process.remove(cur);
         } finally {
             frame.invoked();
         }
@@ -251,14 +251,14 @@ public final class Flow implements Serializable {
 
     @FlowMethod(manual = true)
     public static boolean forgetProcess() {
-        Flow current = Flow.fromInvoker();
-        MethodFrame frame = current.currentFrame;
+        Flow cur = Flow.fromInvoker();
+        MethodFrame frame = cur.currentFrame;
         try {
-            Process process = current.process;
+            Process process = cur.process;
             if (process == null) {
                 return false;
             }
-            process.remove(current);
+            process.remove(cur);
             return true;
         } finally {
             frame.invoked();
@@ -266,15 +266,15 @@ public final class Flow implements Serializable {
     }
 
     public static Flow snapshot() {
-        Flow current = Flow.fromInvoker();
-        MethodFrame frame = current.currentFrame;
+        Flow cur = Flow.fromInvoker();
+        MethodFrame frame = cur.currentFrame;
         try {
             if (frame.isInvoking()) {
-                current.suspendInPlace();
+                cur.suspendInPlace();
                 try {
-                    return current.copy();
+                    return cur.copy();
                 } finally {
-                    current.restoreInPlace();
+                    cur.restoreInPlace();
                 }
             }
             return null;
@@ -365,19 +365,19 @@ public final class Flow implements Serializable {
      */
     @FlowMethod(manual = true)
     public static int split(int n) {
-        Flow current = fromInvoker();
-        MethodFrame frame = current.currentFrame;
+        Flow cur = fromInvoker();
+        MethodFrame frame = cur.currentFrame;
         try {
             if (frame.isInvoking()) {
-                current.suspendInPlace();
+                cur.suspendInPlace();
                 try {
-                    current.manager.fork(current, n);
+                    cur.manager.fork(cur, n);
                 } finally {
-                    current.restoreInPlace();
+                    cur.restoreInPlace();
                 }
             }
-            Fork fork = current.currentFork;
-            current.currentFork = fork.previous;
+            Fork fork = cur.currentFork;
+            cur.currentFork = fork.previous;
             return fork.number;
         } finally {
             frame.invoked();
@@ -436,19 +436,19 @@ public final class Flow implements Serializable {
      */
     @FlowMethod(manual = true)
     public static int fork(int n) {
-        Flow current = fromInvoker();
-        MethodFrame frame = current.currentFrame;
+        Flow cur = fromInvoker();
+        MethodFrame frame = cur.currentFrame;
         try {
             if (frame.isInvoking()) {
                 // We are performing a fork.
-                current.suspendInPlace();
+                cur.suspendInPlace();
                 try {
-                    current.manager.fork(current, n);
+                    cur.manager.fork(cur, n);
                 } finally {
-                    current.restoreInPlace();
+                    cur.restoreInPlace();
                 }
             }
-            return current.currentFork.number;
+            return cur.currentFork.number;
         } finally {
             frame.invoked();
         }
@@ -504,18 +504,18 @@ public final class Flow implements Serializable {
      */
     @FlowMethod(manual = true)
     public static void merge() throws InterruptedException {
-        Flow current = fromInvoker();
-        MethodFrame frame = current.currentFrame;
+        Flow cur = fromInvoker();
+        MethodFrame frame = cur.currentFrame;
         try {
-            Fork fork = current.currentFork;
+            Fork fork = cur.currentFork;
             if (fork != null) {
                 switch (fork.merge(0, null)) {
                     case Fork.EXIT:
                         assert fork.previous == null;
-                        current.currentFrame.leaveThread();
+                        cur.currentFrame.leaveThread();
                         return;
                     case Fork.MERGED:
-                        current.currentFork = fork.previous;
+                        cur.currentFork = fork.previous;
                         return;
                     default:
                         throw new AssertionError();
@@ -565,23 +565,23 @@ public final class Flow implements Serializable {
      */
     @FlowMethod(manual = true)
     public static boolean merge(long timeout, TimeUnit unit) throws InterruptedException {
-        Flow current = fromInvoker();
-        MethodFrame frame = current.currentFrame;
+        Flow cur = fromInvoker();
+        MethodFrame frame = cur.currentFrame;
         try {
             if (unit == null) {
                 throw new NullPointerException();
             }
-            Fork fork = current.currentFork;
+            Fork fork = cur.currentFork;
             if (fork == null) {
                 throw new IllegalStateException("No active fork.");
             }
             switch (fork.merge(timeout, unit)) {
                 case Fork.EXIT:
                     assert fork.previous == null;
-                    current.currentFrame.leaveThread();
+                    cur.currentFrame.leaveThread();
                     return false;
                 case Fork.MERGED:
-                    current.currentFork = fork.previous;
+                    cur.currentFork = fork.previous;
                     return true;
                 case Fork.TIMEOUT:
                     return false;
@@ -616,15 +616,15 @@ public final class Flow implements Serializable {
      */
     @FlowMethod(manual = true)
     public static void forgetFork() {
-        Flow current = fromInvoker();
-        MethodFrame frame = current.currentFrame;
+        Flow cur = fromInvoker();
+        MethodFrame frame = cur.currentFrame;
         try {
-            Fork fork = current.currentFork;
+            Fork fork = cur.currentFork;
             if (fork == null) {
                 throw new IllegalStateException("No active fork.");
             }
             if (fork.unfork()) {
-                current.currentFork = fork.previous;
+                cur.currentFork = fork.previous;
             } else {
                 assert fork.previous == null;
             }
@@ -650,15 +650,15 @@ public final class Flow implements Serializable {
      */
     @FlowMethod(manual = true)
     public static void endFork() {
-        Flow current = fromInvoker();
-        MethodFrame frame = current.currentFrame;
+        Flow cur = fromInvoker();
+        MethodFrame frame = cur.currentFrame;
         try {
-            Fork fork = current.currentFork;
+            Fork fork = cur.currentFork;
             if (fork == null) {
                 throw new IllegalStateException("No active fork.");
             }
             if (fork.unfork()) {
-                current.currentFork = fork.previous;
+                cur.currentFork = fork.previous;
             } else {
                 assert fork.previous == null;
                 frame.leaveThread();
@@ -731,8 +731,8 @@ public final class Flow implements Serializable {
      */
     @FlowMethod(manual = true)
     public static void end() {
-        Flow current = fromInvoker();
-        MethodFrame frame = current.currentFrame;
+        Flow cur = fromInvoker();
+        MethodFrame frame = cur.currentFrame;
         frame.leaveThread();
     }
 
@@ -1004,9 +1004,9 @@ public final class Flow implements Serializable {
      */
     @FlowMethod(manual = true)
     public static void returnAndContinue(Object v) {
-        Flow current = fromInvoker();
+        Flow cur = fromInvoker();
         MethodFrame returning;
-        MethodFrame frame = current.currentFrame;
+        MethodFrame frame = cur.currentFrame;
         try {
             // Use ';' because an object descriptor is "L<package>/<class>;" .
             frame.checkResultType(';');
@@ -1022,11 +1022,11 @@ public final class Flow implements Serializable {
             if (frame.isInvoking()) {
                 // We are performing a fork.
                 Flow copy;
-                current.suspendInPlace();
+                cur.suspendInPlace();
                 try {
-                    copy = current.frameCopy();
+                    copy = cur.frameCopy();
                 } finally {
-                    current.restoreInPlace();
+                    cur.restoreInPlace();
                 }
                 copy.activate();
                 returning = frame;
@@ -1042,18 +1042,18 @@ public final class Flow implements Serializable {
     }
 
     private static MethodFrame forkAndReturn(char type) {
-        Flow current = fromInvoker();
-        MethodFrame frame = current.currentFrame;
+        Flow cur = fromInvoker();
+        MethodFrame frame = cur.currentFrame;
         try {
             frame.checkResultType(type);
             if (frame.isInvoking()) {
                 // We are performing a fork.
                 Flow copy;
-                current.suspendInPlace();
+                cur.suspendInPlace();
                 try {
-                    copy = current.frameCopy();
+                    copy = cur.frameCopy();
                 } finally {
-                    current.restoreInPlace();
+                    cur.restoreInPlace();
                 }
                 copy.activate();
                 return frame;
@@ -1181,8 +1181,8 @@ public final class Flow implements Serializable {
      */
     @FlowMethod(manual = true)
     public static Object signal(FlowSignal signal) {
-        Flow current = fromInvoker();
-        MethodFrame frame = current.currentFrame;
+        Flow cur = fromInvoker();
+        MethodFrame frame = cur.currentFrame;
         try {
             if (frame.isInvoking()) {
                 // We are suspending.
@@ -1190,18 +1190,18 @@ public final class Flow implements Serializable {
                 if (signal == null) {
                     throw new NullPointerException();
                 }
-                current.state = SUSPENDING;
-                current.suspendedFrame = frame.copy(current);
-                current.result = signal;
-                signal.flow = current;
+                cur.state = SUSPENDING;
+                cur.suspendedFrame = frame.copy(cur);
+                cur.result = signal;
+                signal.flow = cur;
                 frame.leaveThread();
                 return null;
             }
             // We are restoring from suspended state.
             log("Restored from signal.");
-            assert signal.flow == current : signal.flow;
-            Object result = current.result;
-            current.result = null;
+            assert signal.flow == cur : signal.flow;
+            Object result = cur.result;
+            cur.result = null;
             if (result instanceof ExceptionEnvelope) {
                 Throwable exception = ((ExceptionEnvelope) result).exception;
                 throw new ResumeException(exception);
@@ -1344,7 +1344,7 @@ public final class Flow implements Serializable {
         return resume(new ExceptionEnvelope(exception));
     }
 
-    public Object resume(Object result) {
+    public Object resume(Object signalResult) {
         synchronized(this) {
             if (state != SUSPENDED) {
                 throw new IllegalStateException("Cannot resume if the flow is " + stateNames[state] + '.');
@@ -1355,7 +1355,7 @@ public final class Flow implements Serializable {
         try {
             restore();
             setCurrent(this);
-            this.result = result;
+            result = signalResult;
             Class<?> clazz = suspendedFrame.getTargetClass();
 
             try {
@@ -1421,8 +1421,8 @@ public final class Flow implements Serializable {
         return activate(new ExceptionEnvelope(exception));
     }
 
-    public Future<?> activate(Object result) {
-        return manager.submit(this, result);
+    public Future<?> activate(Object signalResult) {
+        return manager.submit(this, signalResult);
     }
 
     /**
@@ -1546,12 +1546,12 @@ public final class Flow implements Serializable {
                     }
                     fork = fork.previous;
                 }
-                Process process = this.process;
-                if (process != null) {
-                    process.remove(this);
+                Process thisProcess = process;
+                if (thisProcess != null) {
+                    thisProcess.remove(this);
                     // We still reference the process, for information issues and to
                     // go back to process if this finished flow is resumed.
-                    this.process = process;
+                    process = thisProcess;
                 }
                 synchronized(this) {
                     state = ENDED;
@@ -1565,7 +1565,7 @@ public final class Flow implements Serializable {
                 synchronized(this) {
                     state = SUSPENDED;
                     currentFrame = null;
-                    result = signal.getArgument();
+                    result = signal.getResult();
                     notifyAll();
                 }
                 throw signal;
@@ -1609,9 +1609,9 @@ public final class Flow implements Serializable {
                 suspendedFrame = frame;
                 state = SUSPENDED;
                 if (process != null) {
-                    Process process = this.process;
-                    this.process = null;
-                    process.add(this);
+                    Process thisProcess = process;
+                    process = null;
+                    thisProcess.add(this);
                 }
                 break;
             case SUSPENDED:

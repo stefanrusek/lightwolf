@@ -30,18 +30,20 @@ public class WaitForMessage extends FlowSignal {
 
     private static final long serialVersionUID = 1L;
     private final SimpleProcessManager manager;
+    private final Object matcher;
 
     public WaitForMessage(SimpleProcessManager manager, Object matcher) {
-        super(matcher);
         this.manager = manager;
+        this.matcher = matcher;
     }
 
-    public void submit() {
+    @Override
+    public void defaultAction() {
         manager.submit(this);
     }
 
     public Object getMatcher() {
-        return getArgument();
+        return matcher;
     }
 
 }

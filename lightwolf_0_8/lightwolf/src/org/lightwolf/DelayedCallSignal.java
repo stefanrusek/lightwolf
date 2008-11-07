@@ -37,10 +37,14 @@ public abstract class DelayedCallSignal extends FlowSignal implements Callable<O
     private ScheduledFuture<?> future;
     private boolean isDone;
 
-    public DelayedCallSignal(Object argument, long delay, TimeUnit unit) {
-        super(argument);
+    public DelayedCallSignal(long delay, TimeUnit unit) {
         this.delay = delay;
         this.unit = unit;
+    }
+
+    @Override
+    public void defaultAction() {
+        schedule();
     }
 
     public long getDelay() {

@@ -35,10 +35,9 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
-import org.lightwolf.DelayedCallSignal;
 import org.lightwolf.Flow;
 import org.lightwolf.FlowManager;
-import org.lightwolf.SuspendSignal;
+import org.lightwolf.FlowSignal;
 
 public class SimpleFlowManager extends FlowManager implements Serializable {
 
@@ -101,13 +100,11 @@ public class SimpleFlowManager extends FlowManager implements Serializable {
                     Flow.log("Resuming " + flow + ", message=" + message);
                     try {
                         flow.resume(message);
-                    } catch (DelayedCallSignal s) {
+                    } catch (FlowSignal s) {
                         if (s.getFlow() != flow) {
                             throw s;
                         }
-                        schedule(s, s.getDelay(), s.getUnit());
-                        return;
-                    } catch (SuspendSignal s) {
+                        s.defaultAction();
                         return;
                     }
                     assert flow.isEnded();
@@ -169,7 +166,7 @@ public class SimpleFlowManager extends FlowManager implements Serializable {
 
         SimpleThreadFactory(String ownerName) {
             SecurityManager s = System.getSecurityManager();
-            group = (s != null) ? s.getThreadGroup() : Thread.currentThread().getThreadGroup();
+            group = s != null ? s.getThreadGroup() : Thread.currentThread().getThreadGroup();
             namePrefix = ownerName + "-";
         }
 

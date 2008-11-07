@@ -89,6 +89,6 @@ public abstract class FlowManager {
 
     protected abstract ScheduledFuture<?> schedule(Callable<?> callable, long delay, TimeUnit unit);
 
-    protected abstract <V> Future<V> submit(Flow requester, Object message);
+    protected abstract Future<?> submit(Flow requester, Object message);
 
 }

@@ -105,16 +105,16 @@ public final class MethodFrame implements Serializable {
         }
     }
 
-    MethodFrame newFrame(Object target, String name, String desc) {
+    MethodFrame newFrame(Object aTarget, String aName, String aDesc) {
         if (state == INVOKING) {
-            return new MethodFrame(this, target, name, desc);
+            return new MethodFrame(this, aTarget, aName, aDesc);
         }
         if (state == RESTORING) {
             assert resumePoint > 0;
             state = INVOKING;
             assert next != null;
             MethodFrame ret = next;
-            ret.checkMatch(target, name, desc);
+            ret.checkMatch(aTarget, aName, aDesc);
             assert ret.state == RESTORING;
             next = null;
             return ret;
@@ -138,27 +138,27 @@ public final class MethodFrame implements Serializable {
                 || curState == LEAVING_METHOD // The method set itself to leave.
                 || curState == LEAVING_THREAD // The method set this thread to leave.
         : "State is " + curState;
-        MethodFrame prior = this.prior;
-        if (prior == null) {
+        MethodFrame thisPrior = prior;
+        if (thisPrior == null) {
             flow.finish();
             return;
         }
-        assert prior.state == INVOKING; // The prior must be invoking.
-        assert prior.resumePoint > 0; // The prior's resumePoint must be positive.
+        assert thisPrior.state == INVOKING; // The prior must be invoking.
+        assert thisPrior.resumePoint > 0; // The prior's resumePoint must be positive.
         // Before return, we restore the prior's state...
         switch (curState) {
             case LEAVING_THREAD:
-                prior.state = LEAVING_THREAD;
+                thisPrior.state = LEAVING_THREAD;
                 break;
             case ACTIVE:
             case LEAVING_METHOD:
-                prior.state = ACTIVE;
+                thisPrior.state = ACTIVE;
                 break;
             default:
                 throw new AssertionError("State is " + curState);
         }
-        prior.resumePoint = 0; // ...and its resume point.
-        flow.setCurrentFrame(prior);
+        thisPrior.resumePoint = 0; // ...and its resume point.
+        flow.setCurrentFrame(thisPrior);
         return;
     }
 
@@ -190,11 +190,11 @@ public final class MethodFrame implements Serializable {
         return false;
     }
 
-    public void monitorEnter(Object o) {
+    public void monitorEnter(@SuppressWarnings("unused") Object o) {
     // LightWolfLog.println("-- Ignoring monitor enter! --");
     }
 
-    public void monitorExit(Object o) {
+    public void monitorExit(@SuppressWarnings("unused") Object o) {
     // LightWolfLog.println("-- Ignoring monitor exit! --");
     }
 
@@ -213,11 +213,11 @@ public final class MethodFrame implements Serializable {
     public MethodFrame getRoot() {
         MethodFrame ret = this;
         for (;;) {
-            MethodFrame prior = ret.getPrior();
-            if (prior != null) {
+            MethodFrame curPrior = ret.getPrior();
+            if (curPrior != null) {
                 return ret;
             }
-            ret = prior;
+            ret = curPrior;
         }
     }
 
@@ -269,44 +269,44 @@ public final class MethodFrame implements Serializable {
         return this;
     }
 
-    public char getChar(int varIndex) {
-        return (char) vars[varIndex];
+    public char getChar(int vIndex) {
+        return (char) vars[vIndex];
     }
 
-    public boolean getBoolean(int varIndex) {
-        return vars[varIndex] == 0 ? false : true;
+    public boolean getBoolean(int vIndex) {
+        return vars[vIndex] == 0 ? false : true;
     }
 
-    public byte getByte(int varIndex) {
-        return (byte) vars[varIndex];
+    public byte getByte(int vIndex) {
+        return (byte) vars[vIndex];
     }
 
-    public short getShort(int varIndex) {
-        return (short) vars[varIndex];
+    public short getShort(int vIndex) {
+        return (short) vars[vIndex];
     }
 
-    public int getInt(int varIndex) {
-        return vars[varIndex];
+    public int getInt(int vIndex) {
+        return vars[vIndex];
     }
 
-    public long getLong(int varIndex) {
-        long ret = vars[varIndex + 1] & 0x0FFFFFFFFL;
-        ret |= (long) vars[varIndex] << 32;
+    public long getLong(int vIndex) {
+        long ret = vars[vIndex + 1] & 0x0FFFFFFFFL;
+        ret |= (long) vars[vIndex] << 32;
         return ret;
     }
 
-    public float getFloat(int varIndex) {
-        return Float.intBitsToFloat(vars[varIndex]);
+    public float getFloat(int vIndex) {
+        return Float.intBitsToFloat(vars[vIndex]);
     }
 
-    public double getDouble(int varIndex) {
-        long bits = vars[varIndex + 1] & 0x0FFFFFFFFL;
-        bits |= (long) vars[varIndex] << 32;
+    public double getDouble(int vIndex) {
+        long bits = vars[vIndex + 1] & 0x0FFFFFFFFL;
+        bits |= (long) vars[vIndex] << 32;
         return Double.longBitsToDouble(bits);
     }
 
-    public Object getObject(int objVarIndex) {
-        return objVars[objVarIndex];
+    public Object getObject(int objIndex) {
+        return objVars[objIndex];
     }
 
     public char restoreChar() {
@@ -462,10 +462,10 @@ public final class MethodFrame implements Serializable {
         return objResult;
     }
 
-    public MethodFrame notifyInvoke(int resumePoint, int varCount, int objVarCount) {
+    public MethodFrame notifyInvoke(int point, int varCount, int objVarCount) {
         assert state == ACTIVE || state == RESTORING;
         state = INVOKING;
-        this.resumePoint = resumePoint;
+        resumePoint = point;
         vars = varCount == 0 ? EMPTY_INT_ARRAY : new int[varCount];
         varIndex = 0;
         objVars = objVarCount == 0 ? EMPTY_OBJECT_ARRAY : new Object[objVarCount];
@@ -518,9 +518,9 @@ public final class MethodFrame implements Serializable {
         }
     }
 
-    void checkMatch(Object target, String name, String desc) {
-        assert this.target == target : "This target: " + this.target + ", arg target: " + target;
-        assert this.name.equals(name) : "This name: " + this.name + ", arg name: " + name;
+    void checkMatch(Object aTarget, String aName, @SuppressWarnings("unused") String aDesc) {
+        assert target == aTarget : "This target: " + target + ", arg target: " + aTarget;
+        assert name.equals(aName) : "This name: " + name + ", arg name: " + aName;
         // TODO: Does not cope with generics.
         //assert this.desc.equals(desc) : "This desc: " + this.desc + ", arg desc: " + desc;
     }

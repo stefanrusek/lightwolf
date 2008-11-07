@@ -102,6 +102,7 @@ public class TestLocalFork {
 
     @FlowMethod
     private void callString(boolean fork, String arg, Counter c) {
+        System.out.println(arg);
         if (fork) {
             Flow.fork(1);
         }
@@ -110,6 +111,7 @@ public class TestLocalFork {
 
     @FlowMethod
     private void callInteger(boolean fork, Integer arg, Counter c) {
+        System.out.println(arg);
         if (fork) {
             Flow.fork(1);
         }

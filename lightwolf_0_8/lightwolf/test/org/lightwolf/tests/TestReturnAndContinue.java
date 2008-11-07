@@ -399,7 +399,7 @@ public class TestReturnAndContinue {
         Assert.assertFalse(susp.isEnded());
         Assert.assertFalse(susp.isActive());
 
-        Assert.assertEquals("(ABC)", signal.getArgument());
+        Assert.assertEquals("(ABC)", signal.getResult());
 
         abq.put("MNO");
         String output = (String) susp.resume("XYZ");
@@ -445,7 +445,7 @@ public class TestReturnAndContinue {
         Assert.assertFalse(susp.isEnded());
         Assert.assertFalse(susp.isActive());
 
-        Assert.assertEquals("(ABC)", signal.getArgument());
+        Assert.assertEquals("(ABC)", signal.getResult());
 
         abq.put("MNO");
         String output = (String) susp.resumeThrowing(new Exception("DEF"));
