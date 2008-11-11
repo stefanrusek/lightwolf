@@ -35,17 +35,44 @@ import org.junit.Test;
 import org.lightwolf.Flow;
 import org.lightwolf.FlowMethod;
 import org.lightwolf.FlowSignal;
-import org.lightwolf.IO;
+import org.lightwolf.IOActivator;
 
 public class TestSocketIO {
 
+    private static final int EXPECTED = 1 << 1 | 1 << 2 | 1 << 3 | 1 << 4;
+    int flags;
+
     @Test
-    public void simplest() throws IOException, InterruptedException {
-        if (true) {
-            Assert.fail();
-        }
+    public void acceptMany() throws IOException, InterruptedException {
         try {
-            doTest();
+            testAcceptMany();
+        } catch (FlowSignal s) {
+            s.defaultAction();
+        }
+        synchronized(this) {
+            wait();
+        }
+        Assert.assertEquals(EXPECTED, flags);
+    }
+
+    @FlowMethod
+    private void testAcceptMany() throws IOException, InterruptedException {
+
+        IOActivator socketIO = new IOActivator();
+        int branch = Flow.fork(4);
+        if (branch == 0) {
+            server1(socketIO);
+        } else {
+            Thread.sleep(100); // Wait for the server to bind.
+            client(branch);
+        }
+
+    }
+
+    @Test
+    public void accept() throws IOException, InterruptedException {
+        try {
+            testAccept();
         } catch (FlowSignal s) {
             s.defaultAction();
         }
@@ -54,15 +81,13 @@ public class TestSocketIO {
         }
     }
 
-    int flags;
-
     @FlowMethod
-    private void doTest() throws IOException, InterruptedException {
+    private void testAccept() throws IOException, InterruptedException {
 
-        IO socketIO = new IO();
+        IOActivator socketIO = new IOActivator();
         int branch = Flow.fork(4);
         if (branch == 0) {
-            server(socketIO);
+            server2(socketIO);
         } else {
             Thread.sleep(100); // Wait for the server to bind.
             client(branch);
@@ -71,24 +96,50 @@ public class TestSocketIO {
     }
 
     @FlowMethod
-    private void server(IO socketIO) throws IOException {
+    private void server1(IOActivator socketIO) throws IOException {
+        ServerSocketChannel channel = ServerSocketChannel.open();
+        channel.configureBlocking(false);
+        channel.socket().bind(new InetSocketAddress(8080));
+        SocketChannel socket = socketIO.acceptMany(channel);
+        serve(socket);
+        if (flags == EXPECTED) {
+            channel.close();
+            synchronized(this) {
+                notify();
+            }
+        }
+    }
+
+    @FlowMethod
+    private void server2(IOActivator socketIO) throws IOException {
 
         ServerSocketChannel channel = ServerSocketChannel.open();
+        channel.configureBlocking(false);
         channel.socket().bind(new InetSocketAddress(8080));
 
-        SocketChannel socket = socketIO.acceptMany(channel);
-        if (socket == null) {
-            return;
+        int i = 0;
+        do {
+            SocketChannel socket = socketIO.accept(channel);
+            if (socket == null) {
+                continue;
+            }
+            ++i;
+            serve(socket);
+        } while (i < 4);
+
+        channel.close();
+        synchronized(this) {
+            notify();
         }
+    }
+
+    private void serve(SocketChannel socket) throws IOException {
         ByteBuffer buffer = ByteBuffer.allocate(4);
         while (buffer.remaining() > 0) {
             socket.read(buffer);
         }
         synchronized(this) {
             flags |= 1 << buffer.getInt(0);
-            if (flags == 30) {
-                notify();
-            }
         }
     }
 

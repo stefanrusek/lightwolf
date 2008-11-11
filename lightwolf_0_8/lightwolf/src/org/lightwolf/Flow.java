@@ -31,7 +31,6 @@ import java.io.Serializable;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import java.nio.channels.SelectableChannel;
 import java.util.WeakHashMap;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
@@ -668,22 +667,6 @@ public final class Flow implements Serializable {
         }
     }
 
-    @FlowMethod(manual = true)
-    public static void waitFor(SelectableChannel channel, int ops) {
-        Flow flow = fromInvoker();
-        MethodFrame frame = flow.currentFrame;
-        if (frame.isInvoking()) {
-
-        }
-        throw new AssertionError();
-
-        //flow.manager.doWait(flow, channel, ops);
-    }
-
-    public static void replicate(int n) {
-        throw new AssertionError("Pending implementation.");
-    }
-
     /**
      * Ends the current flow. This method does not return. It causes execution
      * to continue after the {@linkplain Flow flow-creator}. The following
@@ -1065,11 +1048,52 @@ public final class Flow implements Serializable {
         }
     }
 
+    /**
+     * Suspends the current flow, allowing the current thread to be released.
+     * This method simply sends a {@link SuspendSignal} to the {@linkplain Flow
+     * flow-controller}, which by {@linkplain FlowSignal#defaultAction()
+     * default} does {@linkplain SuspendSignal#defaultAction() nothing}. This
+     * can be used to release the current thread to other tasks.
+     * <p>
+     * When a flow chooses to suspend itself, it usually must provide means to
+     * be {@linkplain #resume() resumed} when some event occurs, and not rely on
+     * the flow-controller for this task. For example, if a flow chooses to
+     * suspend itself while waiting for user input, it should use store
+     * {@linkplain Flow#current() itself} on the user's session storage
+     * <i>before</i> suspending, so that when user input happens, the event
+     * handler can invoke {@link #resume()} on the suspended flow.
+     * <p>
+     * This method returns the value passed to {@link #resume(Object)}, and
+     * might throw an exception if {@link #resumeThrowing(Throwable)} were
+     * instead used. This method can return multiple times and/or in different
+     * flows, at the discretion of whoever uses the suspended flow.
+     * <p>
+     * This method behaves exactly as the expression
+     * <code>signal(new SuspendSignal(null))</code>.
+     * 
+     * @return The object passed to {@link #resume(Object)}.
+     * @see #signal(FlowSignal)
+     * @see #suspend(Object)
+     * @see SuspendSignal
+     */
     @FlowMethod
     public static Object suspend() {
         return signal(new SuspendSignal(null));
     }
 
+    /**
+     * Performs as {@link #suspend()} but also attaches a message to the
+     * {@link SuspendSignal}. The {@linkplain Flow flow-controller} can access
+     * the message using {@link SuspendSignal#getResult()}.
+     * <p>
+     * This method behaves exactly as the expression
+     * <code>signal(new SuspendSignal(message))</code>.
+     * 
+     * @return The object passed to {@link #resume(Object)}.
+     * @see #signal(FlowSignal)
+     * @see #suspend()
+     * @see SuspendSignal
+     */
     @FlowMethod
     public static Object suspend(Object message) {
         return signal(new SuspendSignal(message));
@@ -1401,7 +1425,7 @@ public final class Flow implements Serializable {
                 if (e.getCause() instanceof Error) {
                     throw (Error) e.getCause();
                 }
-                throw new RuntimeException(e);
+                throw new RuntimeException(e.getCause());
             }
         } finally {
             if (success) {
@@ -1604,6 +1628,13 @@ public final class Flow implements Serializable {
     }
 
     synchronized void setSuspendedFrame(MethodFrame frame) {
+        try {
+            while (state == SUSPENDING) {
+                wait();
+            }
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
         switch (state) {
             case ENDED:
                 suspendedFrame = frame;

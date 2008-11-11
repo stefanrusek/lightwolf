@@ -9,21 +9,23 @@ public class LightWolfLog {
     private static boolean atNewLine = true;
 
     public static void print(String text) {
-        int st = 0;
-        while (st < text.length()) {
-            if (atNewLine) {
-                System.out.print("[lightwolf] ");
-                atNewLine = false;
+        synchronized(System.out) {
+            int st = 0;
+            while (st < text.length()) {
+                if (atNewLine) {
+                    System.out.print("[lightwolf] ");
+                    atNewLine = false;
+                }
+                int nlPos = text.indexOf('\n', st);
+                if (nlPos == -1) {
+                    System.out.print(text.substring(st));
+                    return;
+                }
+                ++nlPos;
+                System.out.print(text.substring(st, nlPos));
+                atNewLine = true;
+                st = nlPos;
             }
-            int nlPos = text.indexOf('\n', st);
-            if (nlPos == -1) {
-                System.out.print(text.substring(st));
-                return;
-            }
-            ++nlPos;
-            System.out.print(text.substring(st, nlPos));
-            atNewLine = true;
-            st = nlPos;
         }
     }
 
@@ -32,16 +34,20 @@ public class LightWolfLog {
     }
 
     public static void println(String text) {
-        print(text);
-        print("\n");
+        synchronized(System.out) {
+            print(text);
+            print("\n");
+        }
     }
 
     public static void println(Object object) {
         if (object == null) {
             print("null\n");
         } else {
-            print(object.toString());
-            print("\n");
+            synchronized(System.out) {
+                print(object.toString());
+                print("\n");
+            }
         }
     }
 

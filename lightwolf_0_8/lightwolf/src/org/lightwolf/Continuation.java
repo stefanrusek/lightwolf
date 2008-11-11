@@ -221,6 +221,12 @@ public class Continuation implements Cloneable {
         return flow.resume();
     }
 
+    public void activate() {
+        Flow flow = Flow.newFlow();
+        placeOnCheckpoint(flow);
+        flow.activate();
+    }
+
     public void placeOnCheckpoint(Flow flow) {
         synchronized(this) {
             checkFrame();
