@@ -39,8 +39,7 @@ public class Continuation implements Cloneable {
      * Places a checkpoint on the current {@linkplain Flow flow}, which can be
      * used resume execution from the point of invocation. The checkpoint
      * contains the values of parameters, local variables, temporary data and
-     * instruction pointers, of all frames from the {@linkplain Flow
-     * flow-creator} (inclusive) to the point of invocation.
+     * instruction pointers, of all frames from the <a href="Flow.html#flowcreator">flow-creator</a> (inclusive) to the point of invocation.
      * <p>
      * After invocation, it's possible to call {@link #resume()} on this
      * continuation, so a flow can resume from the checkpoint. When a checkpoint
@@ -124,11 +123,11 @@ public class Continuation implements Cloneable {
      * execution is being resumed.
      * <p>
      * The new flow will execute synchronously. This method returns only then
-     * the {@linkplain Flow flow-creator} returns, as if by invocation of
+     * the <a href="Flow.html#flowcreator">flow-creator</a> returns, as if by invocation of
      * {@link Flow#resume()}. If the resumed flow sends a
      * {@linkplain Flow#signal(FlowSignal) signal}, this method throws the
      * corresponding {@link FlowSignal}. In other words, the invoker will be the
-     * {@linkplain Flow flow-controller}.
+     * <a href="Flow.html#flowcontroller">flow-controller</a>.
      * <p>
      * This method behaves exactly as:
      * 
@@ -140,7 +139,7 @@ public class Continuation implements Cloneable {
      * so a future <code>resume</code> operation will succeed. If there is no
      * intention to resume again, one should call {@link #resumeAndForget()}.
      * 
-     * @return The {@linkplain Flow flow-creator}'s result.
+     * @return The <a href="Flow.html#flowcreator">flow-creator</a>'s result.
      * @throws IllegalStateException If there is no stored checkpoint on this
      *         continuation.
      * @see #resume(Flow)
@@ -157,7 +156,7 @@ public class Continuation implements Cloneable {
      * similar to {@link #resume()}. The difference is that no new flow is
      * created. Instead, the informed {@linkplain Flow flow} is resumed.
      * 
-     * @return The {@linkplain Flow flow-creator}'s result.
+     * @return The <a href="Flow.html#flowcreator">flow-creator</a>'s result.
      * @throws IllegalStateException If there is no stored checkpoint on this
      *         continuation, or if the informed flow is on an invalid state for
      *         resuming.
@@ -183,7 +182,7 @@ public class Continuation implements Cloneable {
      * This method is cheaper than {@link #resume()}, because it does not
      * involves a copy of the current checkpoint.
      * 
-     * @return The {@linkplain Flow flow-creator}'s result.
+     * @return The <a href="Flow.html#flowcreator">flow-creator</a>'s result.
      * @throws IllegalStateException If there is no stored checkpoint on this
      *         continuation.
      * @see #resume()
@@ -204,7 +203,7 @@ public class Continuation implements Cloneable {
      * This method is cheaper than {@link #resume(Flow)}, because it does not
      * involves a copy of the current checkpoint.
      * 
-     * @return The {@linkplain Flow flow-creator}'s result.
+     * @return The <a href="Flow.html#flowcreator">flow-creator</a>'s result.
      * @throws IllegalStateException If there is no stored checkpoint on this
      *         continuation, or if the informed flow is on an invalid state for
      *         resuming.

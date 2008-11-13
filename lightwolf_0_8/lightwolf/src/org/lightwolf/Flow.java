@@ -49,13 +49,13 @@ import org.lightwolf.tools.SimpleFlowManager;
  * implementation of concurrent algorithms and scalable applications. The
  * following list summarizes the capabilities of a flow:
  * <ul>
- * <li>A flow can be {@link #suspend() suspended} for later
+ * <li>A flow can be {@link #suspend(Object) suspended} for later
  * {@link #resume(Object) resuming}, without consuming a Java thread meanwhile.</li>
  * <li>The flow's execution state can be serialized and restored, possibly on a
  * different machine (as long as certain conditions are met). This allows
  * implementation of long running processes in pure Java language.</li>
  * <li>A flow can wait for a {@linkplain ThreadFreeLock lock} on a resource, or
- * for the {@linkplain #waitComplete() completion} of an I/O operation, without
+ * for the {@linkplain IOActivator completion} of an I/O operation, without
  * consuming a Java thread meanwhile, and thus releasing a pooled thread for
  * increased concurrency.</li>
  * <li>Flows can use utilities such as {@link Continuation}, {@link #fork(int)},
@@ -73,17 +73,18 @@ import org.lightwolf.tools.SimpleFlowManager;
  * method, the flow is kept active and can be queried, but some flow utilities
  * will disabled until the normal method returns to the invoker flow-method.
  * <p>
- * <b>Flow-creator:</b> Whenever a flow-method is invoked by a normal (non-flow)
- * method, it is called the flow-creator method, because it triggers the
- * creation of a new flow (this is done automatically). The flow ends when the
- * flow-creator completes normally or by exception. If the flow-creator calls
- * itself or another flow-method, no new flow is created, as described above.
+ * <a name="flowcreator"> <b>Flow-creator:</b> Whenever a flow-method is invoked
+ * by a normal (non-flow) method, it is called the flow-creator method, because
+ * it triggers the creation of a new flow (this is done automatically). The flow
+ * ends when the flow-creator completes normally or by exception. If the
+ * flow-creator calls itself or another flow-method, no new flow is created, as
+ * described above.
  * <p>
- * <b>Flow-controller:</b> The flow-controller is a normal (non-flow) method
- * that invokes a flow-method. The flow-controller receives
- * {@linkplain #signal(FlowSignal) signals} sent by some flow operations, and
- * must handle those signals accordingly. There are standard implementations of
- * flow-controllers, such as {@link #execute(Callable)} and
+ * <a name="flowcontroller"> <b>Flow-controller:</b> The flow-controller is a
+ * normal (non-flow) method that invokes a flow-method. The flow-controller
+ * receives {@linkplain #signal(FlowSignal) signals} sent by some flow
+ * operations, and must handle those signals accordingly. There are standard
+ * implementations of flow-controllers, such as {@link #execute(Callable)} and
  * {@link SimpleFlowManager}. If it is known that a flow-method will never send
  * signals, the flow-controller can be any ordinary method calling a
  * flow-method. Many utilities do not send any signal, such as
@@ -669,8 +670,8 @@ public final class Flow implements Serializable {
 
     /**
      * Ends the current flow. This method does not return. It causes execution
-     * to continue after the {@linkplain Flow flow-creator}. The following
-     * sample illustrates this behavior:
+     * to continue after the <a href="#flowcreator">flow-creator</a>. The
+     * following sample illustrates this behavior:
      * 
      * <pre>
      *    void example() {
@@ -726,7 +727,7 @@ public final class Flow implements Serializable {
      * operation. In the current flow, it works as if <code>return</code> were
      * executed. In a newly created flow, the invoker is resumed from the point
      * of invocation. The new flow starts from the invoker method, and not from
-     * the original {@linkplain FlowMethod flow-creator} as it would be if
+     * the <a href="#flowcreator">flow-creator</a> as it would be if
      * {@link #split(int)} were used. The following example illustrates this
      * behavior:
      * 
@@ -860,7 +861,7 @@ public final class Flow implements Serializable {
      * operation. In the current flow, it works as if <code>return v</code> were
      * executed. In a newly created flow, the invoker is resumed from the point
      * of invocation. The new flow starts from the invoker method, and not from
-     * the original {@linkplain FlowMethod flow-creator} as it would be if
+     * the <a href="#flowcreator">flow-creator</a> as it would be if
      * {@link #split(int)} were used. The following example illustrates this
      * behavior:
      * <p>
@@ -882,8 +883,6 @@ public final class Flow implements Serializable {
      *        System.out.println(&quot;After returnAndContinue()&quot;);
      *        return 456;
      *    }
-     * 
-     * 
      * </pre>
      * The above example prints the following:
      * 
@@ -1049,32 +1048,7 @@ public final class Flow implements Serializable {
     }
 
     /**
-     * Suspends the current flow, allowing the current thread to be released.
-     * This method simply sends a {@link SuspendSignal} to the {@linkplain Flow
-     * flow-controller}, which by {@linkplain FlowSignal#defaultAction()
-     * default} does {@linkplain SuspendSignal#defaultAction() nothing}. This
-     * can be used to release the current thread to other tasks.
-     * <p>
-     * When a flow chooses to suspend itself, it usually must provide means to
-     * be {@linkplain #resume() resumed} when some event occurs, and not rely on
-     * the flow-controller for this task. For example, if a flow chooses to
-     * suspend itself while waiting for user input, it should use store
-     * {@linkplain Flow#current() itself} on the user's session storage
-     * <i>before</i> suspending, so that when user input happens, the event
-     * handler can invoke {@link #resume()} on the suspended flow.
-     * <p>
-     * This method returns the value passed to {@link #resume(Object)}, and
-     * might throw an exception if {@link #resumeThrowing(Throwable)} were
-     * instead used. This method can return multiple times and/or in different
-     * flows, at the discretion of whoever uses the suspended flow.
-     * <p>
-     * This method behaves exactly as the expression
-     * <code>signal(new SuspendSignal(null))</code>.
-     * 
-     * @return The object passed to {@link #resume(Object)}.
-     * @see #signal(FlowSignal)
-     * @see #suspend(Object)
-     * @see SuspendSignal
+     * Equivalent to {@link #suspend(Object) suspend(null)}.
      */
     @FlowMethod
     public static Object suspend() {
@@ -1082,32 +1056,59 @@ public final class Flow implements Serializable {
     }
 
     /**
-     * Performs as {@link #suspend()} but also attaches a message to the
-     * {@link SuspendSignal}. The {@linkplain Flow flow-controller} can access
-     * the message using {@link SuspendSignal#getResult()}.
+     * Suspends the current flow, allowing the current thread to be released.
+     * This method simply sends a {@link SuspendSignal} to the <a
+     * href="#flowcontroller">flow-controller</a>, which by
+     * {@linkplain FlowSignal#defaultAction() default} does
+     * {@linkplain SuspendSignal#defaultAction() nothing}. This can be used to
+     * release the current thread to other tasks.
+     * <p>
+     * The informed argument is simply passed to the
+     * {@linkplain SuspendSignal#SuspendSignal(Object) constructor} of
+     * {@link SuspendSignal}, and can be later obtained, usually in the <a
+     * href="#flowcontroller">flow-controller</a>, by invoking
+     * {@link SuspendSignal#getResult()}. The informed argument is usually used
+     * to tell the reason of suspension. That is, its usually a merely
+     * informative value, used for debugging and tracing purposes.
+     * <p>
+     * When a flow chooses to suspend itself, it usually must provide means to
+     * be {@linkplain #resume(Object) resumed} when some event occurs, and not
+     * rely on the flow-controller for this task. For example, if a flow chooses
+     * to suspend itself while waiting for user input, it should store
+     * {@linkplain Flow#current() itself} on the user's session storage
+     * <i>before</i> suspending, so that when user input happens, the event
+     * handler can invoke {@link #resume(Object)} on the suspended flow.
+     * <p>
+     * This method returns the value passed to {@link #resume(Object)}, and
+     * might throw an exception if {@link #resumeThrowing(Throwable)} were
+     * instead used. This method can return multiple times and/or in different
+     * flows, at the discretion of whoever uses the suspended flow.
      * <p>
      * This method behaves exactly as the expression
-     * <code>signal(new SuspendSignal(message))</code>.
+     * <code>signal(new SuspendSignal(argument))</code>.
      * 
+     * @param argument The argument to be associated with {@link SuspendSignal}.
      * @return The object passed to {@link #resume(Object)}.
      * @see #signal(FlowSignal)
      * @see #suspend()
      * @see SuspendSignal
+     * @see #resume()
+     * @see #resume(Object)
      */
     @FlowMethod
-    public static Object suspend(Object message) {
-        return signal(new SuspendSignal(message));
+    public static Object suspend(Object argument) {
+        return signal(new SuspendSignal(argument));
     }
 
     /**
      * Suspends the flow and sends a signal to the flow-controller.
      * <p>
      * This method first suspends the current flow at the point of invocation.
-     * Then it sends the specified signal to the {@linkplain Flow
-     * flow-controller}, as if the signal were thrown by the {@linkplain Flow
-     * flow-creator} (see below). After this, the next actions are fully
-     * determined by the flow-controller, which typically uses the signal to
-     * decide.
+     * Then it sends the specified signal to the <a
+     * href="#flowcontroller">flow-controller</a>, as if the signal were thrown
+     * by the <a href="#flowcreator">flow-creator</a> (see below). After this,
+     * the next actions are fully determined by the flow-controller, which
+     * typically uses the signal to decide.
      * <p>
      * This method returns only when the flow-controller invokes a
      * <code>resume</code> method (see below) on this flow or on a copy. Notice
@@ -1191,12 +1192,13 @@ public final class Flow implements Serializable {
      * <code>resumeThrowing</code> method.</li>
      * </ul>
      * <p>
-     * This method is used to implement utilities such as {@link #suspend()} and
-     * {@link ThreadFreeLock}. It is the lowest level API for implementing
-     * features such as releasing a pooled thread before completion and
-     * serializing thread state for long running processes.
+     * This method is used to implement utilities such as
+     * {@link #suspend(Object)} and {@link ThreadFreeLock}. It is the lowest
+     * level API for implementing features such as releasing a pooled thread
+     * before completion and serializing thread state for long running
+     * processes.
      * 
-     * @param signal The signal that will be sent to the flow-controller.
+     * @param signal The signal to be sent to the flow-controller.
      * @return The object passed to {@link #resume(Object)} method.
      * @throws IllegalStateException If the invoker is not a {@link FlowMethod}.
      * @throws NullPointerException If <code>signal</code> is <code>null</code>.
@@ -1357,10 +1359,35 @@ public final class Flow implements Serializable {
         return state == ENDED;
     }
 
+    /**
+     * Equivalent to {@link #resume(Object) resume(null)}.
+     */
     public Object resume() {
         return resume(null);
     }
 
+    /**
+     * Resumes this flow throwing an exception. This method causes the last
+     * invocation of {@link #signal(FlowSignal)} inside this flow to throw a
+     * {@link ResumeException} whose {@linkplain Throwable#getCause() cause} is
+     * the informed exception.
+     * <p>
+     * In all other aspects, this method behaves as {@link #resume(Object)}.
+     * That is, the invoker will block until the flow completes, will be the new
+     * <a href="#flowcontroller">flow-controller</a>, and might need to handle
+     * {@linkplain #signal(FlowSignal) signals}.
+     * 
+     * @param exception The exception that will be the cause of the
+     *        {@link ResumeException} to be throwed.
+     * @return The value returned by the <a
+     *         href="#flowcreator">flow-creator</a>, or <code>null</code> if the
+     *         flow-creator is a <code>void</code> method.
+     * @throws NullPointerException If <code>exception</code> is null.
+     * @throws IllegalStateException If this flow is not suspended.
+     * @see #signal(FlowSignal)
+     * @see #resume(Object)
+     * @see #activateThrowing(Exception)
+     */
     public Object resumeThrowing(Throwable exception) {
         if (exception == null) {
             throw new NullPointerException();
@@ -1368,6 +1395,45 @@ public final class Flow implements Serializable {
         return resume(new ExceptionEnvelope(exception));
     }
 
+    /**
+     * Resumes this flow. This method causes the last invocation of
+     * {@link #signal(FlowSignal)} inside this flow to return. The flow resumes
+     * execution directly on the current thread, and therefore this method only
+     * returns when the flow finishes. This means that the invoker of this
+     * method will be the new <a href="#flowcontroller">flow-controller</a>, and
+     * might need to handle {@linkplain #signal(FlowSignal) signals}. To resume
+     * this flow on another thread, use {@link #activate(Object)}.
+     * <p>
+     * The informed parameter is simply returned to the flow as a normal result
+     * of {@link #signal(FlowSignal)}.
+     * <p>
+     * The completion of this method is defined as follows:
+     * <ul>
+     * <li>If the flow finishes normally, this method returns the value returned
+     * by the <a href="#flowcreator">flow-creator</a>.</li>
+     * <li>If the flow throws a non-checked exception, such exception is simply
+     * passed to the invoker.</li>
+     * <li>If the flow throws a checked exception, this method throws a
+     * {@link ResumeException} having the checked exception as its
+     * {@linkplain Throwable#getCause() cause}.
+     * <li>If the flow sends a {@linkplain #signal(FlowSignal) signal}, the flow
+     * is first suspended, then signal is thrown as an exception.
+     * </ul>
+     * In other words, the invoker of {@link #resume(Object)} will behave as an
+     * ordinary <a href="#flowcontroller">flow-controller</a>.
+     * 
+     * @param signalResult The value that {@link #signal(FlowSignal)} must
+     *        return to its invoker.
+     * @return The value returned by the <a
+     *         href="#flowcreator">flow-creator</a>, or <code>null</code> if the
+     *         flow-creator is a <code>void</code> method.
+     * @throws IllegalStateException If this flow is not suspended.
+     * @see #signal(FlowSignal)
+     * @see #resume()
+     * @see #resumeThrowing(Throwable)
+     * @see #activate()
+     * @see #activate(Object)
+     */
     public Object resume(Object signalResult) {
         synchronized(this) {
             if (state != SUSPENDED) {
@@ -1434,10 +1500,23 @@ public final class Flow implements Serializable {
         }
     }
 
+    /**
+     * Equivalent to {@link #activate(Object) activate(null)}.
+     */
     public Future<?> activate() {
         return activate(null);
     }
 
+    /**
+     * Schedules this flow to {@linkplain #resume(Object) resume} in another
+     * thread, and throws an exception upon resuming. This method is identical
+     * to {@link #activate(Object)}, except in that resuming is done with
+     * {@link #resumeThrowing(Throwable)} instead of {@link #resume(Object)}.
+     * 
+     * @see #resumeThrowing(Object)
+     * @see #activate()
+     * @see #activate(Object)
+     */
     public Future<?> activateThrowing(Throwable exception) {
         if (exception == null) {
             throw new NullPointerException();
@@ -1445,18 +1524,52 @@ public final class Flow implements Serializable {
         return activate(new ExceptionEnvelope(exception));
     }
 
+    /**
+     * Schedules this flow to {@linkplain #resume(Object) resume} in another
+     * thread. The method invokes the flow's manager
+     * {@link FlowManager#submit(Flow, Object)} method, which will assign resume
+     * execution to some thread. The thread's run is a simple <a
+     * href="#flowcontroller">flow-controller</a>. It can be roughly defined by
+     * this pseudo-code:
+     * 
+     * <pre>
+     *     public void run() {
+     *         try {
+     *             flow.resume(signalResult);
+     *         } catch (FlowSignal signal) {
+     *             signal.defaultAction(); // Always call the default action.
+     *         } catch (Throwable e) {
+     *             log(e); // Logs the exception.
+     *         }
+     *     }
+     * </pre>
+     * 
+     * The returned {@link Future} can be use to query execution status. Notice
+     * that if such <code>Future</code> is {@linkplain Future#isDone() done}, it
+     * does not necessarily means that the flow finished.
+     * {@link Future#isDone()} will return <code>true</code> even when the flow
+     * was just suspended.
+     * 
+     * @param signalResult The argument to be passed to {@link #resume(Object)}
+     *        method. This argument will be returned to the flow by the
+     *        {@link #signal(FlowSignal)} that causes suspension.
+     * @return A {@link Future} that can be used to query execution status.
+     * @see #resume(Object)
+     * @see #activate()
+     * @see #activateThrowing(Throwable)
+     */
     public Future<?> activate(Object signalResult) {
         return manager.submit(this, signalResult);
     }
 
     /**
      * Performs a shallow copy on this flow. A shallow copy is a simple copy of
-     * stack frames, with all local and stack variables, starting from the
-     * {@linkplain Flow flow-creator} method, and until the current position in
-     * the flow's execution. The value of all variables are copied by simple
-     * assignment, including references. Because no heap object is ever cloned
-     * or serialized by this method, this flow and the copy will share heap
-     * objects referenced by the copied stack variables.
+     * stack frames, with all local and stack variables, starting from the <a
+     * href="#flowcreator">flow-creator</a> method, and until the current
+     * position in the flow's execution. The value of all variables are copied
+     * by simple assignment, including references. Because no heap object is
+     * ever cloned or serialized by this method, this flow and the copy will
+     * share heap objects referenced by the copied stack variables.
      * <p>
      * If this flow is suspended, the returned copy can be
      * {@linkplain #resume() resumed} and it will run just after the suspend

@@ -24,20 +24,46 @@
  */
 package org.lightwolf;
 
+/**
+ * A signal indicating that the flow was suspended. This signal is sent by
+ * {@link Flow#suspend(Object)} method.
+ * 
+ * @author Fernando Colombo
+ */
 public class SuspendSignal extends FlowSignal {
 
     private static final long serialVersionUID = 1L;
-    private Object argument;
+    private final Object argument;
 
+    /**
+     * Initializes the signal with the given argument. The method
+     * {@link Flow#suspend(Object)} simply forwards its argument to this
+     * constructor. While {@linkplain FlowSignal handling} this signal, the
+     * argument can be obtained using {@link #getResult()}.
+     * 
+     * @param argument The argument to be associated with this signal.
+     */
     public SuspendSignal(Object argument) {
         this.argument = argument;
     }
 
+    /**
+     * Returns the argument associated with this signal. Usually this is the
+     * argument sent to {@link Flow#suspend(Object)}.
+     * 
+     * @see #SuspendSignal(Object)
+     */
     @Override
     public Object getResult() {
         return argument;
     }
 
+    /**
+     * Does nothing. This method does not register anywhere the suspended flow
+     * (that is, the flow that sent this signal). Usually a flow registers
+     * itself for later {@linkplain Flow#resume(Object) resuming}, <i>before</i>
+     * the call to {@link Flow#suspend(Object)}, or before sending this signal.
+     */
     @Override
     public void defaultAction() {
     // Do nothing.

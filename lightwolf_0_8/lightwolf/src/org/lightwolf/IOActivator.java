@@ -181,11 +181,11 @@ public class IOActivator {
      * {@linkplain ReadableByteChannel#read(ByteBuffer) read} operation, this
      * method will return immediately on the same flow. Otherwise it will
      * <p>
-     * This method sends a {@linkplain Flow#signal(FlowSignal) signal} to the
-     * {@linkplain Flow flow-controller}, which should execute the signal's
-     * {@linkplain FlowSignal#defaultAction() default action}. Otherwise the
-     * method will never return. This mechanism can be automated with a
-     * {@link Flow#execute(Runnable) Flow.execute()} method.
+     * This method sends a {@linkplain Flow#signal(FlowSignal) signal} to the <a
+     * href="Flow.html#flowcreator">flow-creator</a>, which should execute the
+     * signal's {@linkplain FlowSignal#defaultAction() default action}.
+     * Otherwise the method will never return. This mechanism can be automated
+     * with a {@link Flow#execute(Runnable) Flow.execute()} method.
      * <p>
      * This method always returns to a new {@linkplain Flow flow}, and never
      * returns to the invoker's flow. As mentioned above, a signal is sent on

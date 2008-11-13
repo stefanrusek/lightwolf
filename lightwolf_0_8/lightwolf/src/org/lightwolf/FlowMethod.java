@@ -33,8 +33,8 @@ import org.lightwolf.synchronization.ThreadFreeLock;
 import org.lightwolf.tools.LightWolfAntTask;
 
 /**
- * Makes a method execute in the context of a {@link Flow}. The method will be
- * a {@link Flow flow-method}, which enables functionality of flow-specific
+ * Marks a method to execute in the context of a {@link Flow}. The method will
+ * be a {@link Flow flow-method}, which enables functionality of flow-specific
  * utilities such as {@link Flow#fork(int)}, {@link Flow#suspend()},
  * {@link ThreadFreeLock} and others.
  * <p>
