@@ -1386,7 +1386,7 @@ public final class Flow implements Serializable {
      * @throws IllegalStateException If this flow is not suspended.
      * @see #signal(FlowSignal)
      * @see #resume(Object)
-     * @see #activateThrowing(Exception)
+     * @see #activateThrowing(Throwable)
      */
     public Object resumeThrowing(Throwable exception) {
         if (exception == null) {
@@ -1513,7 +1513,7 @@ public final class Flow implements Serializable {
      * to {@link #activate(Object)}, except in that resuming is done with
      * {@link #resumeThrowing(Throwable)} instead of {@link #resume(Object)}.
      * 
-     * @see #resumeThrowing(Object)
+     * @see #resumeThrowing(Throwable)
      * @see #activate()
      * @see #activate(Object)
      */
