@@ -246,9 +246,9 @@ public class IOActivator {
      * @see WritableByteChannel#write(ByteBuffer)
      */
     @FlowMethod
-    public int write(WritableByteChannel channel, ByteBuffer dst) throws IOException {
+    public int write(WritableByteChannel channel, ByteBuffer src) throws IOException {
         wait((SelectableChannel) channel, SelectionKey.OP_WRITE);
-        return channel.write(dst);
+        return channel.write(src);
     }
 
     @FlowMethod
