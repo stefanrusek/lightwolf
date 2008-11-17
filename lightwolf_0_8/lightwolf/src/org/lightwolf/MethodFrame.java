@@ -26,6 +26,14 @@ package org.lightwolf;
 
 import java.io.Serializable;
 
+/**
+ * An internal class invoked by enhanced {@linkplain FlowMethod flow-methods}.
+ * This class saves the values of local variables and parameters of a stack
+ * frame. It is created for internal use and its interface may change
+ * dramatically in future versions.
+ * 
+ * @author Fernando Colombo
+ */
 public final class MethodFrame implements Serializable {
 
     private static final long serialVersionUID = 1L;

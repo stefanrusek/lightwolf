@@ -1,0 +1,47 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+</head>
+<body>
+
+Core classes for flow manipulation and synchronization.
+
+<h2>Package Specification</h2>
+
+This package contains the {@link org.lightwolf.Flow} class and the
+{@link org.lightwolf.FlowMethod} annotation, which are used to build
+flows in Java. A flow is very similar to a thread:
+<ul>
+	<li>Each flow have a stack frame, like a thread.
+	<li>A flow, like a thread, can run Java methods. Such methods can
+	be interpreted but also just-in-time compiled.
+	<li>Flows can access heap objects. The heap space is the same used
+	by threads. Flows and threads can shared such objects in a transparent
+	way.
+	<li>Flows can be suspended or interrupted.
+</ul>
+The following summarizes the differences between flows and threads:
+<ul>
+	<li>A flow can be suspended, have its state removed from memory,
+	then restored to memory and then resumed, possibly on another JVM
+	instance or machine.
+	<li>When a flow is suspended, it does not consume a Java thread,
+	and not even a system thread. This makes flows more friendly to
+	thread-pools.
+	<li>The {@link org.lightwolf.Flow} is a final class. To create a
+	flow, one must write and call a {@link org.lightwolf.FlowMethod
+	flow-method}.
+</ul>
+
+<h2>Related Documentation</h2>
+
+Please refer to the Lightwolf website at:
+<ul>
+	<li><a href="http://lightwolf.sourceforge.net/">http://lightwolf.sourceforge.net/</a>
+</ul>
+
+<!-- Put @see and @since tags down here. -->
+@author Fernando Colombo
+
+</body>
+</html>

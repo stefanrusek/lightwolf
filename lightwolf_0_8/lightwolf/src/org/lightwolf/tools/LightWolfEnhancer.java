@@ -113,14 +113,14 @@ public class LightWolfEnhancer {
                 return new EmptyVisitor() {
 
                     @Override
-                    public AnnotationVisitor visitAnnotation(String desc, boolean visible) {
-                        if (desc.equals("L" + FLOWMETHOD_ANNOT + ";")) {
+                    public AnnotationVisitor visitAnnotation(String _desc, boolean visible) {
+                        if (_desc.equals("L" + FLOWMETHOD_ANNOT + ";")) {
                             final boolean[] isManual = new boolean[] { false };
                             return new EmptyVisitor() {
 
                                 @Override
-                                public void visit(String name, Object value) {
-                                    if (name.equals("manual") && value.equals(Boolean.TRUE)) {
+                                public void visit(String _name, Object value) {
+                                    if (_name.equals("manual") && value.equals(Boolean.TRUE)) {
                                         isManual[0] = true;
                                     }
                                 }

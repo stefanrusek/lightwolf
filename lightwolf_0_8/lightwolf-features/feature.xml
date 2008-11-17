@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <feature
       id="org.lightwolf.plugin"
-      label="Light Wolf Plug-in"
-      version="0.8.5"
+      label="Lightwolf Plug-in"
+      version="0.8.7"
       provider-name="Fernando Colombo">
 
    <description>
-      Light Wolf plug-in, with library, project nature and builder.
+      Lightwolf plug-in, with library, project nature and builder.
    </description>
 
    <license>
@@ -27,8 +27,8 @@ THIS SOFTWARE IS PROVIDED &apos;&apos;AS IS&apos;&apos; AND ANY EXPRESS OR IMPLI
 
    <plugin
          id="org.lightwolf.nature"
-         download-size="650"
-         install-size="980"
-         version="0.8.5"/>
+         download-size="700"
+         install-size="1000"
+         version="0.8.7"/>
 
 </feature>

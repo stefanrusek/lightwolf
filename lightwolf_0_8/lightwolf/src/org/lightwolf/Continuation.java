@@ -39,7 +39,9 @@ public class Continuation implements Cloneable {
      * Places a checkpoint on the current {@linkplain Flow flow}, which can be
      * used resume execution from the point of invocation. The checkpoint
      * contains the values of parameters, local variables, temporary data and
-     * instruction pointers, of all frames from the <a href="Flow.html#flowcreator">flow-creator</a> (inclusive) to the point of invocation.
+     * instruction pointers, of all frames from the <a
+     * href="Flow.html#flowcreator">flow-creator</a> (inclusive) to the point of
+     * invocation.
      * <p>
      * After invocation, it's possible to call {@link #resume()} on this
      * continuation, so a flow can resume from the checkpoint. When a checkpoint
@@ -123,8 +125,8 @@ public class Continuation implements Cloneable {
      * execution is being resumed.
      * <p>
      * The new flow will execute synchronously. This method returns only then
-     * the <a href="Flow.html#flowcreator">flow-creator</a> returns, as if by invocation of
-     * {@link Flow#resume()}. If the resumed flow sends a
+     * the <a href="Flow.html#flowcreator">flow-creator</a> returns, as if by
+     * invocation of {@link Flow#resume()}. If the resumed flow sends a
      * {@linkplain Flow#signal(FlowSignal) signal}, this method throws the
      * corresponding {@link FlowSignal}. In other words, the invoker will be the
      * <a href="Flow.html#flowcontroller">flow-controller</a>.

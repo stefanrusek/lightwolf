@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
-<project name="Light Wolf">
+<project name="Lightwolf">
   <bannerLeft>
-    <name>Light Wolf</name>
+    <name>Lightwolf</name>
     <!--src>http://maven.apache.org/images/apache-maven-project.png</src-->
     <!--href>http://maven.apache.org/</href-->
   </bannerLeft>
@@ -14,7 +14,7 @@
       <item name="SourceForge" href="http://sourceforge.net/projects/lightwolf/"/>
     </links>
 
-    <menu name="Light Wolf">
+    <menu name="Lightwolf">
       <item name="Home" href="index.html"/>
       <item name="Getting Started" href="gettingstarted.html"/>
       <item name="Download" href="download.html"/>

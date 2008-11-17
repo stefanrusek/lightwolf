@@ -75,7 +75,6 @@ public class IOActivator {
      *        serverSocket.socket().bind(new InetSocketAddress(8080));
      *        serverSocket.configureBlocking(false);
      *        IOActivator activator = new IOActivator();
-     *        activator.acceptMany(serverSocket);
      *        // The following will run for each incoming connection.
      *        SocketChannel clientSocket = activator.acceptMany(serverSocket);
      *        // Process this connection. May run in parallel with other connections.

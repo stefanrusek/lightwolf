@@ -5,7 +5,78 @@
     -----
     -----
 
-Welcome to Lightwolf
+Frequently Asked Questions
+
+** Why this project?
+
+   The idea of this project is to provide an alternative to XML-based workflow languages.
+   Our mission is allow you to build and deploy a complex, worth-of-value business workflow
+   writing just a few Java classes. You are free to use your favorite IDE, libraries,
+   frameworks, coding styles and your valuable programming knowledge.
+
+** What's wrong with XML-based workflow languages?   
+   
+   XML-based workflow languages are usually hard to code, hard to debug, hard to change
+   and not powerful enough for many real-world applications. That's why most workflows are just
+   "glues" to other enterprise components written in general programming languages such as
+   Java, C++ and C#.
+
+** Isn't XML-based workflow languages, language neutral?
+
+   Not actually. If you write a workflow in BPEL, it won't run on a XPDL engine, and vice-versa.
+   Also if you use engine extensions, then your workflow won't run unmodified on anywhere else.
+
+   If you want integration between two environments, such as getting Java talking with .NET,
+   you don't need a workflow engine. You can just call a webservice. This means that your workflow
+   could be written in Java. ;-) Of course, if you want to be in fashion, you can put an ESB between
+   your workflow and the rest of the system. 
+
+** How can I do XML manipulation in Java?
+
+   In Java SE 5.0, the classes on javax.xml are usually enough.  
+
+** How can I develop long running processes with Lightwolf?
+
+   Follow these steps:
+   
+   * Put your long running code inside a flow method and make sure that all local variables
+     (including parameters) are either primitive or serializable.
+
+   * Find places in your code where will be long waits, such as waiting for an user to click on a
+     ticket-style hyperlink in his e-mail (this can take days, weeks, or never happens at all).
+
+   * For each place you found on the previous step, use a suspend utility. That can be the
+     Continuation, Flow.suspend, Flow.signal, etc.
+
+   * Get the flow in suspended state, and store it on some stream, such as a database blob or file.
+
+    
+    
+   
+   You can call other flow methods
+   from within a flow method, a  
+   
+   * Implement the business process using 
+
+
+   
+
+
+
+   XML has some advantages worth-of-mentioning:
+   * 
+   
+   Some languages are very good to model workflows, such as XPDL.  
+   
+   
+
+** 
+
+   Programming a workflow with diagrams often hide important aspects of a workflow, just like visual modeling tools often
+   are not enough to build complex, fast and reusable programs. 
+   
+   . Using visual tools often does not provide
+   eno      
 
     Lightwolf is a Java library that simplifies thread development. Here is a short summary of 
     features:

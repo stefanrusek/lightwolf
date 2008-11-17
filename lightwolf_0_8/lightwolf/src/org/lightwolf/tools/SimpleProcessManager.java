@@ -66,15 +66,15 @@ public class SimpleProcessManager extends ProcessManager {
     }
 
     @Override
-    protected synchronized void send(Object key, Object message) {
+    protected synchronized void send(Object destKey, Object message) {
         LinkedList<Flow> list;
-        list = keyWaiters.remove(key);
+        list = keyWaiters.remove(destKey);
         if (list != null) {
             dispatch(message, list);
         }
         for (Iterator<Entry<IMatcher, LinkedList<Flow>>> i = matcherWaiters.entrySet().iterator(); i.hasNext();) {
             Entry<IMatcher, LinkedList<Flow>> item = i.next();
-            if (item.getKey().match(key)) {
+            if (item.getKey().match(destKey)) {
                 dispatch(message, item.getValue());
                 i.remove();
             }
@@ -103,11 +103,11 @@ public class SimpleProcessManager extends ProcessManager {
         list.add(flow);
     }
 
-    private LinkedList<Flow> getKeyList(Object key) {
-        LinkedList<Flow> ret = keyWaiters.get(key);
+    private LinkedList<Flow> getKeyList(Object addrKey) {
+        LinkedList<Flow> ret = keyWaiters.get(addrKey);
         if (ret == null) {
             ret = new LinkedList<Flow>();
-            keyWaiters.put(key, ret);
+            keyWaiters.put(addrKey, ret);
         }
         return ret;
     }

@@ -6,7 +6,7 @@ import org.lightwolf.Flow;
 import org.lightwolf.FlowLocal;
 import org.lightwolf.FlowMethod;
 
-public final class ParallelArray<T> implements ParallelIterable<T> {
+public final class ParallelArray<T> {
 
     private final T[] data;
     private int threadCount;

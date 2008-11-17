@@ -31,6 +31,12 @@ import java.util.concurrent.TimeUnit;
 
 import org.lightwolf.tools.SimpleFlowManager;
 
+/**
+ * An object that controls execution of flows by assigning them to actual
+ * threads.
+ * 
+ * @author Fernando Colombo
+ */
 public abstract class FlowManager {
 
     private static FlowManager _default = new SimpleFlowManager("defaultFlowManager");

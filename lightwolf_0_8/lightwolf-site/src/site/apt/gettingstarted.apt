@@ -5,17 +5,17 @@
     -----
     -----
 
-Installing Light Wolf Binaries
+Installing Lightwolf Binaries
 
     Download the package
 
-Installing Light Wolf on Eclipse
+Installing Lightwolf on Eclipse
 
-    This guide is based on Eclipse 3.3. Light Wolf was tested on Eclipse 3.4 and works, but the
+    This guide is based on Eclipse 3.3. Lightwolf was tested on Eclipse 3.4 and works, but the
     steps to download and install are a bit different, since this mechanism was changed on Eclipse
     3.4. Hence you should get no trouble to download and install on Eclipses newer than 3.3.
 
-    First download and install the <<Light Wolf Plug-in>> for Eclipse from the following update
+    First download and install the <<Lightwolf Plug-in>> for Eclipse from the following update
     site:
 
 ---
@@ -31,13 +31,13 @@ Installing Light Wolf on Eclipse
 
 [images/eclipse-new-upd-site.gif]
 
-    Once you clicked OK, check only the <<Light Wolf>> item on the list box, and then click
-    <<Next>>. Wait for the server response and choose the Light Wolf Plug-in. There should be only
+    Once you clicked OK, check only the <<Lightwolf>> item on the list box, and then click
+    <<Next>>. Wait for the server response and choose the Lightwolf Plug-in. There should be only
     one version available. Read and accept the license (if you want), wait for the download to
     finish, and restart Eclipse.
 
     Now that you are back on Eclipse, right-click on any Java project, and choose the <<Add/Remove
-    Light Wolf Nature>> option:
+    Lightwolf Nature>> option:
     
 [images/eclipse-project-menu.gif]
 
@@ -50,7 +50,7 @@ Installing Light Wolf on Eclipse
 
 [images/eclipse-project-builder.gif]
 
-    Also check if the <<Light Wolf Library>> was added to the project's build path:
+    Also check if the <<Lightwolf Library>> was added to the project's build path:
 
 [images/eclipse-project-libraries.gif]
 
@@ -65,18 +65,18 @@ Installing Light Wolf on Eclipse
 
 [images/eclipse-running-sample.gif]
 
-    That's all. Now you should be able to use Light Wolf utilities within your project's code.
+    That's all. Now you should be able to use Lightwolf utilities within your project's code.
 
 Some Important Advice
 
     * This project is in early stages of development. It still in Alpha on SourceForge. If you
-      find some bug, please post a "bug artifact" on Light Wolf's 
+      find some bug, please post a "bug artifact" on Lightwolf's 
       {{{http://sourceforge.net/tracker/?group_id=241050}tracker}}.
 
-    * If Eclipse reports an error message from Light Wolf Builder, this might be due to manual
+    * If Eclipse reports an error message from Lightwolf Builder, this might be due to manual
       changes to .classpath file or .class files (not all possible changes are being detected by
-      the Light Wolf Plug-in). If you perform a clean-up on all projects and rebuild, the build
+      the Lightwolf Plug-in). If you perform a clean-up on all projects and rebuild, the build
       should be correct and the error should not appear on any subsequent builds.
 
     * Remember to use the {{{javadoc/org/lightwolf/FlowMethod.html}FlowMethod}} annotation!!! It is
-      required to enhance the method so Light Wolf utilities can be invoked from it.
+      required to enhance the method so Lightwolf utilities can be invoked from it.

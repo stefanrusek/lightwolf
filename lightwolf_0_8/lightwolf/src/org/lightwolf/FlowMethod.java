@@ -45,7 +45,7 @@ import org.lightwolf.tools.LightWolfAntTask;
  * desired flow-methods.
  * <p>
  * <b>NOTE TO NEW USERS:</b> To work as expected, a flow-method must have its
- * bytecode enhanced. This can be done by the Light Wolf Eclipse Plug-in. For
+ * bytecode enhanced. This can be done by the Lightwolf Eclipse Plug-in. For
  * more information, please check <a
  * href="http://lightwolf.sourceforge.net">http://lightwolf.sourceforge.net</a>.
  * You can also use the {@link LightWolfAntTask} to enhance bytecode.
@@ -57,6 +57,18 @@ import org.lightwolf.tools.LightWolfAntTask;
 @Retention(RetentionPolicy.CLASS)
 public @interface FlowMethod {
 
-    boolean manual() default true;
+    /**
+     * Determines weather this flow method will be manually or automatically
+     * enhanced. The default value is <code>false</code>, which indicates that
+     * the method will be automatically enhanced by the Lightwolf Builder or
+     * {@link LightWolfAntTask}. If <code>true</code> is assigned to this
+     * attribute, the method's bytecode will not be touched, and hence no
+     * {@link Flow} utility will be available. The <code>true</code> value is
+     * reserved for internal use of Lightwolf utilities.
+     * <p>
+     * This attribute might change or even be removed in the future. Hence
+     * explicit use of this attribute is not recommended.
+     */
+    boolean manual() default false;
 
 }

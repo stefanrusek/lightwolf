@@ -13,7 +13,7 @@ import org.eclipse.swt.widgets.Label;
 public class LightWolfContainerWizard extends WizardPage implements IClasspathContainerPage {
 
     public LightWolfContainerWizard() {
-        super("Light Wolf Library", "Light Wolf Library", null);
+        super("Lightwolf Library", "Lightwolf Library", null);
     }
 
     public boolean finish() {
@@ -32,7 +32,7 @@ public class LightWolfContainerWizard extends WizardPage implements IClasspathCo
         Composite control = new Composite(parent, SWT.NONE);
         control.setLayout(new GridLayout(1, true));
         Label label = new Label(control, SWT.NONE);
-        label.setText("The Light Wolf Library currently has no properties.");
+        label.setText("The Lightwolf Library currently has no properties.");
         label.setLayoutData(new GridData(GridData.FILL));
         setControl(control);
     }

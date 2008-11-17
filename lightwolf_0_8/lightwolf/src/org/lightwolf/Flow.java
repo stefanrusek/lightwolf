@@ -109,10 +109,43 @@ public final class Flow implements Serializable {
 
     private static final long serialVersionUID = 6770568702848053327L;
 
+    /**
+     * A constant indicating that the flow is active. An active flow is running,
+     * which means that it is consuming a {@link Thread}. When a
+     * {@linkplain FlowMethod flow method} calls a non-flow method, the flow
+     * will remain active. A flow will move out from active state when the <a
+     * href="#flowcreator">flow-creator</a> returns or when the flow is
+     * {@linkplain #suspend(Object) suspended}.
+     * 
+     * @see #getState()
+     */
     public static final int ACTIVE = 1;
+
+    /**
+     * A constant indicating that the flow is suspended. A suspended flow is not
+     * running, which means that it is not consuming any {@link Thread}. A
+     * suspended flow is always stopped at the point of invocation of
+     * {@link #signal(FlowSignal)} or higher level methods such as
+     * {@link #suspend(Object)} or {@link Continuation#checkpoint()}. This means
+     * it can be resumed with one of the {@link #resume(Object) resume()}
+     * methods.
+     * 
+     * @see #getState()
+     */
     public static final int SUSPENDED = 2;
-    public static final int SUSPENDING = 3;
-    public static final int ENDED = 4;
+
+    /**
+     * A constant indicating that the flow is ended. A flow is ended when the <a
+     * href="#flowcreator">flow-creator</a> returns normally or by exception, or
+     * when the method {@link #end()} is called. An ended flow cannot be
+     * resumed, but it can be passed for the method
+     * {@link Continuation#placeOnCheckpoint(Flow)}.
+     * 
+     * @see #getState()
+     */
+    public static final int ENDED = 3;
+
+    private static final int SUSPENDING = 4;
 
     private static final String[] stateNames = new String[] { "0", "ACTIVE", "SUSPENDED", "SUSPENDING", "ENDED" };
 
@@ -1238,11 +1271,20 @@ public final class Flow implements Serializable {
         }
     }
 
+    /**
+     * Returns the current flow. This method returns non-null if the current
+     * thread is executing {@linkplain FlowMethod flow method}. Otherwise it
+     * returns <code>null</code>. The current flow will always be
+     * {@link #ACTIVE} .
+     * 
+     * @return The current flow, or <code>null</code> no {@linkplain FlowMethod
+     *         flow method} is running on the current thread.
+     */
     public static Flow current() {
         return current.get();
     }
 
-    public static Flow fromInvoker() {
+    private static Flow fromInvoker() {
         Flow ret = current();
         if (ret != null) {
             MethodFrame frame = ret.currentFrame;
@@ -1250,9 +1292,18 @@ public final class Flow implements Serializable {
                 return ret;
             }
         }
-        throw new IllegalStateException("Invalid operation: no current flow.");
+        throw new IllegalStateException("Illegal operation for a non-flow method.");
     }
 
+    /**
+     * Returns the current flow, or throws an exception if there is no current
+     * flow. This method is like {@link #current()}, except in that it never
+     * returns <code>null</code>. In the absence of a current flow, it will
+     * throw an exception.
+     * 
+     * @return The current flow.
+     * @throws IllegalStateException If there is no current flow.
+     */
     public static Flow safeCurrent() {
         Flow ret = current.get();
         if (ret == null) {
@@ -1347,6 +1398,17 @@ public final class Flow implements Serializable {
         return previous;
     }
 
+    /**
+     * This flow's state, which will be {@link #ACTIVE}, {@link #SUSPENDED} or
+     * {@link #ENDED}.
+     * 
+     * @see #waitSuspended()
+     * @see #waitNotRunning()
+     */
+    public int getState() {
+        return state;
+    }
+
     public boolean isActive() {
         return state == ACTIVE;
     }
@@ -1411,10 +1473,8 @@ public final class Flow implements Serializable {
      * <ul>
      * <li>If the flow finishes normally, this method returns the value returned
      * by the <a href="#flowcreator">flow-creator</a>.</li>
-     * <li>If the flow throws a non-checked exception, such exception is simply
-     * passed to the invoker.</li>
-     * <li>If the flow throws a checked exception, this method throws a
-     * {@link ResumeException} having the checked exception as its
+     * <li>If the flow throws an exception, this method throws a
+     * {@link FlowException} having the exception as its
      * {@linkplain Throwable#getCause() cause}.
      * <li>If the flow sends a {@linkplain #signal(FlowSignal) signal}, the flow
      * is first suspended, then signal is thrown as an exception.
@@ -1485,13 +1545,7 @@ public final class Flow implements Serializable {
             } catch (IllegalAccessException e) {
                 throw new RuntimeException(e);
             } catch (InvocationTargetException e) {
-                if (e.getCause() instanceof RuntimeException) {
-                    throw (RuntimeException) e.getCause();
-                }
-                if (e.getCause() instanceof Error) {
-                    throw (Error) e.getCause();
-                }
-                throw new RuntimeException(e.getCause());
+                throw new FlowException(e.getCause());
             }
         } finally {
             if (success) {

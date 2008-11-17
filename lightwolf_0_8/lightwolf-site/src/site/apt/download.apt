@@ -5,18 +5,18 @@
     -----
     -----
 
-Downloading Light Wolf
+Downloading Lightwolf
 
-    If you use Eclipse IDE 3.3 or later, the easiest way to download Light Wolf library is through
+    If you use Eclipse IDE 3.3 or later, the easiest way to download Lightwolf library is through
     the update site:
 
 ---
     http://lightwolf.sourceforge.net/updates/
 ---
 
-    Choose the <<Light Wolf Plug-in>>, since it contains the Library. This plug-in comes with an
-    Eclipse builder that enhances .class files automatically. Just add Light Wolf nature to a Java
-    project using the project's context menu. This will also add the Light Wolf Library to the
+    Choose the <<Lightwolf Plug-in>>, since it contains the Library. This plug-in comes with an
+    Eclipse builder that enhances .class files automatically. Just add Lightwolf nature to a Java
+    project using the project's context menu. This will also add the Lightwolf Library to the
     project's build path.
 
 Non-Eclipse Users

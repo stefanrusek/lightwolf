@@ -51,20 +51,20 @@ public class ClassLoaderProvider implements IClassProvider {
                 final Method method = new Method();
                 method.name = name;
                 method.desc = desc;
-                method.annotations = Collections.EMPTY_LIST;
+                method.annotations = Collections.emptyList();
                 methods.add(method);
                 return new EmptyVisitor() {
 
                     @Override
-                    public AnnotationVisitor visitAnnotation(String desc, boolean visible) {
+                    public AnnotationVisitor visitAnnotation(String _desc, boolean visible) {
                         if (method.annotations == Collections.EMPTY_LIST) {
                             method.annotations = new ArrayList<String>();
                         }
-                        int len = desc.length();
-                        if (desc.charAt(0) != 'L' || desc.charAt(len - 1) != ';') {
+                        int len = _desc.length();
+                        if (_desc.charAt(0) != 'L' || _desc.charAt(len - 1) != ';') {
                             return null;
                         }
-                        method.annotations.add(desc.substring(1, len - 1));
+                        method.annotations.add(_desc.substring(1, len - 1));
                         return null;
                     }
                 };

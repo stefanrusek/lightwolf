@@ -24,6 +24,12 @@
  */
 package org.lightwolf;
 
+/**
+ * An object that stores data associated with a {@link Flow}. This class is
+ * similar to Java's {@link ThreadLocal}, but it works for a flow, not a thread.
+ * 
+ * @author Fernando Colombo
+ */
 public class FlowLocal<T> {
 
     @Override
@@ -36,17 +42,14 @@ public class FlowLocal<T> {
         return super.equals(obj);
     }
 
-    @SuppressWarnings("unchecked")
     public T get() {
         return (T) Flow.getLocal(this);
     }
 
-    @SuppressWarnings("unchecked")
     public T set(T value) {
         return (T) Flow.setLocal(this, value);
     }
 
-    @SuppressWarnings("unchecked")
     public T remove() {
         return (T) Flow.removeLocal(this);
     }

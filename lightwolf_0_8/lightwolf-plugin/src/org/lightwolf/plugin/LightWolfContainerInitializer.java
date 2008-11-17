@@ -47,7 +47,7 @@ public class LightWolfContainerInitializer extends ClasspathContainerInitializer
             }
 
             public String getDescription() {
-                return "Light Wolf Library";
+                return "Lightwolf Library";
             }
 
             public int getKind() {

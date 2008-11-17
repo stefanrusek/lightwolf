@@ -37,16 +37,16 @@ public class ToggleNatureAction implements IObjectActionDelegate {
                     String msg;
                     try {
                         if (toggleNature(project)) {
-                            msg = "Light Wolf nature added to project " + project.getName() + '.';
+                            msg = "Lightwolf nature added to project " + project.getName() + '.';
                         } else {
-                            msg = "Light Wolf nature removed from project " + project.getName() + '.';
+                            msg = "Lightwolf nature removed from project " + project.getName() + '.';
                         }
                     } catch (CoreException e) {
                         msg = "An error ocurred: [" + e.getMessage() + "]. Please check error log.";
                         e.printStackTrace();
                     }
                     if (part != null && part.getSite() != null) {
-                        MessageDialog.openInformation(part.getSite().getShell(), "Light Wolf", msg);
+                        MessageDialog.openInformation(part.getSite().getShell(), "Lightwolf", msg);
                     } else {
                         LightWolfLog.print(msg);
                     }
