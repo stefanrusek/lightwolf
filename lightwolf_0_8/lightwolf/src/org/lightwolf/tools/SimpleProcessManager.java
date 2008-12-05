@@ -33,26 +33,31 @@ import java.util.LinkedList;
 import java.util.WeakHashMap;
 import java.util.Map.Entry;
 
+import org.lightwolf.AddressAlreadyInUseException;
+import org.lightwolf.Connection;
 import org.lightwolf.Flow;
 import org.lightwolf.FlowMethod;
 import org.lightwolf.IMatcher;
 import org.lightwolf.ProcessManager;
 
-public class SimpleProcessManager extends ProcessManager {
+public final class SimpleProcessManager extends ProcessManager {
 
+    private static final Object RECEIVE_MANY = new Object();
     private static final WeakHashMap<Key, SimpleProcessManager> activeManagers = new WeakHashMap<Key, SimpleProcessManager>();
 
     private static SimpleProcessManager restore(Key key) {
         return activeManagers.get(key);
     }
 
-    private final HashMap<Object, LinkedList<Flow>> keyWaiters;
-    private final HashMap<IMatcher, LinkedList<Flow>> matcherWaiters;
+    private final HashMap<Object, LinkedList<Flow>> keyReceivers;
+    private final HashMap<IMatcher, LinkedList<Flow>> matcherReceivers;
+    private final HashMap<Object, MessageQueue> msgQueues;
     private final Key key;
 
     public SimpleProcessManager(String name) {
-        keyWaiters = new HashMap<Object, LinkedList<Flow>>();
-        matcherWaiters = new HashMap<IMatcher, LinkedList<Flow>>();
+        keyReceivers = new HashMap<Object, LinkedList<Flow>>();
+        matcherReceivers = new HashMap<IMatcher, LinkedList<Flow>>();
+        msgQueues = new HashMap<Object, MessageQueue>();
         key = new Key(name);
         synchronized(activeManagers) {
             activeManagers.put(key, this);
@@ -60,40 +65,119 @@ public class SimpleProcessManager extends ProcessManager {
     }
 
     @Override
-    @FlowMethod
-    protected Object receive(Object matcher) {
-        return Flow.signal(new WaitForMessage(this, matcher));
+    protected synchronized void notify(Object destKey, Object message) {
+        LinkedList<Flow> list;
+        list = keyReceivers.get(destKey);
+        if (list != null) {
+            dispatch(message, list);
+            if (list.isEmpty()) {
+                keyReceivers.remove(destKey);
+            }
+        }
+        for (Iterator<Entry<IMatcher, LinkedList<Flow>>> i = matcherReceivers.entrySet().iterator(); i.hasNext();) {
+            Entry<IMatcher, LinkedList<Flow>> item = i.next();
+            if (item.getKey().match(destKey)) {
+                list = item.getValue();
+                dispatch(message, list);
+                if (list.isEmpty()) {
+                    i.remove();
+                }
+            }
+        }
     }
 
     @Override
-    protected synchronized void send(Object destKey, Object message) {
-        LinkedList<Flow> list;
-        list = keyWaiters.remove(destKey);
-        if (list != null) {
-            dispatch(message, list);
+    @FlowMethod
+    protected synchronized Object wait(Object matcher) {
+        Flow flow = Flow.current();
+        addWaiter(matcher, flow);
+        return Flow.suspend();
+    }
+
+    @Override
+    @FlowMethod
+    protected synchronized Object waitMany(Object matcher) {
+        Flow flow = Flow.current();
+        addWaiter(matcher, flow);
+        return Flow.suspend(RECEIVE_MANY);
+    }
+
+    @Override
+    @FlowMethod
+    protected synchronized void send(Object address, Object message) {
+        MessageQueue queue = msgQueues.get(address);
+        if (queue == null) {
+            queue = new MessageQueue(null);
+            msgQueues.put(address, queue);
         }
-        for (Iterator<Entry<IMatcher, LinkedList<Flow>>> i = matcherWaiters.entrySet().iterator(); i.hasNext();) {
-            Entry<IMatcher, LinkedList<Flow>> item = i.next();
-            if (item.getKey().match(destKey)) {
-                dispatch(message, item.getValue());
-                i.remove();
-            }
+        if (!queue.send(Flow.current(), message)) {
+            Flow.suspend(message);
         }
     }
 
-    private void dispatch(Object message, LinkedList<Flow> list) {
+    @Override
+    @FlowMethod
+    protected Object receive(Object address) {
+        return doReceive(address, true);
+    }
+
+    @Override
+    @FlowMethod
+    protected Object receiveMany(Object address) {
         for (;;) {
-            Flow flow = list.poll();
-            if (flow == null) {
-                return;
+            Object ret = doReceive(address, false);
+            if (Flow.split(1) == 1) {
+                return ret;
             }
-            flow.activate(message);
         }
     }
 
-    synchronized void submit(WaitForMessage signal) {
-        Object matcher = signal.getMatcher();
-        Flow flow = signal.getFlow();
+    @FlowMethod
+    private synchronized Object doReceive(Object address, boolean allowRemove) {
+        MessageQueue queue = msgQueues.get(address);
+        if (queue != null) {
+            queue.bind(Flow.current(), address);
+        } else {
+            queue = new MessageQueue(Flow.current());
+            msgQueues.put(address, queue);
+        }
+        Object ret;
+        if (queue.receive()) {
+            ret = queue.getMessage();
+        } else {
+            ret = Flow.suspend();
+        }
+        if (allowRemove && !queue.hasSenders()) {
+            msgQueues.remove(address);
+        }
+        return ret;
+    }
+
+    @Override
+    @FlowMethod
+    protected Connection accept(Object matcher) {
+        throw new AssertionError("Not implemented.");
+    }
+
+    @Override
+    @FlowMethod
+    protected Connection acceptMany(Object matcher) {
+        throw new AssertionError("Not implemented.");
+    }
+
+    @Override
+    @FlowMethod
+    protected Connection connect(Object matcher) {
+        throw new AssertionError("Not implemented.");
+    }
+
+    @Override
+    @FlowMethod
+    protected Connection connectMany(Object matcher) {
+        throw new AssertionError("Not implemented.");
+    }
+
+    private void addWaiter(Object matcher, Flow flow) {
         LinkedList<Flow> list;
         if (matcher instanceof IMatcher) {
             list = getMatcherList((IMatcher) matcher);
@@ -103,20 +187,32 @@ public class SimpleProcessManager extends ProcessManager {
         list.add(flow);
     }
 
+    private void dispatch(Object message, LinkedList<Flow> list) {
+        for (Iterator<Flow> i = list.iterator(); i.hasNext();) {
+            Flow flow = i.next();
+            if (flow.getResult() == RECEIVE_MANY) {
+                flow = flow.copy();
+            } else {
+                i.remove();
+            }
+            flow.activate(message);
+        }
+    }
+
     private LinkedList<Flow> getKeyList(Object addrKey) {
-        LinkedList<Flow> ret = keyWaiters.get(addrKey);
+        LinkedList<Flow> ret = keyReceivers.get(addrKey);
         if (ret == null) {
             ret = new LinkedList<Flow>();
-            keyWaiters.put(addrKey, ret);
+            keyReceivers.put(addrKey, ret);
         }
         return ret;
     }
 
     private LinkedList<Flow> getMatcherList(IMatcher matcher) {
-        LinkedList<Flow> ret = matcherWaiters.get(matcher);
+        LinkedList<Flow> ret = matcherReceivers.get(matcher);
         if (ret == null) {
             ret = new LinkedList<Flow>();
-            matcherWaiters.put(matcher, ret);
+            matcherReceivers.put(matcher, ret);
         }
         return ret;
     }
@@ -149,6 +245,60 @@ public class SimpleProcessManager extends ProcessManager {
                 throw new InvalidObjectException("Coult not find " + SimpleProcessManager.class.getName() + " instance named '" + id + "'.");
             }
             return ret;
+        }
+
+    }
+
+    private static final class MessageQueue implements Serializable {
+
+        private static final long serialVersionUID = 1L;
+        private final LinkedList<Flow> senders;
+        private Flow receiver;
+
+        MessageQueue(Flow receiver) {
+            senders = new LinkedList<Flow>();
+            this.receiver = receiver;
+        }
+
+        void bind(Flow newRecvr, Object address) {
+            if (newRecvr == null) {
+                throw new NullPointerException();
+            }
+            if (newRecvr == receiver) {
+                return;
+            }
+            if (receiver != null) {
+                throw new AddressAlreadyInUseException(address);
+            }
+            receiver = newRecvr;
+        }
+
+        boolean send(Flow sender, Object msg) {
+            if (receiver != null) {
+                assert senders.isEmpty();
+                receiver.activate(msg);
+                return true;
+            }
+            senders.add(sender);
+            return false;
+        }
+
+        boolean receive() {
+            return senders.peek() != null;
+        }
+
+        Object getMessage() {
+            Flow sender = senders.poll();
+            if (sender == null) {
+                throw new AssertionError();
+            }
+            Object ret = sender.getResult();
+            sender.activate();
+            return ret;
+        }
+
+        boolean hasSenders() {
+            return !senders.isEmpty();
         }
 
     }

@@ -42,9 +42,33 @@ public abstract class ProcessManager {
         _default = manager;
     }
 
+    protected abstract void notify(Object destKey, Object message);
+
+    @FlowMethod
+    protected abstract Object wait(Object matcher);
+
+    @FlowMethod
+    protected abstract Object waitMany(Object matcher);
+
+    @FlowMethod
+    protected abstract void send(Object destKey, Object message);
+
     @FlowMethod
     protected abstract Object receive(Object matcher);
 
-    protected abstract void send(Object key, Object message);
+    @FlowMethod
+    protected abstract Object receiveMany(Object matcher);
+
+    @FlowMethod
+    protected abstract Connection accept(Object matcher);
+
+    @FlowMethod
+    protected abstract Connection acceptMany(Object matcher);
+
+    @FlowMethod
+    protected abstract Connection connect(Object matcher);
+
+    @FlowMethod
+    protected abstract Connection connectMany(Object matcher);
 
 }

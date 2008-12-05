@@ -1251,6 +1251,7 @@ public final class Flow implements Serializable {
                 }
                 cur.state = SUSPENDING;
                 cur.suspendedFrame = frame.copy(cur);
+                // The result will carry the signal, so it can be thrown on finish().
                 cur.result = signal;
                 signal.flow = cur;
                 frame.leaveThread();
@@ -1545,6 +1546,9 @@ public final class Flow implements Serializable {
             } catch (IllegalAccessException e) {
                 throw new RuntimeException(e);
             } catch (InvocationTargetException e) {
+                if (e.getCause() instanceof FlowSignal) {
+                    throw (FlowSignal) e.getCause();
+                }
                 throw new FlowException(e.getCause());
             }
         } finally {
@@ -1721,6 +1725,17 @@ public final class Flow implements Serializable {
         return result;
     }
 
+    public synchronized Object getResult() {
+        try {
+            while (state == SUSPENDING) {
+                wait();
+            }
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+        return result;
+    }
+
     void finish() {
         assert current.get() == this;
         current.set(previous);
@@ -1753,10 +1768,10 @@ public final class Flow implements Serializable {
             case SUSPENDING:
                 assert suspendedFrame != null;
                 FlowSignal signal = (FlowSignal) result;
+                result = signal.getResult();
+                currentFrame = null;
                 synchronized(this) {
                     state = SUSPENDED;
-                    currentFrame = null;
-                    result = signal.getResult();
                     notifyAll();
                 }
                 throw signal;
@@ -1818,6 +1833,7 @@ public final class Flow implements Serializable {
             default:
                 throw new IllegalStateException("Cannot resume if flow is " + stateNames[state] + '.');
         }
+        notifyAll();
     }
 
     private void suspendInPlace() {

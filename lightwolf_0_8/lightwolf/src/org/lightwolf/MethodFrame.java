@@ -77,6 +77,7 @@ public final class MethodFrame implements Serializable {
     private int result;
     private int hiResult;
     private Object objResult;
+    private int monitorCount;
     MethodFrame prior;
     transient MethodFrame next;
 
@@ -131,10 +132,16 @@ public final class MethodFrame implements Serializable {
     }
 
     MethodFrame copy(Flow owner) {
+        if (monitorCount != 0) {
+            throw new IllegalMonitorStateException();
+        }
         return new MethodFrame(this, owner, true);
     }
 
     MethodFrame shallowCopy(Flow owner) {
+        if (monitorCount != 0) {
+            throw new IllegalMonitorStateException();
+        }
         return new MethodFrame(this, owner, false);
     }
 
@@ -190,6 +197,11 @@ public final class MethodFrame implements Serializable {
         vars = null;
         objVars = null;
         if (state == LEAVING_THREAD || state == LEAVING_METHOD) {
+            if (monitorCount != 0) {
+                state = ACTIVE;
+                resumePoint = 0;
+                throw new IllegalMonitorStateException("Attempt to break a synchronized block.");
+            }
             exit();
             return true;
         }
@@ -199,11 +211,13 @@ public final class MethodFrame implements Serializable {
     }
 
     public void monitorEnter(@SuppressWarnings("unused") Object o) {
-    // LightWolfLog.println("-- Ignoring monitor enter! --");
+        ++monitorCount;
+        // LightWolfLog.println("-- Ignoring monitor enter! --");
     }
 
     public void monitorExit(@SuppressWarnings("unused") Object o) {
-    // LightWolfLog.println("-- Ignoring monitor exit! --");
+        --monitorCount;
+        // LightWolfLog.println("-- Ignoring monitor exit! --");
     }
 
     public int getPrimitiveCount() {
