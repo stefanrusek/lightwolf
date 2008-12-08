@@ -139,9 +139,10 @@ public class Continuation implements Cloneable {
      *     Flow flow = Flow.{@link Flow#newFlow() newFlow()};
      *     continuation.{@link #resume(Flow) resume(flow)};
      * </pre>
-     * Before resuming, this method performs a copy of the current checkpoint,
-     * so a future <code>resume</code> operation will succeed. If there is no
-     * intention to resume again, one should call {@link #resumeAndForget()}.
+     * Before resuming, this method performs a {@linkplain Flow#copy() copy} of
+     * the current checkpoint, so a future <code>resume</code> operation will
+     * succeed. If there is no intention to resume again, one should call
+     * {@link #resumeAndForget()}.
      * 
      * @return The <a href="Flow.html#flowcreator">flow-creator</a>'s result.
      * @throws IllegalStateException If there is no stored checkpoint on this

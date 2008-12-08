@@ -101,8 +101,15 @@ import org.lightwolf.tools.SimpleFlowManager;
  * flows are uncommon because usually flow-methods are designed to call other
  * flow-methods, which does not cause the creation of new flow, as mentioned
  * above. Nevertheless, nested flows are allowed as an orthogonality feature.
+ * <p>
+ * If a flow <i>A</i> belongs to a {@link Process}, then every flow <i>B</i>
+ * derived from <i>A</i> will automatically belong to the same process. Derived
+ * flows are result of shallow {@linkplain #copy() copies}. Many utilities
+ * perform shallow copies, including but not limited to {@link #fork(int)},
+ * {@link #returnAndContinue()} and {@link Continuation}.
  * 
  * @see FlowMethod
+ * @see Process
  * @author Fernando Colombo
  */
 public final class Flow implements Serializable {
