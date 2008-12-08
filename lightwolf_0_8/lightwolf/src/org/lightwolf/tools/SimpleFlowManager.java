@@ -29,11 +29,17 @@ import java.io.ObjectStreamException;
 import java.io.Serializable;
 import java.util.WeakHashMap;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.Delayed;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.lightwolf.Flow;
 import org.lightwolf.FlowManager;
@@ -50,11 +56,11 @@ public class SimpleFlowManager extends FlowManager implements Serializable {
     }
 
     private final Key key;
-    private final ScheduledThreadPoolExecutor executor;
+    private final ThreadPoolExecutor executor;
 
     public SimpleFlowManager(String name) {
         key = new Key(name);
-        executor = new ScheduledThreadPoolExecutor(8, new SimpleThreadFactory(name));
+        executor = new ThreadPoolExecutor(8, Integer.MAX_VALUE, 0, TimeUnit.NANOSECONDS, new SynchronousQueue<Runnable>(), new SimpleThreadFactory(name));
         synchronized(activeManagers) {
             activeManagers.put(key, this);
         }
@@ -67,7 +73,9 @@ public class SimpleFlowManager extends FlowManager implements Serializable {
 
     @Override
     protected ScheduledFuture<?> schedule(Callable<?> callable, long delay, TimeUnit unit) {
-        return executor.schedule(callable, delay, unit);
+        ScheduledFutureRunner<?> ret = new ScheduledFutureRunner<Object>((Callable<Object>) callable, delay, unit);
+        executor.execute(ret);
+        return ret;
     }
 
     @Override
@@ -171,6 +179,7 @@ public class SimpleFlowManager extends FlowManager implements Serializable {
         }
 
         public Thread newThread(Runnable r) {
+            Flow.log("newThread-init");
             int index;
             synchronized(this) {
                 index = nextNumber++;
@@ -182,6 +191,7 @@ public class SimpleFlowManager extends FlowManager implements Serializable {
             if (ret.getPriority() != Thread.NORM_PRIORITY) {
                 ret.setPriority(Thread.NORM_PRIORITY);
             }
+            Flow.log("newThread-initdone");
             return ret;
         }
 
@@ -196,6 +206,143 @@ public class SimpleFlowManager extends FlowManager implements Serializable {
                 executor.awaitTermination(4 * 60 * 60, TimeUnit.SECONDS);
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
+            }
+        }
+
+    }
+
+    private static class ScheduledFutureRunner<V> implements Runnable, ScheduledFuture<V> {
+
+        private static final byte WAITING = 1;
+        private static final byte RUNNING = 2;
+        private static final byte DONE = 3;
+        private static final byte CANCELLED = 4;
+        private static final AtomicInteger idGenerator = new AtomicInteger();
+        private final long time;
+        private final int id;
+        private byte state;
+        private final Callable<V> callable;
+        private Thread thread;
+        private V result;
+        private Exception exception;
+
+        ScheduledFutureRunner(Callable<V> callable, long delay, TimeUnit unit) {
+            time = System.currentTimeMillis() + unit.convert(delay, TimeUnit.MILLISECONDS);
+            id = idGenerator.getAndIncrement();
+            state = WAITING;
+            this.callable = callable;
+        }
+
+        public long getDelay(TimeUnit unit) {
+            return unit.convert(time - System.currentTimeMillis(), TimeUnit.MILLISECONDS);
+        }
+
+        public int compareTo(Delayed o) {
+            if (o == this) {
+                return 0;
+            }
+            ScheduledFutureRunner<V> of = (ScheduledFutureRunner<V>) o;
+            if (time > of.time) {
+                return 1;
+            } else if (time < of.time) {
+                return -1;
+            }
+            if (id > of.id) {
+                return 1;
+            } else if (id < of.id) {
+                return -1;
+            }
+            throw new AssertionError("Id generator overflow.");
+        }
+
+        public synchronized boolean cancel(boolean mayInterruptIfRunning) {
+            if (state != WAITING) {
+                if (state == DONE || state == CANCELLED) {
+                    return false;
+                }
+                assert state == RUNNING;
+                if (mayInterruptIfRunning && thread.isAlive()) {
+                    thread.interrupt();
+                }
+            }
+            state = CANCELLED;
+            notifyAll();
+            return true;
+        }
+
+        public synchronized V get() throws InterruptedException, ExecutionException {
+            while (state == WAITING || state == RUNNING) {
+                wait();
+            }
+            if (state == CANCELLED) {
+                throw new CancellationException();
+            }
+            assert state == DONE;
+            if (exception != null) {
+                throw new ExecutionException(exception);
+            }
+            return result;
+        }
+
+        public synchronized V get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
+            long limit = System.currentTimeMillis() + unit.convert(timeout, TimeUnit.MILLISECONDS);
+            while (state == WAITING || state == RUNNING) {
+                long delay = limit - System.currentTimeMillis();
+                if (delay <= 0) {
+                    throw new TimeoutException();
+                }
+                wait(delay);
+            }
+            if (state == CANCELLED) {
+                throw new CancellationException();
+            }
+            assert state == DONE;
+            if (exception != null) {
+                throw new ExecutionException(exception);
+            }
+            return result;
+        }
+
+        public boolean isCancelled() {
+            return state == CANCELLED;
+        }
+
+        public boolean isDone() {
+            return state == DONE;
+        }
+
+        public void run() {
+            synchronized(this) {
+                for (;;) {
+                    if (state != WAITING) {
+                        return;
+                    }
+                    long delay = time - System.currentTimeMillis();
+                    if (delay <= 0) {
+                        break;
+                    }
+                    try {
+                        wait(delay);
+                    } catch (InterruptedException e) {
+                        // Ignores.
+                    }
+                }
+                state = RUNNING;
+                thread = Thread.currentThread();
+            }
+            try {
+                result = callable.call();
+            } catch (Exception e) {
+                exception = e;
+            }
+            synchronized(this) {
+                if (state == RUNNING) {
+                    state = DONE;
+                } else {
+                    result = null;
+                    exception = null;
+                }
+                thread = null;
             }
         }
 

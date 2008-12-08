@@ -8,6 +8,7 @@ import org.junit.Test;
 import org.lightwolf.Continuation;
 import org.lightwolf.Flow;
 import org.lightwolf.FlowMethod;
+import org.lightwolf.FlowSignal;
 
 public class TestBasics {
 
@@ -127,14 +128,52 @@ public class TestBasics {
         return cont;
     }
 
+    private Flow testFlow;
+
     @Test
-    public void runnable() throws Throwable {
+    public void execRunnable() throws Throwable {
+        SynchronousQueue<String> q = new SynchronousQueue<String>();
+        final Runnable obj = getRunnable(q);
+        testFlow = null;
+        new Thread() {
+
+            @Override
+            public void run() {
+                try {
+                    Flow.execute(obj);
+                } catch (FlowSignal s) {
+                    s.defaultAction();
+                }
+            }
+        }.start();
+        Flow flow;
+        synchronized(this) {
+            while (testFlow == null) {
+                wait();
+            }
+            flow = testFlow;
+        }
+        checkRunnable(flow, q);
+    }
+
+    @Test
+    public void submitRunnable() throws Throwable {
         final SynchronousQueue<String> q = new SynchronousQueue<String>();
-        Runnable obj = new Runnable() {
+        Runnable obj = getRunnable(q);
+        Flow flow = Flow.submit(obj);
+        checkRunnable(flow, q);
+    }
+
+    private Runnable getRunnable(final SynchronousQueue<String> q) {
+        return new Runnable() {
 
             @FlowMethod
             public void run() {
                 try {
+                    synchronized(TestBasics.this) {
+                        testFlow = Flow.current();
+                        TestBasics.this.notifyAll();
+                    }
                     String s;
                     s = q.take();
                     q.put(s + "ABC");
@@ -146,7 +185,9 @@ public class TestBasics {
                 }
             }
         };
-        Flow flow = Flow.submit(obj);
+    }
+
+    private void checkRunnable(Flow flow, SynchronousQueue<String> q) throws InterruptedException {
         String s;
         q.put("123");
         s = q.take();
@@ -163,7 +204,7 @@ public class TestBasics {
     }
 
     @Test
-    public void callable() throws Throwable {
+    public void submitCallable() throws Throwable {
         final SynchronousQueue<String> q = new SynchronousQueue<String>();
         Callable<?> obj = new Callable<String>() {
 
@@ -183,19 +224,7 @@ public class TestBasics {
             }
         };
         Flow flow = Flow.submit(obj);
-        String s;
-        q.put("123");
-        s = q.take();
-        Assert.assertEquals("123ABC", s);
-        s = (String) flow.waitSuspended();
-        Assert.assertTrue(flow.isSuspended());
-        Assert.assertEquals("DEF", s);
-        flow.activate("456");
-        q.put("789");
-        s = q.take();
-        Assert.assertEquals("789GHI456", s);
-        flow.join();
-        Assert.assertTrue(flow.isEnded());
+        checkRunnable(flow, q);
     }
 
 }

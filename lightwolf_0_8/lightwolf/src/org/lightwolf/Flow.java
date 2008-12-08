@@ -52,8 +52,8 @@ import org.lightwolf.tools.SimpleFlowManager;
  * <li>A flow can be {@link #suspend(Object) suspended} for later
  * {@link #resume(Object) resuming}, without consuming a Java thread meanwhile.</li>
  * <li>The flow's execution state can be serialized and restored, possibly on a
- * different machine (as long as certain conditions are met). This allows
- * implementation of long running processes in pure Java language.</li>
+ * different machine (as long as certain conditions are met). This makes flows
+ * portable and memory-friendly.</li>
  * <li>A flow can wait for a {@linkplain ThreadFreeLock lock} on a resource, or
  * for the {@linkplain IOActivator completion} of an I/O operation, without
  * consuming a Java thread meanwhile, and thus releasing a pooled thread for
@@ -236,6 +236,14 @@ public final class Flow implements Serializable {
         }
     }
 
+    /**
+     * The process to which this flow belongs.
+     * 
+     * @return An instance of {@link Process}, or <code>null</code> if this flow
+     *         does not belong to any process.
+     * @see #joinProcess(Process)
+     * @see #leaveProcess()
+     */
     @FlowMethod(manual = true)
     public static Process process() {
         Flow cur = Flow.fromInvoker();
@@ -247,12 +255,28 @@ public final class Flow implements Serializable {
         }
     }
 
+    /**
+     * Adds the {@linkplain Flow#current() current} flow to the informed
+     * {@linkplain Process process}. This method sets the
+     * {@linkplain #process() current flow's process} to the informed process.
+     * This allows usage of {@linkplain Process process utilities} from the
+     * current flow.
+     * 
+     * @param process The process to which the current flow will be added. Must
+     *        not be <code>null</code>.
+     * @see Process
+     * @see #leaveProcess()
+     * @see #forgetProcess()
+     * @throws IllegalStateException If the invoker is not a {@link FlowMethod}.
+     * @throws NullPointerException If the informed process is a
+     *         <code>null</code> reference.
+     */
     @FlowMethod(manual = true)
     public static void joinProcess(Process process) {
         Flow cur = Flow.fromInvoker();
         MethodFrame frame = cur.currentFrame;
         try {
-            if (process == null) {
+            if (process == null) { // Must be called here, inside the try-finally.
                 throw new NullPointerException();
             }
             if (cur.process != null) {
@@ -267,6 +291,18 @@ public final class Flow implements Serializable {
         }
     }
 
+    /**
+     * Removes the {@linkplain Flow#current() current flow} from its
+     * {@linkplain #process() current process}. This method sets the
+     * {@linkplain #process() current flow's process} to <code>null</code>, or
+     * throws an exception if the {@linkplain Flow#current() current flow} does
+     * not belong to any process.
+     * 
+     * @see #joinProcess(Process)
+     * @see #forgetProcess()
+     * @throws IllegalStateException If the invoker is not a {@link FlowMethod},
+     *         or if the current flow does not belong to any process.
+     */
     @FlowMethod(manual = true)
     public static void leaveProcess() {
         Flow cur = Flow.fromInvoker();
@@ -282,6 +318,17 @@ public final class Flow implements Serializable {
         }
     }
 
+    /**
+     * Removes the {@linkplain Flow#current() current flow} from its
+     * {@linkplain #process() current process}. This method sets the
+     * {@linkplain #process() current flow's process} to <code>null</code>, or
+     * does nothing if the {@linkplain Flow#current() current flow} does not
+     * belong to any process.
+     * 
+     * @see #joinProcess(Process)
+     * @see #leaveProcess()
+     * @throws IllegalStateException If the invoker is not a {@link FlowMethod}.
+     */
     @FlowMethod(manual = true)
     public static boolean forgetProcess() {
         Flow cur = Flow.fromInvoker();
@@ -1259,7 +1306,7 @@ public final class Flow implements Serializable {
             }
             // We are restoring from suspended state.
             log("Restored from signal.");
-            assert signal.flow == cur : signal.flow;
+            // assert signal.flow == cur : signal.flow;
             Object result = cur.result;
             cur.result = null;
             if (result instanceof ExceptionEnvelope) {
@@ -1274,7 +1321,7 @@ public final class Flow implements Serializable {
 
     /**
      * Returns the current flow. This method returns non-null if the current
-     * thread is executing {@linkplain FlowMethod flow method}. Otherwise it
+     * thread is executing a {@linkplain FlowMethod flow method}. Otherwise it
      * returns <code>null</code>. The current flow will always be
      * {@link #ACTIVE} .
      * 

@@ -44,6 +44,7 @@ import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.Set;
+import java.util.concurrent.Future;
 
 /**
  * An object that activate flows when a NIO channel operation becomes available.
@@ -341,9 +342,9 @@ public class IOActivator {
         }
 
         @Override
-        public void activate() {
+        public Future<?> activate() {
             placeOnCheckpointAndForget(flow);
-            flow.activate();
+            return flow.activate();
         }
 
     }

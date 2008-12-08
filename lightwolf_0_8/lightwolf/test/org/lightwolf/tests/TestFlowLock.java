@@ -5,9 +5,9 @@ import java.util.concurrent.TimeUnit;
 
 import org.junit.Assert;
 import org.junit.Test;
-import org.lightwolf.DelayedCallSignal;
 import org.lightwolf.Flow;
 import org.lightwolf.FlowMethod;
+import org.lightwolf.FlowSignal;
 import org.lightwolf.synchronization.ThreadFreeLock;
 
 public class TestFlowLock {
@@ -35,8 +35,8 @@ public class TestFlowLock {
     public void testTimeout() throws Throwable {
         try {
             timeout();
-        } catch (DelayedCallSignal s) {
-            s.schedule();
+        } catch (FlowSignal s) {
+            s.defaultAction();
             s.getFlow().join();
         }
     }

@@ -1,5 +1,7 @@
 package org.lightwolf;
 
+import java.util.concurrent.Future;
+
 /**
  * An object that stores a {@linkplain Flow flow}'s execution context for
  * further resuming. Usage requires invocation of {@link #checkpoint()} and
@@ -222,10 +224,16 @@ public class Continuation implements Cloneable {
         return flow.resume();
     }
 
-    public void activate() {
+    public Future<?> activate() {
         Flow flow = Flow.newFlow();
         placeOnCheckpoint(flow);
-        flow.activate();
+        return flow.activate();
+    }
+
+    public Future<?> activate(Object result) {
+        Flow flow = Flow.newFlow();
+        placeOnCheckpoint(flow);
+        return flow.activate(result);
     }
 
     public void placeOnCheckpoint(Flow flow) {

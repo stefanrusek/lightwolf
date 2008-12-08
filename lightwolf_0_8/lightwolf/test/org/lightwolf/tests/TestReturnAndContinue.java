@@ -302,9 +302,6 @@ public class TestReturnAndContinue {
     @Test
     @FlowMethod
     public void testReturnInSynchronized() throws Throwable {
-        if (true) {
-            Assert.fail();
-        }
         Object lock = new Object();
         try {
             returnInSynchronized(lock);

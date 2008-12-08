@@ -35,6 +35,7 @@ import java.util.Map.Entry;
 
 import org.lightwolf.AddressAlreadyInUseException;
 import org.lightwolf.Connection;
+import org.lightwolf.Continuation;
 import org.lightwolf.Flow;
 import org.lightwolf.FlowMethod;
 import org.lightwolf.IMatcher;
@@ -49,32 +50,32 @@ public final class SimpleProcessManager extends ProcessManager {
         return activeManagers.get(key);
     }
 
-    private final HashMap<Object, LinkedList<Flow>> keyReceivers;
-    private final HashMap<IMatcher, LinkedList<Flow>> matcherReceivers;
+    private final HashMap<Object, LinkedList<Flow>> keyWaiters;
+    private final HashMap<IMatcher, LinkedList<Flow>> matcherWaiters;
     private final HashMap<Object, MessageQueue> msgQueues;
-    private final Key key;
+    private final Key identityKey;
 
     public SimpleProcessManager(String name) {
-        keyReceivers = new HashMap<Object, LinkedList<Flow>>();
-        matcherReceivers = new HashMap<IMatcher, LinkedList<Flow>>();
+        keyWaiters = new HashMap<Object, LinkedList<Flow>>();
+        matcherWaiters = new HashMap<IMatcher, LinkedList<Flow>>();
         msgQueues = new HashMap<Object, MessageQueue>();
-        key = new Key(name);
+        identityKey = new Key(name);
         synchronized(activeManagers) {
-            activeManagers.put(key, this);
+            activeManagers.put(identityKey, this);
         }
     }
 
     @Override
     protected synchronized void notify(Object destKey, Object message) {
         LinkedList<Flow> list;
-        list = keyReceivers.get(destKey);
+        list = keyWaiters.get(destKey);
         if (list != null) {
             dispatch(message, list);
             if (list.isEmpty()) {
-                keyReceivers.remove(destKey);
+                keyWaiters.remove(destKey);
             }
         }
-        for (Iterator<Entry<IMatcher, LinkedList<Flow>>> i = matcherReceivers.entrySet().iterator(); i.hasNext();) {
+        for (Iterator<Entry<IMatcher, LinkedList<Flow>>> i = matcherWaiters.entrySet().iterator(); i.hasNext();) {
             Entry<IMatcher, LinkedList<Flow>> item = i.next();
             if (item.getKey().match(destKey)) {
                 list = item.getValue();
@@ -107,7 +108,7 @@ public final class SimpleProcessManager extends ProcessManager {
     protected synchronized void send(Object address, Object message) {
         MessageQueue queue = msgQueues.get(address);
         if (queue == null) {
-            queue = new MessageQueue(null);
+            queue = new MessageQueue(null, null);
             msgQueues.put(address, queue);
         }
         if (!queue.send(Flow.current(), message)) {
@@ -117,40 +118,44 @@ public final class SimpleProcessManager extends ProcessManager {
 
     @Override
     @FlowMethod
-    protected Object receive(Object address) {
-        return doReceive(address, true);
-    }
-
-    @Override
-    @FlowMethod
-    protected Object receiveMany(Object address) {
-        for (;;) {
-            Object ret = doReceive(address, false);
-            if (Flow.split(1) == 1) {
-                return ret;
-            }
-        }
-    }
-
-    @FlowMethod
-    private synchronized Object doReceive(Object address, boolean allowRemove) {
+    protected synchronized Object receive(Object address) {
         MessageQueue queue = msgQueues.get(address);
         if (queue != null) {
             queue.bind(Flow.current(), address);
         } else {
-            queue = new MessageQueue(Flow.current());
+            queue = new MessageQueue(Flow.current(), null);
             msgQueues.put(address, queue);
         }
         Object ret;
-        if (queue.receive()) {
-            ret = queue.getMessage();
+        if (queue.receive(null)) {
+            ret = queue.getMessage(null);
         } else {
             ret = Flow.suspend();
         }
-        if (allowRemove && !queue.hasSenders()) {
+        if (!queue.hasSenders()) {
             msgQueues.remove(address);
         }
         return ret;
+    }
+
+    @Override
+    @FlowMethod
+    protected synchronized Object receiveMany(Object address) {
+        Continuation cont = new Continuation();
+        MessageQueue queue = msgQueues.get(address);
+        if (queue != null) {
+            queue.bind(cont, address);
+        } else {
+            queue = new MessageQueue(null, cont);
+            msgQueues.put(address, queue);
+        }
+        if (cont.checkpoint()) {
+            if (queue.receive(this)) {
+                cont.activate(queue.getMessage(this));
+            }
+            Flow.end();
+        }
+        return Flow.current().getResult();
     }
 
     @Override
@@ -199,20 +204,20 @@ public final class SimpleProcessManager extends ProcessManager {
         }
     }
 
-    private LinkedList<Flow> getKeyList(Object addrKey) {
-        LinkedList<Flow> ret = keyReceivers.get(addrKey);
+    private LinkedList<Flow> getKeyList(Object key) {
+        LinkedList<Flow> ret = keyWaiters.get(key);
         if (ret == null) {
             ret = new LinkedList<Flow>();
-            keyReceivers.put(addrKey, ret);
+            keyWaiters.put(key, ret);
         }
         return ret;
     }
 
     private LinkedList<Flow> getMatcherList(IMatcher matcher) {
-        LinkedList<Flow> ret = matcherReceivers.get(matcher);
+        LinkedList<Flow> ret = matcherWaiters.get(matcher);
         if (ret == null) {
             ret = new LinkedList<Flow>();
-            matcherReceivers.put(matcher, ret);
+            matcherWaiters.put(matcher, ret);
         }
         return ret;
     }
@@ -254,46 +259,72 @@ public final class SimpleProcessManager extends ProcessManager {
         private static final long serialVersionUID = 1L;
         private final LinkedList<Flow> senders;
         private Flow receiver;
+        private Continuation continuation;
+        private Flow freeSender;
 
-        MessageQueue(Flow receiver) {
+        MessageQueue(Flow receiver, Continuation continuation) {
             senders = new LinkedList<Flow>();
             this.receiver = receiver;
+            this.continuation = continuation;
         }
 
         void bind(Flow newRecvr, Object address) {
             if (newRecvr == null) {
                 throw new NullPointerException();
             }
-            if (newRecvr == receiver) {
-                return;
-            }
-            if (receiver != null) {
+            if (receiver != null || continuation != null) {
                 throw new AddressAlreadyInUseException(address);
             }
             receiver = newRecvr;
         }
 
+        void bind(Continuation newCont, Object address) {
+            if (newCont == null) {
+                throw new NullPointerException();
+            }
+            if (receiver != null || continuation != null) {
+                throw new AddressAlreadyInUseException(address);
+            }
+            continuation = newCont;
+        }
+
         boolean send(Flow sender, Object msg) {
             if (receiver != null) {
+                assert continuation == null;
                 assert senders.isEmpty();
                 receiver.activate(msg);
+                return true;
+            }
+            if (continuation != null) {
+                assert receiver == null;
+                assert senders.isEmpty();
+                continuation.activate(msg);
                 return true;
             }
             senders.add(sender);
             return false;
         }
 
-        boolean receive() {
-            return senders.peek() != null;
+        boolean receive(Object lock) {
+            try {
+                while (freeSender != null) {
+                    lock.wait();
+                }
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+            freeSender = senders.poll();
+            return freeSender != null;
         }
 
-        Object getMessage() {
-            Flow sender = senders.poll();
-            if (sender == null) {
-                throw new AssertionError();
+        Object getMessage(Object lock) {
+            Flow curSender = freeSender;
+            freeSender = null;
+            if (lock != null) {
+                lock.notifyAll();
             }
-            Object ret = sender.getResult();
-            sender.activate();
+            Object ret = curSender.getResult();
+            curSender.activate();
             return ret;
         }
 
