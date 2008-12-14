@@ -1,16 +1,16 @@
 /*
  * Copyright (c) 2007, Fernando Colombo. All rights reserved.
- *
+ * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- *
+ * 
  * 1) Redistributions of source code must retain the above copyright notice,
  * this list of conditions and the following disclaimer.
- *
+ * 
  * 2) Redistributions in binary form must reproduce the above copyright notice,
  * this list of conditions and the following disclaimer in the documentation
  * and/or other materials provided with the distribution.
- *
+ * 
  * THIS SOFTWARE IS PROVIDED ''AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES,
  * INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
  * FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
@@ -23,8 +23,6 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 package org.lightwolf.process;
-
-import java.util.concurrent.TimeUnit;
 
 import org.lightwolf.FlowLocal;
 import org.lightwolf.FlowMethod;
@@ -85,86 +83,6 @@ public class CurrentProcess {
             assert getCurrent() == cur;
         }
         return onPath;
-    }
-
-    /**
-     * Sends a message. Allow sending an active communication channel, such as a
-     * pipe or BlockingQueue.
-     */
-    public static void send(Object message, Object... key) {
-        throw new AssertionError();
-    }
-
-    /** Suspends until a matching message arrives. */
-    public static Object receive(Object... key) {
-        throw new AssertionError();
-    }
-
-    /** Invokes a service. Might return something like a pipe or BlockingQueue. */
-    public static Object invoke(String service, Object... args) {
-        throw new AssertionError();
-    }
-
-    public static void pick(long timeout, TimeUnit timeunit) {
-        throw new AssertionError();
-    }
-
-    public static void pick() {
-        throw new AssertionError();
-    }
-
-    /**
-     * Saves the current state and returns false. When a matching message
-     * arrives, returns true.
-     */
-    public static boolean onReceive(Object... key) {
-        throw new AssertionError();
-    }
-
-    /**
-     * Returns the matching message of a receive. Must be called only after
-     * receive() returned true.
-     */
-    public static Object getMessage() {
-        throw new AssertionError();
-    }
-
-    /**
-     * Saves the current state and returns false. When a matching service is
-     * invoked, returns true.
-     */
-    public static boolean onService(String service, Object... args) {
-        throw new AssertionError();
-    }
-
-    /**
-     * Saves the current state and returns false When timeout expires, returns
-     * true.
-     */
-    public static boolean onAlarm() {
-        throw new AssertionError();
-    }
-
-    /**
-     * Finishes work with this pick. If there is a suspended state from
-     * receive(), service() or onAlarm(), simply passivate. Otherwise an event
-     * has happened, and simply returns.
-     */
-    public static void endPick() {
-        throw new AssertionError();
-    }
-
-    public static void terminate() {
-
-    }
-
-    /**
-     * Finishes work with this thread. If there is a suspended state, the
-     * process will remain active waiting for events. Otherwise the process
-     * terminates.
-     */
-    public static void passivate() {
-
     }
 
 }

@@ -3,6 +3,7 @@ package org.lightwolf;
 public class Connection {
 
     public void send(Object message) {
+        assert message == message;
         throw pending();
     }
 

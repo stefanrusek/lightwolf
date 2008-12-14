@@ -43,6 +43,8 @@ import org.lightwolf.ProcessManager;
 
 public final class SimpleProcessManager extends ProcessManager {
 
+    private static final long serialVersionUID = 1L;
+
     private static final Object RECEIVE_MANY = new Object();
     private static final WeakHashMap<Key, SimpleProcessManager> activeManagers = new WeakHashMap<Key, SimpleProcessManager>();
 
@@ -50,19 +52,19 @@ public final class SimpleProcessManager extends ProcessManager {
         return activeManagers.get(key);
     }
 
+    private final Key serialKey;
     private final HashMap<Object, LinkedList<Flow>> keyWaiters;
     private final HashMap<IMatcher, LinkedList<Flow>> matcherWaiters;
     private final HashMap<Object, MessageQueue> msgQueues;
-    private final Key identityKey;
 
     public SimpleProcessManager(String name) {
+        serialKey = new Key(name);
+        synchronized(activeManagers) {
+            activeManagers.put(serialKey, this);
+        }
         keyWaiters = new HashMap<Object, LinkedList<Flow>>();
         matcherWaiters = new HashMap<IMatcher, LinkedList<Flow>>();
         msgQueues = new HashMap<Object, MessageQueue>();
-        identityKey = new Key(name);
-        synchronized(activeManagers) {
-            activeManagers.put(identityKey, this);
-        }
     }
 
     @Override
@@ -127,8 +129,8 @@ public final class SimpleProcessManager extends ProcessManager {
             msgQueues.put(address, queue);
         }
         Object ret;
-        if (queue.receive(null)) {
-            ret = queue.getMessage(null);
+        if (queue.receive()) {
+            ret = queue.getMessage();
         } else {
             ret = Flow.suspend();
         }
@@ -150,8 +152,8 @@ public final class SimpleProcessManager extends ProcessManager {
             msgQueues.put(address, queue);
         }
         if (cont.checkpoint()) {
-            if (queue.receive(this)) {
-                cont.activate(queue.getMessage(this));
+            while (queue.receive()) {
+                cont.activate(queue.getMessage());
             }
             Flow.end();
         }
@@ -220,6 +222,10 @@ public final class SimpleProcessManager extends ProcessManager {
             matcherWaiters.put(matcher, ret);
         }
         return ret;
+    }
+
+    private Object writeReplace() {
+        return serialKey;
     }
 
     private static final class Key implements Serializable {
@@ -297,7 +303,6 @@ public final class SimpleProcessManager extends ProcessManager {
             }
             if (continuation != null) {
                 assert receiver == null;
-                assert senders.isEmpty();
                 continuation.activate(msg);
                 return true;
             }
@@ -305,24 +310,16 @@ public final class SimpleProcessManager extends ProcessManager {
             return false;
         }
 
-        boolean receive(Object lock) {
-            try {
-                while (freeSender != null) {
-                    lock.wait();
-                }
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
+        boolean receive() {
+            assert freeSender == null;
             freeSender = senders.poll();
             return freeSender != null;
         }
 
-        Object getMessage(Object lock) {
+        Object getMessage() {
             Flow curSender = freeSender;
+            assert curSender != null;
             freeSender = null;
-            if (lock != null) {
-                lock.notifyAll();
-            }
             Object ret = curSender.getResult();
             curSender.activate();
             return ret;

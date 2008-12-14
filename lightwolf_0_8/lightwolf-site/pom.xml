@@ -5,7 +5,7 @@
 	<groupId>org.lightwolf</groupId>
 	<artifactId>lightwolf-site</artifactId>
 	<name>Lightwolf</name>
-	<version>0.8.7</version>
+	<version>0.8.8</version>
 	<packaging>pom</packaging>
 	<description>
 		A Java library that simplifies thread development.

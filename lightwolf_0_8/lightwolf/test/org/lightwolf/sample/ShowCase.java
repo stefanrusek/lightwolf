@@ -18,6 +18,7 @@ public class ShowCase {
     @FlowMethod
     public static void mainForkMerge(String[] args) throws InterruptedException {
 
+        assert args==args;
         Random r = new Random(0);
         System.out.println("Single threaded.");
         int branch = Flow.fork(4); // Create 4 threads.
@@ -34,6 +35,7 @@ public class ShowCase {
 
     public static void mainReturnAndContinue(String[] args) throws InterruptedException {
 
+        assert args==args;
         System.out.println("Calling doSomething().");
         double result = doSomething();
         System.out.printf("doSomething() returned %f.\n", result);
@@ -57,6 +59,7 @@ public class ShowCase {
 
     @FlowMethod
     public static void mainParallel(String[] args) throws InterruptedException {
+        assert args==args;
         // Build an array with mock elements to be processed.
         Random random = new Random(0);
         Element[] data = new Element[8];
@@ -80,7 +83,7 @@ public class ShowCase {
 
         Element(int number, int size) {
             this.number = number;
-            this.cost = size;
+            cost = size;
         }
 
     }

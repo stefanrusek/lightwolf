@@ -150,6 +150,7 @@ public class TestProcessFork extends Process {
 
     @FlowMethod
     private void callString(boolean fork, String arg, Counter c) {
+        assert arg == arg;
         if (fork) {
             fork();
             for (int i = 0; i < 2; ++i) {
@@ -165,6 +166,7 @@ public class TestProcessFork extends Process {
 
     @FlowMethod
     private void callInteger(boolean fork, Integer arg, Counter c) {
+        assert arg == arg;
         if (fork) {
             fork();
             for (int i = 0; i < 2; ++i) {

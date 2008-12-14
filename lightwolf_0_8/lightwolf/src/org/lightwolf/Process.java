@@ -24,24 +24,27 @@
  */
 package org.lightwolf;
 
+import java.io.Serializable;
 import java.util.HashSet;
 
 /**
- * An integrated unit of work composed by a set of related flows. A process is a
- * manageable unit of work composed by one or more {@linkplain Flow flows}. It
- * can be monitored, paused or interrupted. If certain conditions are met (such
- * as using only primitives and serializable objects), a process can also be
+ * An unit of work composed by a set of related flows. A process is a manageable
+ * unit of work composed by one or more {@linkplain Flow flows}. It can be
+ * monitored, paused or interrupted. If certain conditions are met (such as
+ * using only primitives and serializable objects), a process can also be
  * serialized and deserialized, which allows development of long running
  * processes in pure Java language.
  * <p>
  * This class contains utilities for communication and synchronization between
  * process flows:
  * <ul>
- * <li>The {@link #wait(Object)}, {@link #waitMany(Object)} and
- * {@link #notifyAll(Object, Object)} methods can be used to wait-for and
- * get/provide information about specific conditions and events.</li>
- * <li>The {@link #send(Object, Object)}, {@link #receive(Object)} and
- * {@link #receiveMany(Object)} methods allow safe delivery of messages.</li>
+ * <li>The {@link #wait(Object) wait} and {@link #notifyAll(Object, Object)
+ * notify} methods can be used to wait-for and get/provide information about
+ * specific conditions and events.</li>
+ * <li>The {@link #send(Object, Object) send} and {@link #receive(Object)
+ * receive} methods allow safe delivery of one-way messages.</li>
+ * <li>The {@link #call(Object, Object) call} and {@link #serve(Object) serve}
+ * methods provide a simple request-response mechanism.</li>
  * <li>A connection can be established between two flows, providing both
  * synchronous and asynchronous modes of operation.</li>
  * </ul>
@@ -72,9 +75,9 @@ public class Process {
 
     /**
      * Returns the current process, or throws an exception if there is no
-     * current process. This method is like {@link #current()}, except in that
-     * it never returns <code>null</code>. In the absence of a current process,
-     * it will throw an exception.
+     * current process. This method is similar to {@link #current()}, except in
+     * that it never returns <code>null</code>. In the absence of a current
+     * process, it will throw an exception.
      * 
      * @return The current process.
      * @throws IllegalStateException If there is no current process.
@@ -144,8 +147,8 @@ public class Process {
      * @see #receive(Object)
      */
     @FlowMethod
-    public static Object wait(Object matcher) {
-        return safeCurrent().manager.wait(matcher);
+    public static Object wait(Object key) {
+        return safeCurrent().manager.wait(key);
     }
 
     /**
@@ -165,18 +168,18 @@ public class Process {
      * @see #notifyAll(Object, Object)
      */
     @FlowMethod
-    public static Object waitMany(Object matcher) {
-        return safeCurrent().manager.waitMany(matcher);
+    public static Object waitMany(Object key) {
+        return safeCurrent().manager.waitMany(key);
     }
 
     /**
-     * Wakes-up all flows waiting for the specified key. This method causes all
+     * Wakes-up all flows awaiting for the specified key. This method causes all
      * previous invocations to {@link #wait(Object)} and
      * {@link #waitMany(Object)}, that matches the informed key, to return. The
      * informed message is returned in such invocations. If more than one flow
      * is resumed, they all get the same message instance, so either the message
      * must be immutable, or adequate synchronization must be used. If there is
-     * no flow waiting for the specified key, invoking this method has no
+     * no flow awaiting for the specified key, invoking this method has no
      * effect. For examples and more information, see the {@link #wait(Object)}
      * method.
      * 
@@ -196,23 +199,19 @@ public class Process {
     }
 
     /**
-     * Sends a message to the informed address. If another flow is blocked by an
-     * invocation to {@link #receive(Object)} or {@link #receiveMany(Object)},
-     * this method causes such invocation to return the informed message, and
-     * then returns immediately. Otherwise, if there is no invocation of
-     * {@link #receive(Object)} nor {@link #receiveMany(Object)} on the informed
-     * address, the {@linkplain Flow#current() current flow} is
-     * {@linkplain Flow#suspend(Object) suspended} until such invocation is
-     * issued.
+     * Sends a message to the informed address. If another flow is listening on
+     * the informed address, this method causes such flow to resume and then
+     * returns immediately. Otherwise, the {@linkplain Flow#current() current
+     * flow} is {@linkplain Flow#suspend(Object) suspended} until some flow
+     * starts listening on the informed address.
      * <p>
-     * The informed address is not a network address. It is actually an object
-     * used to link <code>send</code> and <code>receive</code> invocations. For
-     * example, the invocation
+     * The informed address is not a network address. It is an object used to
+     * link the sender and receiver flows. For example, the invocation
      * 
      * <pre>
      *     Process.send("ABC", "MessageForABC");
      * </pre>
-     * will send the object "MessageForABC" to the flow that invokes
+     * will send the object "MessageForABC" to a flow that invokes
      * 
      * <pre>
      *     Object result = Process.receive("ABC");
@@ -227,21 +226,15 @@ public class Process {
      * <code>address</code>.
      * <p>
      * While waiting, the current flow will be suspended and thus will not
-     * consume any thread. If such flow is resumed by means other than
-     * {@link #receive(Object)} or {@link #receiveMany(Object)}, the effect is
-     * unpredictable and the process manager will be corrupt.
+     * consume any thread. If such flow is resumed by means other than a
+     * <code>receive</code> method, the effect is unpredictable and the process
+     * manager will be corrupt.
      * 
-     * @param address The address that identifies which {@link #receive(Object)}
-     *        or {@link #receiveMany(Object)} invocation will return the
-     *        informed message.
-     * @param message The message to be returned to the corresponding
-     *        {@link #receive(Object)} or {@link #receiveMany(Object)}
-     *        invocation.
+     * @param address The address that identifies the listening flow.
+     * @param message The message to be sent.
      * @throws IllegalStateException If there is no current process.
      * @see #receive(Object)
-     * @see #receiveMany(Object)
-     * @see #wait(Object)
-     * @see #notifyAll(Object, Object)
+     * @see #serve(Object)
      */
     @FlowMethod
     public static void send(Object address, Object message) {
@@ -249,37 +242,38 @@ public class Process {
     }
 
     /**
-     * Receives a message sent to the informed address. If another flow is
-     * blocked by an invocation to {@link #send(Object, Object)}, this method
-     * causes such invocation to return, and then returns immediately the sent
-     * message. Otherwise, if there is no invocation of
-     * {@link #send(Object, Object)} on the informed address, the
-     * {@linkplain Flow#current() current flow} is
+     * Listens for a single message sent to the informed address. If another
+     * flow is blocked while sending a message to the informed address, this
+     * method causes such flow to resume and then immediately returns the sent
+     * message. Otherwise the {@linkplain Flow#current() current flow} is
      * {@linkplain Flow#suspend(Object) suspended} until such invocation is
      * issued.
      * <p>
+     * If another flow sends a message using {@link #call(Object, Object)}, this
+     * method will return an instance of {@link IRequest} that contains the sent
+     * message. Such call will be blocked until invocation of
+     * {@link IRequest#response(Object)}.
+     * <p>
      * This method binds the current flow to the informed address. An address
      * can have at most one flow bound to it. When this method returns (that is,
-     * when the message is received), the address will be free again, and either
-     * this flow or another will be able to call {@link #receive(Object)} or
-     * {@link #receiveMany(Object)}.
+     * when the message is received), the address will be free again.
      * <p>
      * While waiting, the current flow will be suspended and thus will not
-     * consume any thread. If such flow is resumed by means other than
-     * {@link #send(Object, Object)}, the effect is unpredictable and the
-     * process manager will be corrupt.
+     * consume any thread. If such flow is resumed by means other than a
+     * <code>send</code> method, the effect is unpredictable and the process
+     * manager will be corrupt.
      * <p>
      * For examples and more information, see the {@link #send(Object, Object)}
      * method.
      * 
-     * @param address The address that identifies from which
-     *        {@link #send(Object, Object)} invocation the message will be
-     *        received.
-     * @return The message sent by the corresponding
-     *         {@link #send(Object, Object)} method.
-     * @throws AddressAlreadyInUseException If another flow invoked this method
-     *         or {@link #receiveMany(Object)} on the informed address.
+     * @param address The address on which this flow will be listening.
+     * @return The sent message, or an {@link IRequest} if the message was sent
+     *         via {@link #call(Object, Object)}.
+     * @throws AddressAlreadyInUseException If another flow is listening on this
+     *         address.
      * @throws IllegalStateException If there is no current process.
+     * @see #send(Object, Object)
+     * @see #serve(Object)
      */
     @FlowMethod
     public static Object receive(Object address) {
@@ -287,30 +281,166 @@ public class Process {
     }
 
     /**
-     * Receives multiple messages sent to the informed address. This method is
-     * similar to {@link #receive(Object)}, except in that it may return
-     * multiple times and to concurrent flows. Every subsequent call to
-     * {@link #send(Object, Object)} with the informed address will cause this
-     * method to return. Whenever this method returns, it will be on a new flow.
-     * It never returns to the invoker's flow.
+     * Listens for multiple messages sent to the informed address. This method
+     * is similar to {@link #receive(Object)}, except in that it may return
+     * multiple times and to concurrent flows. For example, every subsequent
+     * call to a {@link #send(Object, Object) send} method with the informed
+     * address will cause this method to return. Whenever this method returns,
+     * it will be on a new flow. It never returns to the invoker's flow.
      * <p>
      * The informed address will be bound to the invoker's flow until the
-     * current process finishes. Hence this method can be used to implement a
-     * simple event handler or even a server. For examples and more information,
-     * see the {@link #send(Object, Object)} method.
+     * current process finishes.
      * 
-     * @param address The address that identifies from which
-     *        {@link #send(Object, Object)} invocation the message will be
-     *        received.
-     * @return The message sent by the corresponding
-     *         {@link #send(Object, Object)} method.
-     * @throws AddressAlreadyInUseException If another flow invoked this method
-     *         or {@link #receiveMany(Object)} on the informed address.
+     * @param address The address on which this flow will be listening.
+     * @return The sent message, or an {@link IRequest} if the message was sent
+     *         via {@link #call(Object, Object)}.
+     * @throws AddressAlreadyInUseException If another flow is listening on this
+     *         address.
      * @throws IllegalStateException If there is no current process.
+     * @see #receive(Object)
+     * @see #serveMany(Object)
      */
     @FlowMethod
     public static Object receiveMany(Object address) {
         return safeCurrent().manager.receiveMany(address);
+    }
+
+    /**
+     * Listens for a single request sent to the informed address. If another
+     * flow is blocked while sending a message to the informed address, this
+     * method causes such flow to resume and then immediately returns a request
+     * with the cited message. Otherwise the {@linkplain Flow#current() current
+     * flow} is {@linkplain Flow#suspend(Object) suspended} until such
+     * invocation is issued.
+     * <p>
+     * If another flow sends a message using {@link #send(Object, Object)}, this
+     * method will cause such invocation to return, and then it will return an
+     * instance of {@link IRequest} that contains the sent message and requires
+     * no response.
+     * <p>
+     * This method binds the current flow to the informed address. An address
+     * can have at most one flow bound to it. When this method returns (that is,
+     * when the message is received), the address will be free again.
+     * <p>
+     * While waiting, the current flow will be suspended and thus will not
+     * consume any thread. If such flow is resumed by means other than a
+     * <code>send</code> method, the effect is unpredictable and the process
+     * manager will be corrupt.
+     * <p>
+     * For examples and more information, see the {@link #call(Object, Object)}
+     * method.
+     * 
+     * @param address The address on which this flow will be listening.
+     * @return An {@link IRequest} containing the sent message.
+     * @throws AddressAlreadyInUseException If another flow is listening on this
+     *         address.
+     * @throws IllegalStateException If there is no current process.
+     * @see IRequest
+     * @see #call(Object, Object)
+     * @see #serveMany(Object)
+     */
+    @FlowMethod
+    public static IRequest serve(Object address) {
+        Object ret = receive(address);
+        if (ret instanceof TwoWayRequest) {
+            return (IRequest) ret;
+        }
+        return new OneWayRequest(ret);
+    }
+
+    /**
+     * Listens for multiple messages sent to the informed address. This method
+     * is similar to {@link #serve(Object)}, except in that it may return
+     * multiple times and to concurrent flows. For example, every subsequent
+     * invocation to {@link #call(Object, Object)} with the informed address
+     * will cause this method to return. Whenever this method returns, it will
+     * be on a new flow. It never returns to the invoker's flow.
+     * <p>
+     * The informed address will be bound to the invoker's flow until the
+     * current process finishes.
+     * <p>
+     * This method can be used to implement a very simple server.
+     * 
+     * @param address The address on which this flow will be listening.
+     * @return An {@link IRequest} containing the sent message.
+     * @throws AddressAlreadyInUseException If another flow is listening on this
+     *         address.
+     * @throws IllegalStateException If there is no current process.
+     * @see #serve(Object)
+     */
+    @FlowMethod
+    public static IRequest serveMany(Object address) {
+        Object ret = receiveMany(address);
+        if (ret instanceof TwoWayRequest) {
+            return (IRequest) ret;
+        }
+        return new OneWayRequest(ret);
+    }
+
+    /**
+     * Sends a request to the informed address and waits for a response. This
+     * method is similar to {@link #send(Object, Object)}, except in that it
+     * waits for a response from the listening flow. While waiting, the
+     * {@linkplain Flow#current() current flow} is
+     * {@linkplain Flow#suspend(Object) suspended}.
+     * <p>
+     * The following example illustrates the call behavior:
+     * 
+     * <pre>
+     *  public class Example implements Runnable {
+     *
+     *      &#064;{@link FlowMethod}
+     *      public void run() {
+     *          // We must join a process.
+     *          Flow.joinProcess(new Process());
+     *          if (Flow.split(1) == 0) {
+     *              // Here is the server.
+     *              IRequest request = <b>Process.serve("PeerA")</b>;
+     *              System.out.println("Request: " + request.request());
+     *              request.response("I'm fine.");
+     *          } else {
+     *              // Here is the client.
+     *              Object response = <b>Process.call("PeerA", "How are you?")</b>;
+     *              System.out.println("Response: " + response);
+     *          }
+     *      }
+     *
+     *      public static void main(String[] args) throws InterruptedException {
+     *          Flow.submit(new Example());
+     *          Thread.sleep(1000); // Wait for all flows to finish.
+     *      }
+     *  }
+     * </pre>
+     * The above class prints the following:
+     * 
+     * <pre>
+     *  Request: How are you?
+     *  Response: I'm fine.
+     * </pre>
+     * If the <code>address</code> argument is not <code>null</code>, it must
+     * provide consistent behaviors for {@link Object#equals(Object)} and
+     * {@link Object#hashCode()}. While not an absolute requirement, it is
+     * strongly recommended to use an immutable object as the
+     * <code>address</code>.
+     * <p>
+     * While waiting, the current flow will be suspended and thus will not
+     * consume any thread. If such flow is resumed by means other than a
+     * <code>receive</code> method, the effect is unpredictable and the process
+     * manager will be corrupt.
+     * 
+     * @param address The address that identifies the listening flow.
+     * @param message The message to be sent.
+     * @return The listener's response.
+     * @throws IllegalStateException If there is no current process.
+     * @see #receive(Object)
+     * @see #serve(Object)
+     */
+    @FlowMethod
+    public static Object call(Object address, Object message) {
+        ProcessManager man = safeCurrent().manager;
+        TwoWayRequest req = new TwoWayRequest(man, message);
+        man.send(address, req);
+        return man.receive(req);
     }
 
     @FlowMethod
@@ -373,6 +503,58 @@ public class Process {
         boolean ret = flows.remove(flow);
         flow.process = null;
         assert ret;
+    }
+
+    private static class OneWayRequest implements IRequest, Serializable {
+
+        private static final long serialVersionUID = 1L;
+        private final Object request;
+
+        OneWayRequest(Object request) {
+            this.request = request;
+        }
+
+        public boolean needResponse() {
+            return false;
+        }
+
+        public Object request() {
+            return request;
+        }
+
+        public void response(Object response) {
+            throw new IllegalStateException("This request does not need a response.");
+        }
+    }
+
+    private static class TwoWayRequest implements IRequest, Serializable {
+
+        private static final long serialVersionUID = 1L;
+        private final ProcessManager manager;
+        private final Object request;
+        private boolean responseSent;
+
+        TwoWayRequest(ProcessManager manager, Object request) {
+            this.manager = manager;
+            this.request = request;
+        }
+
+        public boolean needResponse() {
+            return !responseSent;
+        }
+
+        public Object request() {
+            return request;
+        }
+
+        @FlowMethod
+        public synchronized void response(Object response) {
+            if (responseSent) {
+                throw new IllegalStateException("The response was already sent.");
+            }
+            responseSent = true;
+            manager.send(this, response);
+        }
     }
 
 }

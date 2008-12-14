@@ -8,6 +8,7 @@ import junit.framework.Assert;
 import org.junit.Test;
 import org.lightwolf.Flow;
 import org.lightwolf.FlowMethod;
+import org.lightwolf.IRequest;
 import org.lightwolf.Process;
 
 public class TestProcess {
@@ -155,6 +156,52 @@ public class TestProcess {
         Flow flow = Flow.submit(callable);
         flow.join();
         Assert.assertTrue(success[0]);
+    }
+
+    @Test
+    public void serveManyCalls() throws Throwable {
+        final SynchronousQueue<Object> sq = new SynchronousQueue<Object>();
+        Runnable runnable = new Runnable() {
+
+            @FlowMethod
+            public void run() {
+                try {
+                    Flow.joinProcess(new Process());
+                    if (Flow.split(1) == 0) {
+                        IRequest request = Process.serveMany("PeerA");
+                        sq.put("Req:" + request.request());
+                        request.response(sq.take());
+                    } else {
+                        for (;;) {
+                            Object request = sq.take();
+                            if (request.equals("end")) {
+                                return;
+                            }
+                            Object response = Process.call("PeerA", request);
+                            sq.put("Res:" + response);
+                        }
+                    }
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+
+        };
+
+        Flow.submit(runnable);
+
+        sq.put("1");
+        Assert.assertEquals("Req:1", sq.take());
+        sq.put("2");
+        Assert.assertEquals("Res:2", sq.take());
+
+        sq.put("11");
+        Assert.assertEquals("Req:11", sq.take());
+        sq.put("22");
+        Assert.assertEquals("Res:22", sq.take());
+
+        sq.put("end");
+
     }
 
 }

@@ -55,15 +55,15 @@ public class SimpleFlowManager extends FlowManager implements Serializable {
         return activeManagers.get(key);
     }
 
-    private final Key key;
+    private final Key serialKey;
     private final ThreadPoolExecutor executor;
 
     public SimpleFlowManager(String name) {
-        key = new Key(name);
-        executor = new ThreadPoolExecutor(8, Integer.MAX_VALUE, 0, TimeUnit.NANOSECONDS, new SynchronousQueue<Runnable>(), new SimpleThreadFactory(name));
+        serialKey = new Key(name);
         synchronized(activeManagers) {
-            activeManagers.put(key, this);
+            activeManagers.put(serialKey, this);
         }
+        executor = new ThreadPoolExecutor(8, Integer.MAX_VALUE, 0, TimeUnit.NANOSECONDS, new SynchronousQueue<Runnable>(), new SimpleThreadFactory(name));
         Runtime.getRuntime().addShutdownHook(new ShutdownManager());
     }
 
@@ -131,7 +131,7 @@ public class SimpleFlowManager extends FlowManager implements Serializable {
     }
 
     private Object writeReplace() {
-        return key;
+        return serialKey;
     }
 
     private static final class Key implements Serializable {
