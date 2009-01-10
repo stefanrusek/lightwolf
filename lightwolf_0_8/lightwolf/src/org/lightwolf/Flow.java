@@ -1554,9 +1554,14 @@ public final class Flow implements Serializable {
      */
     public Object resume(Object signalResult) {
         synchronized(this) {
+            if (state != SUSPENDED && state != PASSIVE) {
+                throw new IllegalStateException("Cannot resume if the flow is " + stateName(state) + '.');
+            }
             if (process != null) {
                 process.notifyResume(this);
             }
+            // We redo the check because the process might have changed the state or might forget to
+            // set this PASSIVE flow to SUSPENDED.
             if (state != SUSPENDED) {
                 throw new IllegalStateException("Cannot resume if the flow is " + stateName(state) + '.');
             }

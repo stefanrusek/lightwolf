@@ -24,8 +24,11 @@
  */
 package org.lightwolf;
 
+import java.io.IOException;
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.Random;
 
 /**
  * An unit of work composed by a set of related flows. A process is a manageable
@@ -56,7 +59,47 @@ import java.util.HashSet;
  * @see Flow
  * @author Fernando Colombo
  */
-public class Process {
+public class Process implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
+    /**
+     * A constant indicating that the process is active. An active process have
+     * all its data on memory. It can run flows and allow new flows to
+     * {@linkplain Flow#joinProcess(Process) join} it.
+     * 
+     * @see #getState()
+     * @see #activate()
+     */
+    public static final int ACTIVE = 1;
+
+    /**
+     * A constant indicating that the process is passive. A passive process have
+     * its data on external storage. The actual storage is defined by the
+     * {@link Process} subclass. It can't run flows nor allow new flows to
+     * {@linkplain Flow#joinProcess(Process) join} it.
+     * 
+     * @see #getState()
+     * @see #passivate()
+     */
+    public static final int PASSIVE = 2;
+
+    private static String[] stateNames = new String[] { "ACTIVE", "PASSIVE" };
+
+    /**
+     * Return the name of the specified state; provided for debugging and
+     * diagnostic purposes.
+     * 
+     * @param state The state to get the name from.
+     * @return A String containing the state name. Will never be
+     *         <code>null</code>.
+     */
+    protected static String stateName(int state) {
+        if (state >= 1 || state <= 2) {
+            return stateNames[state - 1];
+        }
+        return "(unknown state: " + state + ")";
+    }
 
     /**
      * Returns the current process. This method returns non-null if the
@@ -464,9 +507,12 @@ public class Process {
     }
 
     private final ProcessManager manager;
+    protected int state;
     private final HashSet<Flow> flows;
     private int activeFlows;
     private int suspendedFlows;
+    private long passivationTime;
+    private transient IProcessListener listeners;
 
     /**
      * Creates a new process. The new process will belong to the
@@ -483,13 +529,32 @@ public class Process {
             throw new NullPointerException();
         }
         this.manager = manager;
+        state = ACTIVE;
         flows = new HashSet<Flow>();
     }
 
+    /**
+     * Return an <code>int</code> whose value represents this process state.
+     * 
+     * @see #ACTIVE
+     * @see #PASSIVE
+     */
+    public final int getState() {
+        return state;
+    }
+
+    /**
+     * The number of active flows in this process. This number can vary quickly
+     * as flows are joined, leaved, suspended and resumed.
+     */
     public final int activeFlows() {
         return activeFlows;
     }
 
+    /**
+     * The number of suspended flows in this process. This number can vary
+     * quickly as flows are joined, leaved, suspended and resumed.
+     */
     public final int suspendedFlows() {
         return suspendedFlows;
     }
@@ -497,6 +562,61 @@ public class Process {
     public final synchronized Flow[] getFlows() {
         Flow[] ret = new Flow[flows.size()];
         return flows.toArray(ret);
+    }
+
+    /**
+     * Adds an event listener to this process.
+     * 
+     * @param listener The listener to be added. Must not be <code>null</code>
+     *        otherwise a {@link NullPointerException} is thrown.
+     * @return <code>true</code> if the listener was added, <code>false</code>
+     *         if the informed listener was added this invocation.
+     * @see IProcessListener
+     * @see #removeEventListener(IProcessListener)
+     */
+    public final boolean addEventListener(IProcessListener listener) {
+        if (listener == null) {
+            throw new NullPointerException();
+        }
+        if (listeners == null) {
+            listeners = listener;
+            return true;
+        }
+        if (listeners.equals(listener)) {
+            return false;
+        }
+        if (listeners instanceof ProcessEventDispatcher) {
+            return ((ProcessEventDispatcher) listeners).add(listener);
+        }
+        listeners = new ProcessEventDispatcher(listeners, listener);
+        return true;
+    }
+
+    /**
+     * Removes an event listener from this process.
+     * 
+     * @param listener The listener to be removed. Must not be <code>null</code>
+     *        otherwise a {@link NullPointerException} is thrown.
+     * @return <code>true</code> if the listener was removed, <code>false</code>
+     *         if the informed listener was not found in the internal list of
+     *         listeners.
+     * @see #addEventListener(IProcessListener)
+     */
+    public final boolean removeEventListener(IProcessListener listener) {
+        if (listener == null) {
+            throw new NullPointerException();
+        }
+        if (listeners == null) {
+            return false;
+        }
+        if (listeners.equals(listener)) {
+            listeners = null;
+            return true;
+        }
+        if (listeners instanceof ProcessEventDispatcher) {
+            return ((ProcessEventDispatcher) listeners).remove(listener);
+        }
+        return false;
     }
 
     synchronized final void add(Flow flow) {
@@ -518,6 +638,7 @@ public class Process {
             assert flow.isSuspended();
             ++suspendedFlows;
         }
+        notify(IProcessListener.PE_FLOW_ADDED, flow);
     }
 
     synchronized final void remove(Flow flow) {
@@ -535,22 +656,214 @@ public class Process {
             assert flow.isSuspended();
             --suspendedFlows;
         }
+        notify(IProcessListener.PE_FLOW_REMOVED, flow);
     }
 
     synchronized void notifySuspend(Flow flow) {
+        assert state == ACTIVE;
         assert flows.contains(flow);
         --activeFlows;
         ++suspendedFlows;
+        notify(IProcessListener.PE_FLOW_SUSPENDED, flow);
     }
 
     synchronized void notifyResume(Flow flow) {
         assert flows.contains(flow);
+        try {
+            activate();
+        } catch (IOException e) {
+            throw new IllegalStateException("Unable to resume flow due to I/O error.", e);
+        } catch (ClassNotFoundException e) {
+            throw new IllegalStateException("Unable to resume flow because a class it uses wasn't found.", e);
+        }
+        notify(IProcessListener.PE_RESUMING_FLOW, flow);
         --suspendedFlows;
         ++activeFlows;
     }
 
-    void checkAddRemove() {
-    // Provided for override.
+    protected void notify(int event, Flow flow) {
+        if (listeners == null) {
+            return;
+        }
+        try {
+            listeners.onEvent(this, event, flow);
+        } catch (Throwable e) {
+            // TODO: Should log this somewhere, not on standard error output. 
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Stores this process and all its flows on a place outside memory. The
+     * actual storage place is defined by subclasses of {@link Process}.
+     * <p>
+     * If all of this process flows are suspended, this method stores all flow
+     * data on an external storage and then returns <code>true</code>,
+     * indicating that the process was passivated. If this process was already
+     * passive when this method is called, it simply returns <code>true</code>
+     * doing nothing.
+     * <p>
+     * If the task of storing process data on the external storage fails, this
+     * method throws {@link IOException} and the process is kept active.
+     * <p>
+     * If one or more of this process flows is {@linkplain Flow#isActive()
+     * active}, the process is kept active and this method returns
+     * <code>false</code>.
+     * 
+     * @return <code>true</code> if the process was passivated,
+     *         <code>false</code> otherwise.
+     * @throws IOException When some error happens during the storage access.
+     * @see #activate()
+     * @see #ACTIVE
+     * @see #PASSIVE
+     */
+    public final synchronized boolean passivate() throws IOException {
+        if (state == PASSIVE) {
+            return true;
+        }
+        if (state != ACTIVE) {
+            throw new IllegalStateException("Cannot passivate while process is " + stateName(state));
+        }
+        if (activeFlows() != 0) {
+            return false;
+        }
+        Flow[] fs = getFlows();
+        FlowData[] data = new FlowData[fs.length];
+        int lastSuccess = -1;
+        try {
+            passivationTime = System.currentTimeMillis();
+            Random r = new Random(passivationTime);
+            for (int i = 0; i < fs.length; ++i) {
+                data[i] = fs[i].fetchState(r.nextLong());
+                lastSuccess = i;
+            }
+            storeData(data);
+            state = PASSIVE;
+            lastSuccess = -1;
+        } finally {
+            for (int i = 0; i <= lastSuccess; ++i) {
+                fs[i].restoreState(data[i]);
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Reloads this process and all its flows from external storage back to
+     * memory. If this process is already active, this method does nothing.
+     * Otherwise, this method does the opposite of {@link #passivate()}.
+     * 
+     * @throws IOException When some error happens during the storage access.
+     * @throws ClassNotFoundException If the class is not
+     * @see #passivate()
+     * @see #ACTIVE
+     * @see #PASSIVE
+     */
+    public final synchronized void activate() throws IOException, ClassNotFoundException {
+        if (state == ACTIVE) {
+            return;
+        }
+        if (state != PASSIVE) {
+            throw new IllegalStateException("Cannot activate while process is " + stateName(state));
+        }
+        Object rawData = loadData();
+        if (!(rawData instanceof FlowData[])) {
+            throw new IOException("Bad data: object should be instance of FlowData[].");
+        }
+        Flow[] fs = getFlows();
+        FlowData[] data = (FlowData[]) rawData;
+        if (data.length != fs.length) {
+            throw new IOException("Bad data: number of data entries should be " + fs.length + ", not " + data.length + ".");
+        }
+        Random r = new Random(passivationTime);
+        for (int i = 0; i < fs.length; ++i) {
+            if (data[i] == null) {
+                throw new IOException("Bad data: flow data entry is null.");
+            }
+            if (data[i].id != r.nextLong()) {
+                throw new IOException("Bad data: invalid flow data entry id.");
+            }
+        }
+        int lastRestore = -1;
+        try {
+            for (int i = 0; i < fs.length; ++i) {
+                fs[i].restoreState(data[i]);
+                lastRestore = i;
+            }
+            state = ACTIVE;
+            discardData();
+        } finally {
+            if (state != ACTIVE) {
+                for (int i = 0; i <= lastRestore; ++i) {
+                    fs[i].fetchState(-1);
+                }
+            }
+        }
+    }
+
+    private void checkAddRemove() {
+        if (state != ACTIVE) {
+            throw new IllegalStateException("Cannot add/remove flows while process is " + stateName(state));
+        }
+    }
+
+    /**
+     * @param data A serializable object to be stored on some media.
+     * @throws IOException
+     */
+    protected void storeData(Object data) throws IOException {
+        throw new IllegalStateException("Instances of " + getClass().getName() + " cannot be passivated.");
+    }
+
+    /**
+     * @return A serializable object that was read from storage.
+     * @throws IOException
+     * @throws ClassNotFoundException
+     */
+    protected Object loadData() throws IOException, ClassNotFoundException {
+        throw new AssertionError();
+    }
+
+    /**
+     * @throws IOException
+     */
+    protected void discardData() throws IOException {
+        throw new AssertionError();
+    }
+
+    private static class ProcessEventDispatcher implements IProcessListener {
+
+        private final ArrayList<IProcessListener> items;
+
+        ProcessEventDispatcher(IProcessListener l1, IProcessListener l2) {
+            items = new ArrayList<IProcessListener>(2);
+            items.add(l1);
+            items.add(l2);
+        }
+
+        boolean add(IProcessListener listener) {
+            if (items.contains(listener)) {
+                return false;
+            }
+            items.add(listener);
+            return true;
+        }
+
+        boolean remove(IProcessListener listener) {
+            return items.remove(listener);
+        }
+
+        public void onEvent(Process sender, int event, Flow flow) {
+            for (int i = 0; i < items.size(); ++i) {
+                try {
+                    items.get(i).onEvent(sender, event, flow);
+                } catch (Throwable e) {
+                    // TODO: Should log this somewhere, not on standard error output. 
+                    e.printStackTrace();
+                }
+            }
+        }
+
     }
 
     private static class OneWayRequest implements IRequest, Serializable {

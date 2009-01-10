@@ -8,8 +8,9 @@ import java.io.ObjectInputStream;
 
 import org.lightwolf.tools.DebuggingObjectOutputStream;
 
-public class FileProcess extends AbstractPersistentProcess {
+public class FileProcess extends Process {
 
+    private static final long serialVersionUID = 1L;
     private final File file;
 
     public FileProcess(ProcessManager manager, File file) {
@@ -64,6 +65,11 @@ public class FileProcess extends AbstractPersistentProcess {
         } finally {
             ois.close();
         }
+    }
+
+    @Override
+    protected void discardData() throws IOException {
+        file.delete();
     }
 
 }

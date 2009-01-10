@@ -1,5 +1,6 @@
 package org.lightwolf.tests;
 
+import java.io.IOException;
 import java.io.Serializable;
 import java.util.Arrays;
 import java.util.BitSet;
@@ -12,6 +13,7 @@ import org.junit.Test;
 import org.lightwolf.FileProcess;
 import org.lightwolf.Flow;
 import org.lightwolf.FlowMethod;
+import org.lightwolf.IProcessListener;
 import org.lightwolf.Process;
 import org.lightwolf.SuspendSignal;
 
@@ -73,35 +75,26 @@ public class TestSerialization implements Serializable {
         final int size = 10;
         abq = new ArrayBlockingQueue<Object>(size);
         process = new FileProcess("testProcessSerialization.dat");
-
         ProcessFlow[] pfs = new ProcessFlow[size];
         Flow[] flows = new Flow[size];
-
-        System.out.println("0.1");
         for (int i = 0; i < size; ++i) {
             pfs[i] = new ProcessFlow(i);
         }
-        System.out.println("0.2");
         for (int i = 0; i < size; ++i) {
             flows[i] = Flow.submit(pfs[i]);
         }
         BitSet bs = new BitSet(size);
         List<ProcessFlow> list = Arrays.asList(pfs);
-        System.out.println("0.5");
         for (int i = 0; i < size; ++i) {
             ProcessFlow pf = (ProcessFlow) abq.take();
             int index = list.indexOf(pf);
             Assert.assertFalse(bs.get(index));
             bs.set(index);
         }
-        System.out.println("1");
         for (int i = 0; i < size; ++i) {
             flows[i].waitSuspended();
         }
-        System.out.println("2");
         Assert.assertTrue(process.passivate());
-        process.activate();
-        System.out.println("3");
         Random r = new Random(0);
         for (int i = 0; i < size; ++i) {
             Long l = r.nextLong();
@@ -116,9 +109,47 @@ public class TestSerialization implements Serializable {
         }
     }
 
+    @Test
+    public void testAutoPassivation() throws Throwable {
+        abq = new ArrayBlockingQueue<Object>(2);
+        process = new FileProcess("testProcessSerialization.dat");
+        process.addEventListener(new IProcessListener() {
+
+            public void onEvent(Process sender, int event, Flow flow) {
+                if (event == IProcessListener.PE_FLOW_SUSPENDED) {
+                    if (sender.activeFlows() == 0) {
+                        try {
+                            ((FileProcess) sender).passivate();
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+                    }
+                }
+            }
+        });
+        ProcessFlow initial = new ProcessFlow(45);
+        Flow flow = Flow.submit(initial);
+        ProcessFlow temp = (ProcessFlow) abq.take();
+        Assert.assertEquals(initial, temp);
+        flow.waitSuspended();
+        for (int i = 0; i < 10; ++i) {
+            if (process.getState() == Process.PASSIVE) {
+                break;
+            }
+            Thread.sleep(100); // Wait for auto passivation.
+        }
+        Assert.assertEquals(Process.PASSIVE, process.getState());
+        Object data = new Long(123);
+        send(45, data);
+        Assert.assertEquals(data, abq.take());
+        temp = (ProcessFlow) abq.take();
+        Assert.assertNotSame(initial, temp);
+        flow.join();
+    }
+
     @FlowMethod
     private void send(Object addr, Object data) {
-        Flow.joinProcess(process);
+        Flow.joinProcess(new Process());
         Process.send(addr, data);
     }
 
