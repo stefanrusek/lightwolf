@@ -8,6 +8,11 @@ import java.io.ObjectInputStream;
 
 import org.lightwolf.tools.DebuggingObjectOutputStream;
 
+/**
+ * A process that stores data on a file.
+ * 
+ * @author Fernando Colombo
+ */
 public class FileProcess extends Process {
 
     private static final long serialVersionUID = 1L;

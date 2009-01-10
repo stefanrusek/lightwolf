@@ -53,8 +53,11 @@ import java.util.Random;
  * </ul>
  * A process is created by calling its {@linkplain Process#Process()
  * constructor}. Initially the process contains no flow. A flow can join a
- * process by invoking {@link Flow#joinProcess(Process)}. The {@link Process}
- * class can be subclassed.
+ * process by invoking {@link Flow#joinProcess(Process)}.
+ * <p>
+ * This class can be subclassed. If the implementor wish to provide support for
+ * long-running-process, the methods {@link #storeData(Object)},
+ * {@link #loadData()} and {@link #discardData()} must all be implemented.
  * 
  * @see Flow
  * @author Fernando Colombo
@@ -712,7 +715,7 @@ public class Process implements Serializable {
      * 
      * @return <code>true</code> if the process was passivated,
      *         <code>false</code> otherwise.
-     * @throws IOException When some error happens during the storage access.
+     * @throws IOException If some error happens during access to storage.
      * @see #activate()
      * @see #ACTIVE
      * @see #PASSIVE
@@ -753,7 +756,7 @@ public class Process implements Serializable {
      * memory. If this process is already active, this method does nothing.
      * Otherwise, this method does the opposite of {@link #passivate()}.
      * 
-     * @throws IOException When some error happens during the storage access.
+     * @throws IOException If some error happens during access to storage.
      * @throws ClassNotFoundException If the class is not
      * @see #passivate()
      * @see #ACTIVE
@@ -808,24 +811,54 @@ public class Process implements Serializable {
     }
 
     /**
+     * Called by {@link #passivate()} to store data on some media. The default
+     * implementation throws {@link IllegalStateException} indicating that the
+     * process cannot be passivated.
+     * <p>
+     * This method must be implemented along with {@link #loadData()} and
+     * {@link #discardData()} by subclasses that support long-running-processes.
+     * The implementation must associate the informed data with this process.
+     * This method might be called more than once. Any data stored by the
+     * previous invocation to this method must be discarded.
+     * <p>
+     * This method typically serializes the informed <code>data</code> object,
+     * so that an unserialized version is returned by the next call to
+     * {@link #loadData()}.
+     * 
      * @param data A serializable object to be stored on some media.
-     * @throws IOException
+     * @throws IOException If some error happens during access to storage.
      */
     protected void storeData(Object data) throws IOException {
         throw new IllegalStateException("Instances of " + getClass().getName() + " cannot be passivated.");
     }
 
     /**
+     * Called by {@link #activate()} to retrieve data stored by
+     * {@link #storeData(Object)}. The default implementation throws
+     * {@link AssertionError}.
+     * <p>
+     * This method must be implemented along with {@link #storeData(Object)} and
+     * {@link #discardData()} by subclasses that support long-running-processes.
+     * This method must not discard data from the storage.
+     * 
      * @return A serializable object that was read from storage.
-     * @throws IOException
-     * @throws ClassNotFoundException
+     * @throws IOException If some error happens during access to storage.
+     * @throws ClassNotFoundException If the system can't find a class for a
+     *         serialized object while assembling the result.
      */
     protected Object loadData() throws IOException, ClassNotFoundException {
         throw new AssertionError();
     }
 
     /**
-     * @throws IOException
+     * Called to indicate that the stored data is not necessary anymore. The
+     * default implementation throws {@link AssertionError}.
+     * <p>
+     * This method must be implemented along with {@link #storeData(Object)} and
+     * {@link #loadData()} by subclasses that support long-running-processes.
+     * This method must simply discard data from the storage.
+     * 
+     * @throws IOException If some error happens during the storage access.
      */
     protected void discardData() throws IOException {
         throw new AssertionError();
