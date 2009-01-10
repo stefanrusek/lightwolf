@@ -4,9 +4,9 @@ import org.junit.Test;
 import org.lightwolf.FlowMethod;
 import org.lightwolf.SuspendSignal;
 import org.lightwolf.process.CurrentProcess;
-import org.lightwolf.process.Process;
+import org.lightwolf.process.OldProcess;
 
-public class TestProcessFork extends Process {
+public class TestProcessFork extends OldProcess {
 
     @Test
     @FlowMethod
@@ -53,7 +53,7 @@ public class TestProcessFork extends Process {
     @Test
     public void intermitentForkInsideFork() throws Throwable {
         for (int i = 0; i < 50; ++i) {
-            CurrentProcess.setCurrent(new Process());
+            CurrentProcess.setCurrent(new OldProcess());
             forkInsideFork();
         }
     }

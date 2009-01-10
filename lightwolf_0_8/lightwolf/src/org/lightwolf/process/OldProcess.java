@@ -29,28 +29,28 @@ import org.lightwolf.FlowLocal;
 import org.lightwolf.FlowMethod;
 import org.lightwolf.synchronization.ThreadFreeLock;
 
-public class Process {
+public class OldProcess {
 
     private FlowLocal<ProcessFork> currentFork;
     private final ThreadFreeLock lock;
 
-    public Process() {
+    public OldProcess() {
         lock = new ThreadFreeLock();
     }
 
     @FlowMethod
     protected void enter() {
-        Flow.log("Before lock.");
+        //Flow.log("Before lock.");
         ProcessFork f = getCurrentFork();
         lock.lock();
         assert getCurrentFork() == f; // lock() might return in another Java thread. Check FlowThreadLocal.
-        Flow.log("After lock.");
+        //Flow.log("After lock.");
     }
 
     protected void exit() {
-        Flow.log("Before unlock.");
+        //Flow.log("Before unlock.");
         lock.unlock();
-        Flow.log("After unlock.");
+        //Flow.log("After unlock.");
     }
 
     protected boolean isThreadOwner() {
@@ -123,17 +123,17 @@ public class Process {
 
     private static class ProcessFork {
 
-        private final Process owner;
+        private final OldProcess owner;
         private final ProcessFork prior;
         private int actualForks;
 
-        ProcessFork(Process owner, ProcessFork prior) {
+        ProcessFork(OldProcess owner, ProcessFork prior) {
             this.owner = owner;
             this.prior = prior;
             actualForks = 0;
         }
 
-        ProcessFork(Process owner) {
+        ProcessFork(OldProcess owner) {
             this.owner = owner;
             prior = null;
             actualForks = -1;
@@ -147,9 +147,9 @@ public class Process {
         @FlowMethod
         ProcessFork processPath() {
             if (!isMain()) {
-                Flow.log("pp - owner.exit.");
+                //Flow.log("pp - owner.exit.");
                 owner.exit();
-                Flow.log("pp - leave.");
+                //Flow.log("pp - leave.");
                 Flow.end();
                 throw new AssertionError();
             }
@@ -163,9 +163,9 @@ public class Process {
             }
             // We are in a fork thread.
             // Get a thread.
-            Flow.log("pp - enter.");
+            //Flow.log("pp - enter.");
             owner.enter();
-            Flow.log("pp - after enter.");
+            //Flow.log("pp - after enter.");
             // Return a new fork, telling the caller (onPath) to bookkeep and return false.
             return new ProcessFork(owner);
         }
@@ -173,13 +173,13 @@ public class Process {
         @FlowMethod
         ProcessFork join() {
             if (!isMain()) {
-                Flow.log("join - owner.exit.");
+                //Flow.log("join - owner.exit.");
                 owner.exit();
-                Flow.log("join - leave.");
+                //Flow.log("join - leave.");
                 Flow.end();
                 throw new AssertionError();
             }
-            Flow.log("join - let-it-go.");
+            //Flow.log("join - let-it-go.");
             owner.exit(); // Let the other threads go.
             try {
                 for (int i = 0; i < actualForks; ++i) {
@@ -189,11 +189,11 @@ public class Process {
                         throw new RuntimeException(e);
                     }
                 }
-                Flow.log("join - all done.");
+                //Flow.log("join - all done.");
             } finally {
-                Flow.log("join - reacquire.");
+                //Flow.log("join - reacquire.");
                 owner.enter();
-                Flow.log("join - reacquired.");
+                //Flow.log("join - reacquired.");
             }
             return prior;
         }

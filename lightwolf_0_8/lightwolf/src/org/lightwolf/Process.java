@@ -465,6 +465,8 @@ public class Process {
 
     private final ProcessManager manager;
     private final HashSet<Flow> flows;
+    private int activeFlows;
+    private int suspendedFlows;
 
     /**
      * Creates a new process. The new process will belong to the
@@ -477,11 +479,27 @@ public class Process {
     }
 
     public Process(ProcessManager manager) {
+        if (manager == null) {
+            throw new NullPointerException();
+        }
         this.manager = manager;
         flows = new HashSet<Flow>();
     }
 
-    synchronized void add(Flow flow) {
+    public final int activeFlows() {
+        return activeFlows;
+    }
+
+    public final int suspendedFlows() {
+        return suspendedFlows;
+    }
+
+    public final synchronized Flow[] getFlows() {
+        Flow[] ret = new Flow[flows.size()];
+        return flows.toArray(ret);
+    }
+
+    synchronized final void add(Flow flow) {
         if (flow.process != null) {
             if (flow.process == this) {
                 assert flows.contains(flow);
@@ -490,19 +508,49 @@ public class Process {
             assert !flows.contains(flow);
             throw new IllegalArgumentException("Flow belongs to another process.");
         }
-        boolean ret = flows.add(flow);
+        checkAddRemove();
+        boolean added = flows.add(flow);
+        assert added;
         flow.process = this;
-        assert ret;
+        if (flow.isActive()) {
+            ++activeFlows;
+        } else {
+            assert flow.isSuspended();
+            ++suspendedFlows;
+        }
     }
 
-    synchronized void remove(Flow flow) {
+    synchronized final void remove(Flow flow) {
         if (flow.process != this) {
             assert !flows.contains(flow);
             throw new IllegalArgumentException("Flow does not belong to this process.");
         }
-        boolean ret = flows.remove(flow);
+        checkAddRemove();
+        boolean removed = flows.remove(flow);
+        assert removed;
         flow.process = null;
-        assert ret;
+        if (flow.isActive()) {
+            --activeFlows;
+        } else {
+            assert flow.isSuspended();
+            --suspendedFlows;
+        }
+    }
+
+    synchronized void notifySuspend(Flow flow) {
+        assert flows.contains(flow);
+        --activeFlows;
+        ++suspendedFlows;
+    }
+
+    synchronized void notifyResume(Flow flow) {
+        assert flows.contains(flow);
+        --suspendedFlows;
+        ++activeFlows;
+    }
+
+    void checkAddRemove() {
+    // Provided for override.
     }
 
     private static class OneWayRequest implements IRequest, Serializable {

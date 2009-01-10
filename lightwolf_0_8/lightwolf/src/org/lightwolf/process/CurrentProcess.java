@@ -29,27 +29,27 @@ import org.lightwolf.FlowMethod;
 
 public class CurrentProcess {
 
-    private static FlowLocal<Process> current = new FlowLocal<Process>();
+    private static FlowLocal<OldProcess> current = new FlowLocal<OldProcess>();
 
-    public static Process getCurrent() {
+    public static OldProcess getCurrent() {
         return current.get();
     }
 
-    public static Process safeGetCurrent() {
-        Process ret = getCurrent();
+    public static OldProcess safeGetCurrent() {
+        OldProcess ret = getCurrent();
         if (ret != null) {
             return ret;
         }
         throw new IllegalStateException("There is no active process.");
     }
 
-    public static Process setCurrent(Process process) {
+    public static OldProcess setCurrent(OldProcess process) {
         return current.set(process);
     }
 
     @FlowMethod
     public static void enter() {
-        Process p = safeGetCurrent();
+        OldProcess p = safeGetCurrent();
         p.enter();
         assert getCurrent() == p; // enter() might return in another Java thread. Check FlowThreadLocal.
     }
@@ -64,7 +64,7 @@ public class CurrentProcess {
 
     @FlowMethod
     public static void join() {
-        Process p = safeGetCurrent();
+        OldProcess p = safeGetCurrent();
         p.join();
         assert getCurrent() == p; // join() might return in another Java thread. Check FlowThreadLocal.
     }
@@ -72,7 +72,7 @@ public class CurrentProcess {
     /** Returns true if this is a fork path. Must be called inside a fork block. */
     @FlowMethod
     public static boolean onPath() {
-        Process cur = safeGetCurrent();
+        OldProcess cur = safeGetCurrent();
         boolean onPath = cur.onPath();
         if (onPath) {
             // if onPath() returns true, we are in another FlowThread. Current must be null (checking FlowThreadLocal).

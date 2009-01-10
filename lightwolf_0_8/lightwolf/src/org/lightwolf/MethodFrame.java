@@ -145,6 +145,20 @@ public final class MethodFrame implements Serializable {
         return new MethodFrame(this, owner, false);
     }
 
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        if (target instanceof Class) {
+            sb.append(((Class<?>) target).getName());
+        } else {
+            sb.append(target.getClass().getName());
+        }
+        sb.append('.');
+        sb.append(name);
+        sb.append(desc);
+        return sb.toString();
+    }
+
     public void exit() {
         // Possible states:
         int curState = state;

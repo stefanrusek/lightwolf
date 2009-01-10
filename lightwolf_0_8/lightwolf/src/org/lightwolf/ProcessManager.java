@@ -24,9 +24,13 @@
  */
 package org.lightwolf;
 
+import java.io.Serializable;
+
 import org.lightwolf.tools.SimpleProcessManager;
 
-public abstract class ProcessManager {
+public abstract class ProcessManager implements Serializable {
+
+    private static final long serialVersionUID = 1L;
 
     private static ProcessManager _default = new SimpleProcessManager("defaultProcessManager");
 

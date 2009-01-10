@@ -105,7 +105,7 @@ public class SimpleFlowManager extends FlowManager implements Serializable {
             public void run() {
                 try {
                     clearThread();
-                    Flow.log("Resuming " + flow + ", message=" + message);
+                    //Flow.log("Resuming " + flow + ", message=" + message);
                     try {
                         flow.resume(message);
                     } catch (FlowSignal s) {
@@ -121,7 +121,7 @@ public class SimpleFlowManager extends FlowManager implements Serializable {
                 }
             }
         };
-        Flow.log("Scheduling " + flow + ", message=" + message);
+        //Flow.log("Scheduling " + flow + ", message=" + message);
         return executor.submit(command);
     }
 
@@ -179,7 +179,7 @@ public class SimpleFlowManager extends FlowManager implements Serializable {
         }
 
         public Thread newThread(Runnable r) {
-            Flow.log("newThread-init");
+            //Flow.log("newThread-init");
             int index;
             synchronized(this) {
                 index = nextNumber++;
@@ -191,7 +191,7 @@ public class SimpleFlowManager extends FlowManager implements Serializable {
             if (ret.getPriority() != Thread.NORM_PRIORITY) {
                 ret.setPriority(Thread.NORM_PRIORITY);
             }
-            Flow.log("newThread-initdone");
+            //Flow.log("newThread-initdone");
             return ret;
         }
 

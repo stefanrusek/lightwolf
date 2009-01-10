@@ -3,14 +3,14 @@ package org.lightwolf.tests;
 import org.junit.Test;
 import org.lightwolf.FlowMethod;
 import org.lightwolf.process.CurrentProcess;
-import org.lightwolf.process.Process;
+import org.lightwolf.process.OldProcess;
 
 public class TestCurrentProcessFork {
 
     @Test
     @FlowMethod
     public void simplest() throws Throwable {
-        CurrentProcess.setCurrent(new Process());
+        CurrentProcess.setCurrent(new OldProcess());
         CurrentProcess.enter();
         Counter c = new Counter();
         CurrentProcess.fork();
@@ -27,7 +27,7 @@ public class TestCurrentProcessFork {
     @Test
     @FlowMethod
     public void forkInsideFork() throws Throwable {
-        CurrentProcess.setCurrent(new Process());
+        CurrentProcess.setCurrent(new OldProcess());
         CurrentProcess.enter();
         Counter c = new Counter();
         c.count(); // 1
@@ -61,7 +61,7 @@ public class TestCurrentProcessFork {
     @Test
     @FlowMethod
     public void callThenForkThenThrow() throws Throwable {
-        CurrentProcess.setCurrent(new Process());
+        CurrentProcess.setCurrent(new OldProcess());
         CurrentProcess.enter();
         Counter c = new Counter();
         c.count(); // 1
@@ -93,7 +93,7 @@ public class TestCurrentProcessFork {
     @Test
     @FlowMethod
     public void forkThenCallThenFork() throws Throwable {
-        CurrentProcess.setCurrent(new Process());
+        CurrentProcess.setCurrent(new OldProcess());
         CurrentProcess.enter();
         Counter c = new Counter();
         c.count(); // 1
@@ -119,7 +119,7 @@ public class TestCurrentProcessFork {
 
     @FlowMethod
     private void fork(Counter c) throws Throwable {
-        CurrentProcess.setCurrent(new Process());
+        CurrentProcess.setCurrent(new OldProcess());
         CurrentProcess.enter();
         c.count(); // 2
         CurrentProcess.fork();
@@ -136,7 +136,7 @@ public class TestCurrentProcessFork {
     @Test
     @FlowMethod
     public void forkOnSecondCall() throws Throwable {
-        CurrentProcess.setCurrent(new Process());
+        CurrentProcess.setCurrent(new OldProcess());
         CurrentProcess.enter();
         Counter c = new Counter();
         callString(false, "ABC", c); // 1.
@@ -183,7 +183,7 @@ public class TestCurrentProcessFork {
     @Test
     @FlowMethod
     public void recursive() throws Throwable {
-        CurrentProcess.setCurrent(new Process());
+        CurrentProcess.setCurrent(new OldProcess());
         CurrentProcess.enter();
         Counter c = new Counter();
         int levels = 5;
@@ -226,7 +226,7 @@ public class TestCurrentProcessFork {
 
     @FlowMethod
     public void callThenFork(int count, Counter c) {
-        CurrentProcess.setCurrent(new Process());
+        CurrentProcess.setCurrent(new OldProcess());
         CurrentProcess.enter();
         c.count(); // 1
         CurrentProcess.fork();

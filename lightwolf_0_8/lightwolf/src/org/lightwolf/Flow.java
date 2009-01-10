@@ -142,6 +142,16 @@ public final class Flow implements Serializable {
     public static final int SUSPENDED = 2;
 
     /**
+     * A constant indicating that the flow is passive. A passive flow is not
+     * running and its data is stored on its {@linkplain #process() process}.
+     * Except for that, a passive flow is identical to a {@link #SUSPENDED}
+     * flow.
+     * 
+     * @see #getState()
+     */
+    public static final int PASSIVE = 3;
+
+    /**
      * A constant indicating that the flow is ended. A flow is ended when the <a
      * href="#flowcreator">flow-creator</a> returns normally or by exception, or
      * when the method {@link #end()} is called. An ended flow cannot be
@@ -150,11 +160,20 @@ public final class Flow implements Serializable {
      * 
      * @see #getState()
      */
-    public static final int ENDED = 3;
+    public static final int ENDED = 4;
 
-    private static final int SUSPENDING = 4;
+    private static final int SUSPENDING = 5;
 
-    private static final String[] stateNames = new String[] { "0", "ACTIVE", "SUSPENDED", "SUSPENDING", "ENDED" };
+    private static final int TEMP_SUSP = 6;
+
+    private static final String[] stateNames = new String[] { "ACTIVE", "SUSPENDED", "PASSIVE", "ENDED", "SUSPENDING", "TEMP_SUSP" };
+
+    private static String stateName(int state) {
+        if (state >= 1 && state <= 6) {
+            return stateNames[state - 1];
+        }
+        return "(unknown state: " + state + ")";
+    }
 
     private static final ThreadLocal<Flow> current = new ThreadLocal<Flow>();
 
@@ -206,41 +225,25 @@ public final class Flow implements Serializable {
     }
 
     public static Flow submit(Runnable runnable) {
-        Flow previous = current();
-        if (previous != null && !previous.isPassive()) {
-            throw new IllegalStateException();
-        }
-        Flow flow = newFlow(previous);
-        try {
-            MethodFrame frame = flow.newFrame(runnable, "run", "()V");
-            frame.notifyInvoke(Integer.MAX_VALUE, 0, 0);
-            flow.state = SUSPENDED;
-            flow.currentFrame = null;
-            flow.suspendedFrame = frame;
-            flow.activate();
-            return flow;
-        } finally {
-            current.set(previous);
-        }
+        Flow flow = newFlow(null);
+        MethodFrame frame = flow.newFrame(runnable, "run", "()V");
+        frame.notifyInvoke(Integer.MAX_VALUE, 0, 0);
+        flow.state = SUSPENDED;
+        flow.currentFrame = null;
+        flow.suspendedFrame = frame;
+        flow.activate();
+        return flow;
     }
 
     public static Flow submit(Callable<?> callable) {
-        Flow previous = current();
-        if (previous != null && !previous.isPassive()) {
-            throw new IllegalStateException();
-        }
-        Flow flow = newFlow(previous);
-        try {
-            MethodFrame frame = flow.newFrame(callable, "call", "()Ljava/lang/Object;");
-            frame.notifyInvoke(Integer.MAX_VALUE, 0, 0);
-            flow.state = SUSPENDED;
-            flow.currentFrame = null;
-            flow.suspendedFrame = frame;
-            flow.activate();
-            return flow;
-        } finally {
-            current.set(previous);
-        }
+        Flow flow = newFlow(null);
+        MethodFrame frame = flow.newFrame(callable, "call", "()Ljava/lang/Object;");
+        frame.notifyInvoke(Integer.MAX_VALUE, 0, 0);
+        flow.state = SUSPENDED;
+        flow.currentFrame = null;
+        flow.suspendedFrame = frame;
+        flow.activate();
+        return flow;
     }
 
     /**
@@ -1299,7 +1302,7 @@ public final class Flow implements Serializable {
         try {
             if (frame.isInvoking()) {
                 // We are suspending.
-                log("Signaling, signal=" + signal);
+                //log("Signaling, signal=" + signal);
                 if (signal == null) {
                     throw new NullPointerException();
                 }
@@ -1312,7 +1315,7 @@ public final class Flow implements Serializable {
                 return null;
             }
             // We are restoring from suspended state.
-            log("Restored from signal.");
+            //log("Restored from signal.");
             // assert signal.flow == cur : signal.flow;
             Object result = cur.result;
             cur.result = null;
@@ -1397,6 +1400,7 @@ public final class Flow implements Serializable {
         Flow cur = current();
         if (cur == null || cur.isPassive()) {
             cur = newFlow(cur);
+            current.set(cur);
         }
         return cur.newFrame(owner, name, desc);
     }
@@ -1425,7 +1429,6 @@ public final class Flow implements Serializable {
     private static Flow newFlow(Flow previous) {
         Flow ret = new Flow(FlowManager.getNext(), previous);
         ret.state = ACTIVE;
-        current.set(ret);
         return ret;
     }
 
@@ -1465,11 +1468,11 @@ public final class Flow implements Serializable {
     }
 
     public boolean isActive() {
-        return state == ACTIVE;
+        return state == ACTIVE || state == TEMP_SUSP;
     }
 
     public boolean isSuspended() {
-        return state == SUSPENDED;
+        return state == SUSPENDED || state == PASSIVE;
     }
 
     public boolean isEnded() {
@@ -1551,17 +1554,24 @@ public final class Flow implements Serializable {
      */
     public Object resume(Object signalResult) {
         synchronized(this) {
+            if (process != null) {
+                process.notifyResume(this);
+            }
             if (state != SUSPENDED) {
-                throw new IllegalStateException("Cannot resume if the flow is " + stateNames[state] + '.');
+                throw new IllegalStateException("Cannot resume if the flow is " + stateName(state) + '.');
             }
             state = ACTIVE;
         }
+        String debugMethodName = null;
         boolean success = false;
         try {
             restore();
             setCurrent(this);
             result = signalResult;
             Class<?> clazz = suspendedFrame.getTargetClass();
+
+            assert (debugMethodName = clazz.getName() + "#" + suspendedFrame.getMethodName()) != "";
+            log("resuming " + debugMethodName);
 
             try {
                 Class<?>[] argClasses = suspendedFrame.getMethodParameterTypes();
@@ -1581,7 +1591,6 @@ public final class Flow implements Serializable {
                         m.setAccessible(true);
                         Object owner = getRootValues(m, argValues);
                         Object ret = m.invoke(owner, argValues);
-                        success = true;
                         return ret;
                     } catch (NoSuchMethodException e) {
                         if (fe == null) {
@@ -1600,14 +1609,15 @@ public final class Flow implements Serializable {
             } catch (IllegalAccessException e) {
                 throw new RuntimeException(e);
             } catch (InvocationTargetException e) {
+                success = true;
                 if (e.getCause() instanceof FlowSignal) {
                     throw (FlowSignal) e.getCause();
                 }
                 throw new FlowException(e.getCause());
             }
         } finally {
-            if (success) {
-                assert state == ENDED || state == SUSPENDED : "state==" + state;
+            if (!success) {
+                log("state == " + stateName(state) + ", method=" + debugMethodName);
             }
         }
     }
@@ -1703,7 +1713,7 @@ public final class Flow implements Serializable {
     public synchronized Flow copy() {
         checkSteady();
         Flow ret = new Flow(manager, null);
-        ret.state = state;
+        ret.state = state == TEMP_SUSP ? SUSPENDED : state;
         ret.suspendedFrame = suspendedFrame.copy(ret);
         ret.result = result;
         if (process != null) {
@@ -1716,7 +1726,7 @@ public final class Flow implements Serializable {
     private synchronized Flow frameCopy() {
         checkSteady();
         Flow ret = new Flow(manager, null);
-        ret.state = state;
+        ret.state = state == TEMP_SUSP ? SUSPENDED : state;
         ret.suspendedFrame = suspendedFrame.shallowCopy(ret);
         ret.result = result;
         if (process != null) {
@@ -1729,13 +1739,14 @@ public final class Flow implements Serializable {
     private void checkSteady() {
         switch (state) {
             case SUSPENDED:
+            case TEMP_SUSP:
                 assert suspendedFrame != null;
                 break;
             case ENDED:
                 assert suspendedFrame == null;
                 break;
             default:
-                throw new IllegalStateException("Cannot copy flow in current state.");
+                throw new IllegalStateException("Cannot copy flow if state is " + stateName(state) + ".");
         }
         assert currentFrame == null;
     }
@@ -1766,14 +1777,14 @@ public final class Flow implements Serializable {
     }
 
     public synchronized Object waitSuspended() throws InterruptedException {
-        while (state != SUSPENDED) {
+        while (state != SUSPENDED && state != PASSIVE) {
             wait();
         }
         return result;
     }
 
     public synchronized Object waitNotRunning() throws InterruptedException {
-        while (state != SUSPENDED && state != ENDED) {
+        while (state != SUSPENDED && state != PASSIVE && state != ENDED) {
             wait();
         }
         return result;
@@ -1790,7 +1801,26 @@ public final class Flow implements Serializable {
         return result;
     }
 
+    synchronized FlowData fetchState(long id) {
+        assert process != null;
+        assert state == SUSPENDED;
+        FlowData ret = new FlowData(suspendedFrame, id);
+        suspendedFrame = null;
+        state = PASSIVE;
+        notifyAll();
+        return ret;
+    }
+
+    synchronized void restoreState(FlowData flowState) {
+        assert process != null;
+        assert state == PASSIVE;
+        suspendedFrame = flowState.suspendedFrame;
+        state = SUSPENDED;
+        notifyAll();
+    }
+
     void finish() {
+        log("finishing...");
         assert current.get() == this;
         current.set(previous);
         previous = null;
@@ -1818,6 +1848,7 @@ public final class Flow implements Serializable {
                     currentFrame = null;
                     notifyAll();
                 }
+                log("normally");
                 return;
             case SUSPENDING:
                 assert suspendedFrame != null;
@@ -1826,16 +1857,20 @@ public final class Flow implements Serializable {
                 currentFrame = null;
                 synchronized(this) {
                     state = SUSPENDED;
+                    if (process != null) {
+                        process.notifySuspend(this);
+                    }
                     notifyAll();
                 }
+                log("throwing signal");
                 throw signal;
             default:
-                throw new AssertionError("state == " + state);
+                throw new AssertionError("state shouldn't be " + stateName(state));
         }
     }
 
     MethodFrame newFrame(Object owner, String name, String desc) {
-        assert state == ACTIVE;
+        assert state == ACTIVE : stateName(state);
         if (currentFrame == null) {
             if (suspendedFrame != null) {
                 suspendedFrame.checkMatch(owner, name, desc);
@@ -1885,7 +1920,7 @@ public final class Flow implements Serializable {
                 suspendedFrame = frame;
                 break;
             default:
-                throw new IllegalStateException("Cannot resume if flow is " + stateNames[state] + '.');
+                throw new IllegalStateException("Cannot resume if flow is " + stateName(state) + '.');
         }
         notifyAll();
     }
@@ -1894,13 +1929,13 @@ public final class Flow implements Serializable {
         assert state == ACTIVE;
         assert currentFrame != null;
         assert suspendedFrame == null;
-        state = SUSPENDED;
+        state = TEMP_SUSP;
         suspendedFrame = currentFrame;
         currentFrame = null;
     }
 
     private synchronized void restoreInPlace() {
-        assert state == SUSPENDED;
+        assert state == TEMP_SUSP;
         assert currentFrame == null;
         assert suspendedFrame != null;
         state = ACTIVE;
