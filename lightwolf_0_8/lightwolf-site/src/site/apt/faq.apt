@@ -7,262 +7,128 @@
 
 Frequently Asked Questions
 
+* Lightwolf Concepts
+
+** What is Lightwolf?
+
+    Lightwolf is a Java framework that allows easy development and deployment of long running
+    processes (like business workflows) in the Java language. This functionality is not provided
+    by the current version of Java SE (version 6.0). For more information, please look at the
+    "Project Motivation" topics below.
+
+    Please mind that Lightwolf is still Alpha. The Beta version is scheduled for beginning of 2009.
+
+** How can I use it?
+
+    Write a Java method using Lightwolf utilities (such as 
+    {{{javadoc/org/lightwolf/Flow.html#suspend(java.lang.Object)}suspend()}}) and mark it with the
+    {{{javadoc/org/lightwolf/FlowMethod.html}FlowMethod}} annotation.
+    This method is going to be your long running process.
+
+    After you compile the program, you must enhance the classes using the supplied
+    {{{javadoc/org/lightwolf/tools/LightWolfAntTask.html}Ant task}}.
+    Eclipse users can ignore this step, as long as they added the Lightwolf nature by using the
+    {{{gettingstarted.html}Eclipse plugin}}.
+
+    For now, you are done. Your program can run as an ordinary Java SE program. This FAQ will be
+    updated when deployment features are released.  
+
+** How does it work?
+
+* Project Motivation
+
 ** Why this project?
 
-   The idea of this project is to provide an alternative to XML-based workflow languages.
-   Our mission is allow you to build and deploy a complex, worth-of-value business workflow
-   writing just a few Java classes. You are free to use your favorite IDE, libraries,
-   frameworks, coding styles and your valuable programming knowledge.
-
-** What's wrong with XML-based workflow languages?   
-   
-   XML-based workflow languages are usually hard to code, hard to debug, hard to change
-   and not powerful enough for many real-world applications. That's why most workflows are just
-   "glues" to other enterprise components written in general programming languages such as
-   Java, C++ and C#.
-
-** Isn't XML-based workflow languages, language neutral?
-
-   Not actually. If you write a workflow in BPEL, it won't run on a XPDL engine, and vice-versa.
-   Also if you use engine extensions, then your workflow won't run unmodified on anywhere else.
-
-   If you want integration between two environments, such as getting Java talking with .NET,
-   you don't need a workflow engine. You can just call a webservice. This means that your workflow
-   could be written in Java. ;-) Of course, if you want to be in fashion, you can put an ESB between
-   your workflow and the rest of the system. 
-
-** How can I do XML manipulation in Java?
-
-   In Java SE 5.0, the classes on javax.xml are usually enough.  
-
-** How can I develop long running processes with Lightwolf?
-
-   Follow these steps:
-   
-   * Put your long running code inside a flow method and make sure that all local variables
-     (including parameters) are either primitive or serializable.
-
-   * Find places in your code where will be long waits, such as waiting for an user to click on a
-     ticket-style hyperlink in his e-mail (this can take days, weeks, or never happens at all).
-
-   * For each place you found on the previous step, use a suspend utility. That can be the
-     Continuation, Flow.suspend, Flow.signal, etc.
-
-   * Get the flow in suspended state, and store it on some stream, such as a database blob or file.
-
-    
-    
-   
-   You can call other flow methods
-   from within a flow method, a  
-   
-   * Implement the business process using 
-
-
-   
-
-
-
-   XML has some advantages worth-of-mentioning:
-   * 
-   
-   Some languages are very good to model workflows, such as XPDL.  
-   
-   
-
-** 
-
-   Programming a workflow with diagrams often hide important aspects of a workflow, just like visual modeling tools often
-   are not enough to build complex, fast and reusable programs. 
-   
-   . Using visual tools often does not provide
-   eno      
-
-    Lightwolf is a Java library that simplifies thread development. Here is a short summary of 
-    features:
-
-        * Threads can be created and finished using the simple {{{aForkMerge}fork/merge}} utility.
-        
-        * A method can return to its invoker while {{{aReturn_And_Continue}continuing}} with some other task,
-          asynchronously.
-        
-        * A program's execution position can be saved and restored in the future, so a program can
-          continue from that point.
-          
-        * It is possible to wait for a lock without consuming a real thread.
-        
-        * A simple loop can be broken into {{{aParallel_Iterator}many threads}} without creation of
-          additional classes or methods.
-
-        * There is an utility similar to BPEL's <<<pick>>> construct.
-
-The {"Fork/Merge"} Utility
-
-    The fork/merge utility is straightforward. It can be easily understood with a simple example:
+   Generic programming languages, such as Java, are not considered suitable for implementation of
+   <<long running processes,>> like business workflows. They force the programmer to control process
+   state. Consider the following example:
 
 +--
-import java.util.Random;
-import org.lightwolf.Flow;
-import org.lightwolf.FlowMethod;
-
-public class ForkMergeSample {
-
-    @FlowMethod
-    public static void main(String[] args) throws InterruptedException {
-
-        Random r = new Random(0);
-        System.out.println("Single threaded.");
-        int branch = Flow.fork(2); // Create 2 additional threads.
-        try {
-            System.out.printf("Starting branch %d.\n", branch);
-            Thread.sleep(r.nextInt(100)); // Simulates some processing.
-            System.out.printf("Done with branch %d.\n", branch);
-        } finally {
-            Flow.merge();
+    public void order() {
+        Cart cart = new Cart();
+        // 1. User choose the products.
+        chooseProducts(cart);
+        if (!cart.getUser().isAuthenticated()) {
+            // 2. Get user credentials. Might register a new customer.
+            authenticateUser(cart);
         }
-        System.out.println("Single threaded, again.");
-
+        Order order = new Order(cart);
+        // 3. Customer pays the order. 
+        receivePayment(order);
+        // 4. Schedule order for delivery. 
+        processOrder(order);
     }
-
-}
 +--
 
-    The code between <<<Flow.fork(2)>>> and <<<Fork.merge()>>> runs on three threads: one thread for
-    the invoker (the main thread), and two new threads created at the point of <<<Flow.fork(2)>>>.
-    Any previously declared variable is accessible from the fork block, such as <<<Random r>>> in
-    the example. Notice that all threads share the same <<<Random>>> instance.
-    The above example prints something like this:
+    While this is a valid Java program, it does not work in real world because this program would
+    hold a server thread and many data in server memory for very long time (possibly weeks). Just
+    to cite a few examples, the "chooseProducts(cart)" might put cookies in the user's browser, so
+    that if the user quit and get back later, it can show the cart contents. The
+    "authenticateUser(cart)" might also register a new customer, which will require e-mail
+    validation.
 
-+--
-Single threaded.
-Starting branch 1.
-Starting branch 0.
-Starting branch 2.
-Done with branch 1.
-Done with branch 2.
-Done with branch 0.
-Single threaded, again.
-+--
+    Holding threads and memory for long periods is not scalable and does not allow transparent
+    reboot and fail-over. Developers are thus forced to explicitly save the process state into
+    persistent storage, and to release threads and memory while the system is waiting for external
+    input. This usually implies the use of caches and complex control of process failures. So, a
+    process that should be simple to develop and deploy becomes a large set of classes, tables
+    and configurations.
 
-The {"Return and Continue"} Utility
+    The central motivation for this project is to allow easy development of long running process on
+    a generic programming language, that for now happens to be Java. The objective is to allow
+    deployment of business processes whose implementation is as simple as the one in the above
+    example.
 
-    This utility allows execution of simple asynchronous tasks. Consider the example:
+** What about XML-based workflow languages, such as BPEL and Wf-XML?
 
-+--
-import java.util.Random;
-import org.lightwolf.Flow;
-import org.lightwolf.FlowMethod;
+    There have been some issues about XML-based workflow languages:
 
-public class ReturnAndContinueSample {
+    * XML is too verbose (hard to read and hard to code).
+      It's good for static structures (although JSON is an excellent competitor), but bad for
+      writing program flows.
+      Using a graphical workflow editor is often not enough to develop an <<executable>> workflow,
+      because developers have to deal with many details that diagrams can't show. Example of such
+      details are service addresses, parameter assignment and XML querying and traversing.
 
-    public static void main(String[] args) throws InterruptedException {
+    * XML-based workflow languages usually lack computation power and algorithm expressiveness. If
+      you need to iterate over a collection of elements doing some math and instantiating new
+      objects (such as generating rates for accounting), doing this in XML would produce unreadable
+      code and consume too much CPU in the workflow engine.
+      Moving it out from the flow requires you to write an adapter or web-service in another
+      language.
+      Nothing against it, but why can't you just write an utility method and call it?
 
-        System.out.println("Calling doSomething().");
-        double result = doSomething();
-        System.out.printf("doSomething() returned %f.\n", result);
-        for (int i = 1; i <= 4; ++i) {
-            System.out.printf("main() counter: %d.\n", i);
-            Thread.sleep(100);
-        }
+    * Because an XML-based workflow language does not provide computational completeness, the IT
+      environment will contain one more language, which brings a myriad of additional concepts and
+      infrastructure software that must be learned and managed.
+      
+    Please do not confound XML-based workflow language with <<graphical>> workflow languages such as
+    BPMN or UML Activity Diagrams.
+    These languages are graphical in essence, and use XML just as a storage format.
+    While these languages are important for communication and knowledge retention, they usually are
+    not enough to develop and maintain complex <<executable>> workflows. 
 
-    }
+** Isn't Java too low level for a workflow?
 
-    @FlowMethod
-    private static double doSomething() throws InterruptedException {
-        // Returns 1.25 to the invoker and continue processing.
-        Flow.returnAndContinue(1.25);
-        for (int i = 1; i <= 4; ++i) {
-            System.out.printf("doSomething() counter: %d.\n", i);
-            Thread.sleep(100);
-        }
-        return 0.0; // Return no nobody.
-    }
+    Short answer: No. Please look at the example in the first question.
 
-}
-+--
-    
-    The <<<doSomething()>>> method is invoking <<<Flow.returnAndContinue(1.25)>>>. This causes the
-    invoker (<<<main()>>> in the example) to resume as if <<<doSomething()>>> have returned
-    normally. But the method <<<doSomething()>>> actually continues execution in another thread.
-    This behavior makes the program output to be something like this:  
+    Long answer:
 
-+--
-Calling doSomething().
-doSomething() returned 1.250000.
-doSomething() counter: 1.
-main() counter: 1.
-doSomething() counter: 2.
-main() counter: 2.
-main() counter: 3.
-doSomething() counter: 3.
-main() counter: 4.
-doSomething() counter: 4.
-+--
+    Java is a general-purpose, object-oriented programming language that has an uniform syntax,
+    uses dynamic linking naturally to simplify modularization and supports garbage collection.
+    Java IDEs like Eclipse and NetBeans are plenty of productivity features such as code completion,
+    code navigation, ergonomic editors, feature-complete debuggers and automated refactorings.
+    Compared to C++ and its available tools, Java is much easier to learn and use.
+    Compared to XML-based workflow languages, none have so many tools and support.
 
-The {"Parallel Iterator"} Utility
+    What makes Java "looks like" low level is the fact that it's strongly typed.
+    All variables, fields and parameters must be declared with a type that cannot change over time,
+    and no features of the actual runtime value can be used at development time without checks and
+    type casts.
+    But there are some nice scripting languages such as Groovy, Jython and Rhino.
+    These are certainly much higher level than Java, although none have comparable tools. 
 
-    Transforms a simple, ordinary loop into a parallel/concurrent loop. Again, an example is worth
-    of a thousand words:
+    Lightwolf operates on bytecode level. It places no requirements on the sources that generated
+    such bytecode. Because of that, one can use any scripting language capable of generate annotated
+    JVM bytecode that references Lightwolf utilities.
 
-+--
-import java.util.Random;
-import org.lightwolf.Flow;
-import org.lightwolf.FlowMethod;
-import org.lightwolf.synchronization.ParallelArray;
-import org.lightwolf.synchronization.ParallelIterator;
-
-public class ParallelIteratorSample {
-
-    @FlowMethod
-    public static void main(String[] args) throws InterruptedException {
-        // Build an array with mock elements to be processed.
-        Random random = new Random(0);
-        Element[] data = new Element[8];
-        for (int i = 0; i < data.length; ++i) {
-            data[i] = new Element(i + 1, random.nextInt(400));
-        }
-        // Process elements in parallel.
-        ParallelArray<Element> array = new ParallelArray<Element>(data);
-        for (ParallelIterator<Element> iterator = array.iterator(); iterator.hasNext();) {
-            Element elem = iterator.next();
-            System.out.printf("Starting %d.\n", elem.number);
-            Thread.sleep(elem.cost); // Simulates the of processing this element.
-            System.out.printf("Done %d.\n", elem.number);
-        }
-    }
-
-    static class Element {
-        int number;
-        int cost;
-        Element(int number, int size) {
-            this.number = number;
-            this.cost = size;
-        }
-    }
-
-}
-+--
-
-    The block that processes each element in the <<<ParallelIterator>>> is executed exactly 8 times
-    (which is the size of the <<<data>>> array), but it runs on <N> different threads. The default
-    number of threads is <N = 4>. Hence the above program produces an output similar to the
-    following: 
-
-+--
-Starting 1.
-Starting 2.
-Starting 3.
-Starting 4.
-Done 3.
-Starting 5.
-Done 4.
-Starting 6.
-Done 1.
-Starting 7.
-Done 7.
-Starting 8.
-Done 6.
-Done 5.
-Done 2.
-Done 8.
-+--
