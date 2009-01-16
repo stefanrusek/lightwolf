@@ -1,0 +1,208 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+
+
+
+
+
+
+
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <title>Lightwolf - Home</title>
+    <style type="text/css" media="all">
+      @import url("./css/maven-base.css");
+      @import url("./css/maven-theme.css");
+      @import url("./css/site.css");
+    </style>
+    <link rel="stylesheet" href="./css/print.css" type="text/css" media="print" />
+          <meta name="author" content="Fernando Colombo" />
+        <meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1" />
+      </head>
+  <body class="composite">
+    <div id="banner">
+                    <div id="bannerLeft">
+    
+            Lightwolf
+    
+            </div>
+                    <div class="clear">
+        <hr/>
+      </div>
+    </div>
+    <div id="breadcrumbs">
+          
+  
+
+  
+    
+    
+  
+    
+            <div class="xleft">
+        <span id="publishDate">Last Published: 2009-01-11</span>
+                  &nbsp;| <span id="projectVersion">Version: 0.8.9</span>
+                      </div>
+            <div class="xright">            <a href="http://lightwolf-j.blogspot.com" class="externalLink">Blog</a>
+            |
+                <a href="http://sourceforge.net/projects/lightwolf/" class="externalLink">SourceForge</a>
+            
+  
+
+  
+    
+    
+  
+    
+  </div>
+      <div class="clear">
+        <hr/>
+      </div>
+    </div>
+    <div id="leftColumn">
+      <div id="navcolumn">
+           
+  
+
+  
+    
+    
+  
+    
+                   <h5>Lightwolf</h5>
+            <ul>
+              
+    <li class="none">
+                    <a href="index.html">Home</a>
+          </li>
+              
+    <li class="none">
+                    <a href="gettingstarted.html">Getting Started</a>
+          </li>
+              
+    <li class="none">
+                    <a href="download.html">Download</a>
+          </li>
+              
+    <li class="none">
+                    <a href="license.html">License</a>
+          </li>
+              
+    <li class="none">
+                    <a href="javadoc/index.html">Javadocs</a>
+          </li>
+          </ul>
+             <a href="http://sourceforge.net/donate/index.php?group_id=241050">
+          <img src="http://images.sourceforge.net/images/project-support.jpg" width="88" height="32" border="0" alt="Support This Project" />
+       </a> 
+           
+  
+
+  
+    
+    
+  
+    
+        </div>
+    </div>
+    <div id="bodyColumn">
+      <div id="contentBox">
+        <div class="section"><h2>Frequently Asked Questions</h2>
+<div class="section"><h3>Lightwolf Concepts</h3>
+<div class="section"><h4>What is Lightwolf?</h4>
+<p>Lightwolf is a Java framework that allows easy development and deployment of long running processes (like business workflows) in the Java language. This functionality is not provided by the current version of Java SE (version 6.0). For more information, please look at the &quot;Project Motivation&quot; topics below.</p>
+<p>Please mind that Lightwolf is still Alpha. The Beta version is scheduled for beginning of 2009.</p>
+</div>
+<div class="section"><h4>How can I use it?</h4>
+<p>Write a Java method using Lightwolf utilities (such as <a href="javadoc/org/lightwolf/Flow.html#suspend(java.lang.Object)">suspend()</a>
+) and mark it with the <a href="javadoc/org/lightwolf/FlowMethod.html">FlowMethod</a>
+ annotation. This method is going to be your long running process.</p>
+<p>After you compile the program, you must enhance the classes using the supplied <a href="javadoc/org/lightwolf/tools/LightWolfAntTask.html">Ant task</a>
+. Eclipse users can ignore this step, as long as they added the Lightwolf nature by using the <a href="gettingstarted.html">Eclipse plugin</a>
+.</p>
+<p>For now, you are done. Your program can run as an ordinary Java SE program. This FAQ will be updated when deployment features are released. </p>
+</div>
+<div class="section"><h4>How does it work?</h4>
+</div>
+</div>
+<div class="section"><h3>Project Motivation</h3>
+<div class="section"><h4>Why this project?</h4>
+<p>Generic programming languages, such as Java, are not considered suitable for implementation of <b>long running processes,</b>
+ like business workflows. They force the programmer to control process state. Consider the following example:</p>
+<div class="source"><pre>    public void order() {
+        Cart cart = new Cart();
+        // 1. User choose the products.
+        chooseProducts(cart);
+        if (!cart.getUser().isAuthenticated()) {
+            // 2. Get user credentials. Might register a new customer.
+            authenticateUser(cart);
+        }
+        Order order = new Order(cart);
+        // 3. Customer pays the order. 
+        receivePayment(order);
+        // 4. Schedule order for delivery. 
+        processOrder(order);
+    }</pre>
+</div>
+<p>While this is a valid Java program, it does not work in real world because this program would hold a server thread and many data in server memory for very long time (possibly weeks). Just to cite a few examples, the &quot;chooseProducts(cart)&quot; might put cookies in the user's browser, so that if the user quit and get back later, it can show the cart contents. The &quot;authenticateUser(cart)&quot; might also register a new customer, which will require e-mail validation.</p>
+<p>Holding threads and memory for long periods is not scalable and does not allow transparent reboot and fail-over. Developers are thus forced to explicitly save the process state into persistent storage, and to release threads and memory while the system is waiting for external input. This usually implies the use of caches and complex control of process failures. So, a process that should be simple to develop and deploy becomes a large set of classes, tables and configurations.</p>
+<p>The central motivation for this project is to allow easy development of long running process on a generic programming language, that for now happens to be Java. The objective is to allow deployment of business processes whose implementation is as simple as the one in the above example.</p>
+</div>
+<div class="section"><h4>What about XML-based workflow languages, such as BPEL and Wf-XML?</h4>
+<p>There have been some issues about XML-based workflow languages:</p>
+<ul><li>XML is too verbose (hard to read and hard to code). It's good for static structures (although JSON is an excellent competitor), but bad for writing program flows. Using a graphical workflow editor is often not enough to develop an <b>executable</b>
+ workflow, because developers have to deal with many details that diagrams can't show. Example of such details are service addresses, parameter assignment and XML querying and traversing.</li>
+<li>XML-based workflow languages usually lack computation power and algorithm expressiveness. If you need to iterate over a collection of elements doing some math and instantiating new objects (such as generating rates for accounting), doing this in XML would produce unreadable code and consume too much CPU in the workflow engine. Moving it out from the flow requires you to write an adapter or web-service in another language. Nothing against it, but why can't you just write an utility method and call it?</li>
+<li>Because an XML-based workflow language does not provide computational completeness, the IT environment will contain one more language, which brings a myriad of additional concepts and infrastructure software that must be learned and managed.<p>Please do not confound XML-based workflow language with <b>graphical</b>
+ workflow languages such as BPMN or UML Activity Diagrams. These languages are graphical in essence, and use XML just as a storage format. While these languages are important for communication and knowledge retention, they usually are not enough to develop and maintain complex <b>executable</b>
+ workflows. </p>
+</li>
+</ul>
+</div>
+<div class="section"><h4>Isn't Java too low level for a workflow?</h4>
+<p>Short answer: No. Please look at the example in the first question.</p>
+<p>Long answer:</p>
+<p>Java is a general-purpose, object-oriented programming language that has an uniform syntax, uses dynamic linking naturally to simplify modularization and supports garbage collection. Java IDEs like Eclipse and NetBeans are plenty of productivity features such as code completion, code navigation, ergonomic editors, feature-complete debuggers and automated refactorings. Compared to C++ and its available tools, Java is much easier to learn and use. Compared to XML-based workflow languages, none have so many tools and support.</p>
+<p>What makes Java &quot;looks like&quot; low level is the fact that it's strongly typed. All variables, fields and parameters must be declared with a type that cannot change over time, and no features of the actual runtime value can be used at development time without checks and type casts. But there are some nice scripting languages such as Groovy, Jython and Rhino. These are certainly much higher level than Java, although none have comparable tools. </p>
+<p>Lightwolf operates on bytecode level. It places no requirements on the sources that generated such bytecode. Because of that, one can use any scripting language capable of generate annotated JVM bytecode that references Lightwolf utilities.</p>
+</div>
+</div>
+</div>
+
+      </div>
+    </div>
+    <div class="clear">
+      <hr/>
+    </div>
+    <div id="footer">
+      <div class="xright">
+         &#169;  
+          2009
+    
+          
+  
+
+  
+    
+    
+  
+    
+                                         <a href="http://maven.apache.org/" title="Built by Maven" class="poweredBy">
+            <img class="poweredBy" 
+                 alt="Built by Maven" 
+                 src="./images/logos/maven-feather.png" 
+                 width="90"
+                 height="30"
+                 border="1" />
+          </a>
+                  </div>
+      <div class="clear">
+        <hr/>
+      </div>
+    </div>
+  </body>
+</html>
+

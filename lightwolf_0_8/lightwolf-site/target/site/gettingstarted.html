@@ -1,0 +1,184 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+
+
+
+
+
+
+
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <title>Lightwolf - Getting Started</title>
+    <style type="text/css" media="all">
+      @import url("./css/maven-base.css");
+      @import url("./css/maven-theme.css");
+      @import url("./css/site.css");
+    </style>
+    <link rel="stylesheet" href="./css/print.css" type="text/css" media="print" />
+          <meta name="author" content="Fernando Colombo" />
+        <meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1" />
+      </head>
+  <body class="composite">
+    <div id="banner">
+                    <div id="bannerLeft">
+    
+            Lightwolf
+    
+            </div>
+                    <div class="clear">
+        <hr/>
+      </div>
+    </div>
+    <div id="breadcrumbs">
+          
+  
+
+  
+    
+    
+  
+    
+            <div class="xleft">
+        <span id="publishDate">Last Published: 2009-01-11</span>
+                  &nbsp;| <span id="projectVersion">Version: 0.8.9</span>
+                      </div>
+            <div class="xright">            <a href="http://lightwolf-j.blogspot.com" class="externalLink">Blog</a>
+            |
+                <a href="http://sourceforge.net/projects/lightwolf/" class="externalLink">SourceForge</a>
+            
+  
+
+  
+    
+    
+  
+    
+  </div>
+      <div class="clear">
+        <hr/>
+      </div>
+    </div>
+    <div id="leftColumn">
+      <div id="navcolumn">
+           
+  
+
+  
+    
+    
+  
+    
+                   <h5>Lightwolf</h5>
+            <ul>
+              
+    <li class="none">
+                    <a href="index.html">Home</a>
+          </li>
+              
+    <li class="none">
+              <strong>Getting Started</strong>
+        </li>
+              
+    <li class="none">
+                    <a href="download.html">Download</a>
+          </li>
+              
+    <li class="none">
+                    <a href="license.html">License</a>
+          </li>
+              
+    <li class="none">
+                    <a href="javadoc/index.html">Javadocs</a>
+          </li>
+          </ul>
+             <a href="http://sourceforge.net/donate/index.php?group_id=241050">
+          <img src="http://images.sourceforge.net/images/project-support.jpg" width="88" height="32" border="0" alt="Support This Project" />
+       </a> 
+           
+  
+
+  
+    
+    
+  
+    
+        </div>
+    </div>
+    <div id="bodyColumn">
+      <div id="contentBox">
+        <div class="section"><h2>Installing Lightwolf on Eclipse</h2>
+<p>This guide is based on Eclipse 3.3. Lightwolf was tested on Eclipse 3.4 and works, but the steps to download and install are a bit different, since this mechanism was changed on Eclipse 3.4. Hence you should get no trouble to download and install on Eclipses newer than 3.3.</p>
+<p>First download and install the <b>Lightwolf Plug-in</b>
+ for Eclipse from the following update site:</p>
+<div class="source"><pre>    http://lightwolf.sourceforge.net/updates/</pre>
+</div>
+<p>You can accomplish this by going to the Find and Install menu of Eclipse:</p>
+<img src="images/eclipse-find-and-install.gif" /><p>Then you choose <b>Search for new features to install</b>
+ and click on the <b>New Remote Site...</b>
+ button. This will bring up a dialog box, on which you can type the following values:</p>
+<img src="images/eclipse-new-upd-site.gif" /><p>Once you clicked OK, check only the <b>Lightwolf</b>
+ item on the list box, and then click <b>Next</b>
+. Wait for the server response and choose the Lightwolf Plug-in. There should be only one version available. Read and accept the license (if you want), wait for the download to finish, and restart Eclipse.</p>
+<p>Now that you are back on Eclipse, right-click on any Java project, and choose the <b>Add/Remove Lightwolf Nature</b>
+ option:</p>
+<img src="images/eclipse-project-menu.gif" /><p>You should get a message about the success of this operation:</p>
+<img src="images/eclipse-nature-added.gif" /><p>Before you can play with utilities, check if the project builder page is listing the <b>Light Wolf Builder</b>
+. Such builder must always be the last builder in the list:</p>
+<img src="images/eclipse-project-builder.gif" /><p>Also check if the <b>Lightwolf Library</b>
+ was added to the project's build path:</p>
+<img src="images/eclipse-project-libraries.gif" /><p>If you accidentally remove this library, you can add it again by using the <b>Add Library...</b>
+ button on that page.</p>
+<p>Now let's make the test. Create a new class and paste a sample from the <a href="index.html">home page</a>
+. Then you can run it as ay ordinary Java class. You can simply right-click the class in Eclipse's Package Explorer, and choose <b>Run As</b>
+, <b>Java Application</b>
+. If your choice for a sample was the <a href="index.html#aForkMerge">fork/merge</a>
+, you should be looking to something like this:</p>
+<img src="images/eclipse-running-sample.gif" /><p>That's all. Now you should be able to use Lightwolf utilities within your project's code.</p>
+</div>
+<div class="section"><h2>Some Important Advice</h2>
+<ul><li>This project is in early stages of development. It still in Alpha on SourceForge. If you find some bug, please post a &quot;bug artifact&quot; on Lightwolf's <a href="http://sourceforge.net/tracker/?group_id=241050" class="externalLink">tracker</a>
+.</li>
+<li>If Eclipse reports an error message from Lightwolf Builder, this might be due to manual changes to .classpath file or .class files (not all possible changes are being detected by the Lightwolf Plug-in). If you perform a clean-up on all projects and rebuild, the build should be correct and the error should not appear on any subsequent builds.</li>
+<li>Remember to use the <a href="javadoc/org/lightwolf/FlowMethod.html">FlowMethod</a>
+ annotation!!! It is required to enhance the method so Lightwolf utilities can be invoked from it.</li>
+</ul>
+</div>
+
+      </div>
+    </div>
+    <div class="clear">
+      <hr/>
+    </div>
+    <div id="footer">
+      <div class="xright">
+         &#169;  
+          2009
+    
+          
+  
+
+  
+    
+    
+  
+    
+                                         <a href="http://maven.apache.org/" title="Built by Maven" class="poweredBy">
+            <img class="poweredBy" 
+                 alt="Built by Maven" 
+                 src="./images/logos/maven-feather.png" 
+                 width="90"
+                 height="30"
+                 border="1" />
+          </a>
+                  </div>
+      <div class="clear">
+        <hr/>
+      </div>
+    </div>
+  </body>
+</html>
+

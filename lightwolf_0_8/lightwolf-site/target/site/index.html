@@ -1,0 +1,320 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+
+
+
+
+
+
+
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <title>Lightwolf - Home</title>
+    <style type="text/css" media="all">
+      @import url("./css/maven-base.css");
+      @import url("./css/maven-theme.css");
+      @import url("./css/site.css");
+    </style>
+    <link rel="stylesheet" href="./css/print.css" type="text/css" media="print" />
+          <meta name="author" content="Fernando Colombo" />
+        <meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1" />
+      </head>
+  <body class="composite">
+    <div id="banner">
+                    <div id="bannerLeft">
+    
+            Lightwolf
+    
+            </div>
+                    <div class="clear">
+        <hr/>
+      </div>
+    </div>
+    <div id="breadcrumbs">
+          
+  
+
+  
+    
+    
+  
+    
+            <div class="xleft">
+        <span id="publishDate">Last Published: 2009-01-11</span>
+                  &nbsp;| <span id="projectVersion">Version: 0.8.9</span>
+                      </div>
+            <div class="xright">            <a href="http://lightwolf-j.blogspot.com" class="externalLink">Blog</a>
+            |
+                <a href="http://sourceforge.net/projects/lightwolf/" class="externalLink">SourceForge</a>
+            
+  
+
+  
+    
+    
+  
+    
+  </div>
+      <div class="clear">
+        <hr/>
+      </div>
+    </div>
+    <div id="leftColumn">
+      <div id="navcolumn">
+           
+  
+
+  
+    
+    
+  
+    
+                   <h5>Lightwolf</h5>
+            <ul>
+              
+    <li class="none">
+              <strong>Home</strong>
+        </li>
+              
+    <li class="none">
+                    <a href="gettingstarted.html">Getting Started</a>
+          </li>
+              
+    <li class="none">
+                    <a href="download.html">Download</a>
+          </li>
+              
+    <li class="none">
+                    <a href="license.html">License</a>
+          </li>
+              
+    <li class="none">
+                    <a href="javadoc/index.html">Javadocs</a>
+          </li>
+          </ul>
+             <a href="http://sourceforge.net/donate/index.php?group_id=241050">
+          <img src="http://images.sourceforge.net/images/project-support.jpg" width="88" height="32" border="0" alt="Support This Project" />
+       </a> 
+           
+  
+
+  
+    
+    
+  
+    
+        </div>
+    </div>
+    <div id="bodyColumn">
+      <div id="contentBox">
+        <div class="section"><h2>Welcome to Lightwolf</h2>
+<p>Lightwolf is a Java library that simplifies thread development. Here is a short summary of features:</p>
+<ul><li>Threads can be created and finished using the simple <a href="#aForkMerge">fork/merge</a>
+ utility.</li>
+<li>A method can return to its invoker while <a href="#aReturn_And_Continue">continuing</a>
+ with some other task, asynchronously.</li>
+<li>A program's execution position can be saved and restored in the future, so a program can continue from that point.</li>
+<li>It is possible to wait for a lock without consuming a real thread.</li>
+<li>A simple loop can be broken into <a href="#aParallel_Iterator">many threads</a>
+ without creation of additional classes or methods.</li>
+<li>There is an utility similar to BPEL's <tt>pick</tt>
+ construct.</li>
+</ul>
+</div>
+<div class="section"><h2>The <a name="aForkMerge">&quot;Fork/Merge&quot;</a>
+ Utility</h2>
+<p>The fork/merge utility is straightforward. It can be easily understood with a simple example:</p>
+<div class="source"><pre>import java.util.Random;
+import org.lightwolf.Flow;
+import org.lightwolf.FlowMethod;
+
+public class ForkMergeSample {
+
+    @FlowMethod
+    public static void main(String[] args) throws InterruptedException {
+
+        Random r = new Random(0);
+        System.out.println(&quot;Single threaded.&quot;);
+        int branch = Flow.fork(2); // Create 2 additional threads.
+        try {
+            System.out.printf(&quot;Starting branch %d.\n&quot;, branch);
+            Thread.sleep(r.nextInt(100)); // Simulates some processing.
+            System.out.printf(&quot;Done with branch %d.\n&quot;, branch);
+        } finally {
+            Flow.merge();
+        }
+        System.out.println(&quot;Single threaded, again.&quot;);
+
+    }
+
+}</pre>
+</div>
+<p>The code between <tt>Flow.fork(2)</tt>
+ and <tt>Fork.merge()</tt>
+ runs on three threads: one thread for the invoker (the main thread), and two new threads created at the point of <tt>Flow.fork(2)</tt>
+. Any previously declared variable is accessible from the fork block, such as <tt>Random r</tt>
+ in the example. Notice that all threads share the same <tt>Random</tt>
+ instance. The above example prints something like this:</p>
+<div class="source"><pre>Single threaded.
+Starting branch 1.
+Starting branch 0.
+Starting branch 2.
+Done with branch 1.
+Done with branch 2.
+Done with branch 0.
+Single threaded, again.</pre>
+</div>
+</div>
+<div class="section"><h2>The <a name="aReturn_and_Continue">&quot;Return and Continue&quot;</a>
+ Utility</h2>
+<p>This utility allows execution of simple asynchronous tasks. Consider the example:</p>
+<div class="source"><pre>import java.util.Random;
+import org.lightwolf.Flow;
+import org.lightwolf.FlowMethod;
+
+public class ReturnAndContinueSample {
+
+    public static void main(String[] args) throws InterruptedException {
+
+        System.out.println(&quot;Calling doSomething().&quot;);
+        double result = doSomething();
+        System.out.printf(&quot;doSomething() returned %f.\n&quot;, result);
+        for (int i = 1; i &lt;= 4; ++i) {
+            System.out.printf(&quot;main() counter: %d.\n&quot;, i);
+            Thread.sleep(100);
+        }
+
+    }
+
+    @FlowMethod
+    private static double doSomething() throws InterruptedException {
+        // Returns 1.25 to the invoker and continue processing.
+        Flow.returnAndContinue(1.25);
+        for (int i = 1; i &lt;= 4; ++i) {
+            System.out.printf(&quot;doSomething() counter: %d.\n&quot;, i);
+            Thread.sleep(100);
+        }
+        return 0.0; // Return no nobody.
+    }
+
+}</pre>
+</div>
+<p>The <tt>doSomething()</tt>
+ method is invoking <tt>Flow.returnAndContinue(1.25)</tt>
+. This causes the invoker (<tt>main()</tt>
+ in the example) to resume as if <tt>doSomething()</tt>
+ have returned normally. But the method <tt>doSomething()</tt>
+ actually continues execution in another thread. This behavior makes the program output to be something like this: </p>
+<div class="source"><pre>Calling doSomething().
+doSomething() returned 1.250000.
+doSomething() counter: 1.
+main() counter: 1.
+doSomething() counter: 2.
+main() counter: 2.
+main() counter: 3.
+doSomething() counter: 3.
+main() counter: 4.
+doSomething() counter: 4.</pre>
+</div>
+</div>
+<div class="section"><h2>The <a name="aParallel_Iterator">&quot;Parallel Iterator&quot;</a>
+ Utility</h2>
+<p>Transforms a simple, ordinary loop into a parallel/concurrent loop. Again, an example is worth of a thousand words:</p>
+<div class="source"><pre>import java.util.Random;
+import org.lightwolf.Flow;
+import org.lightwolf.FlowMethod;
+import org.lightwolf.synchronization.ParallelArray;
+import org.lightwolf.synchronization.ParallelIterator;
+
+public class ParallelIteratorSample {
+
+    @FlowMethod
+    public static void main(String[] args) throws InterruptedException {
+        // Build an array with mock elements to be processed.
+        Random random = new Random(0);
+        Element[] data = new Element[8];
+        for (int i = 0; i &lt; data.length; ++i) {
+            data[i] = new Element(i + 1, random.nextInt(400));
+        }
+        // Process elements in parallel.
+        ParallelArray&lt;Element&gt; array = new ParallelArray&lt;Element&gt;(data);
+        for (ParallelIterator&lt;Element&gt; iterator = array.iterator(); iterator.hasNext();) {
+            Element elem = iterator.next();
+            System.out.printf(&quot;Starting %d.\n&quot;, elem.number);
+            Thread.sleep(elem.cost); // Simulates the of processing this element.
+            System.out.printf(&quot;Done %d.\n&quot;, elem.number);
+        }
+    }
+
+    static class Element {
+        int number;
+        int cost;
+        Element(int number, int size) {
+            this.number = number;
+            this.cost = size;
+        }
+    }
+
+}</pre>
+</div>
+<p>The block that processes each element in the <tt>ParallelIterator</tt>
+ is executed exactly 8 times (which is the size of the <tt>data</tt>
+ array), but it runs on <i>N</i>
+ different threads. The default number of threads is <i>N = 4</i>
+. Hence the above program produces an output similar to the following: </p>
+<div class="source"><pre>Starting 1.
+Starting 2.
+Starting 3.
+Starting 4.
+Done 3.
+Starting 5.
+Done 4.
+Starting 6.
+Done 1.
+Starting 7.
+Done 7.
+Starting 8.
+Done 6.
+Done 5.
+Done 2.
+Done 8.</pre>
+</div>
+</div>
+
+      </div>
+    </div>
+    <div class="clear">
+      <hr/>
+    </div>
+    <div id="footer">
+      <div class="xright">
+         &#169;  
+          2009
+    
+          
+  
+
+  
+    
+    
+  
+    
+                                         <a href="http://maven.apache.org/" title="Built by Maven" class="poweredBy">
+            <img class="poweredBy" 
+                 alt="Built by Maven" 
+                 src="./images/logos/maven-feather.png" 
+                 width="90"
+                 height="30"
+                 border="1" />
+          </a>
+                  </div>
+      <div class="clear">
+        <hr/>
+      </div>
+    </div>
+  </body>
+</html>
+
