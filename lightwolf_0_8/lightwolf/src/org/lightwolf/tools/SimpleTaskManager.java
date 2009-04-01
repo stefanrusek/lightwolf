@@ -38,17 +38,18 @@ import org.lightwolf.Connection;
 import org.lightwolf.Continuation;
 import org.lightwolf.Flow;
 import org.lightwolf.FlowMethod;
+import org.lightwolf.FlowSignal;
 import org.lightwolf.IMatcher;
-import org.lightwolf.ProcessManager;
+import org.lightwolf.TaskManager;
 
-public final class SimpleProcessManager extends ProcessManager {
+public final class SimpleTaskManager extends TaskManager {
 
     private static final long serialVersionUID = 1L;
 
     private static final Object RECEIVE_MANY = new Object();
-    private static final WeakHashMap<Key, SimpleProcessManager> activeManagers = new WeakHashMap<Key, SimpleProcessManager>();
+    private static final WeakHashMap<Key, SimpleTaskManager> activeManagers = new WeakHashMap<Key, SimpleTaskManager>();
 
-    private static SimpleProcessManager restore(Key key) {
+    private static SimpleTaskManager restore(Key key) {
         return activeManagers.get(key);
     }
 
@@ -57,7 +58,7 @@ public final class SimpleProcessManager extends ProcessManager {
     private final HashMap<IMatcher, LinkedList<Flow>> matcherWaiters;
     private final HashMap<Object, MessageQueue> msgQueues;
 
-    public SimpleProcessManager(String name) {
+    public SimpleTaskManager(String name) {
         serialKey = new Key(name);
         synchronized(activeManagers) {
             activeManagers.put(serialKey, this);
@@ -157,7 +158,7 @@ public final class SimpleProcessManager extends ProcessManager {
             }
             Flow.end();
         }
-        return Flow.current().getResult();
+        return cont.getResult();
     }
 
     @Override
@@ -197,7 +198,7 @@ public final class SimpleProcessManager extends ProcessManager {
     private void dispatch(Object message, LinkedList<Flow> list) {
         for (Iterator<Flow> i = list.iterator(); i.hasNext();) {
             Flow flow = i.next();
-            if (flow.getResult() == RECEIVE_MANY) {
+            if (((FlowSignal) flow.getResult()).getResult() == RECEIVE_MANY) {
                 flow = flow.copy();
             } else {
                 i.remove();
@@ -251,9 +252,9 @@ public final class SimpleProcessManager extends ProcessManager {
         }
 
         private Object readResolve() throws ObjectStreamException {
-            SimpleProcessManager ret = restore(this);
+            SimpleTaskManager ret = restore(this);
             if (ret == null) {
-                throw new InvalidObjectException("Coult not find " + SimpleProcessManager.class.getName() + " instance named '" + id + "'.");
+                throw new InvalidObjectException("Coult not find " + SimpleTaskManager.class.getName() + " instance named '" + id + "'.");
             }
             return ret;
         }
@@ -320,7 +321,7 @@ public final class SimpleProcessManager extends ProcessManager {
             Flow curSender = freeSender;
             assert curSender != null;
             freeSender = null;
-            Object ret = curSender.getResult();
+            Object ret = ((FlowSignal) curSender.getResult()).getResult();
             curSender.activate();
             return ret;
         }

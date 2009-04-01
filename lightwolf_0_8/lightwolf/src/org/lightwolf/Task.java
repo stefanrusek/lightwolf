@@ -31,15 +31,15 @@ import java.util.HashSet;
 import java.util.Random;
 
 /**
- * An unit of work composed by a set of related flows. A process is a manageable
+ * An unit of work composed by a set of related flows. A task is a manageable
  * unit of work composed by one or more {@linkplain Flow flows}. It can be
  * monitored, paused or interrupted. If certain conditions are met (such as
- * using only primitives and serializable objects), a process can also be
+ * using only primitives and serializable objects), a task can also be
  * serialized and deserialized, which allows development of long running
  * processes in pure Java language.
  * <p>
  * This class contains utilities for communication and synchronization between
- * process flows:
+ * task flows:
  * <ul>
  * <li>The {@link #wait(Object) wait} and {@link #notifyAll(Object, Object)
  * notify} methods can be used to wait-for and get/provide information about
@@ -51,9 +51,9 @@ import java.util.Random;
  * <li>A connection can be established between two flows, providing both
  * synchronous and asynchronous modes of operation.</li>
  * </ul>
- * A process is created by calling its {@linkplain Process#Process()
- * constructor}. Initially the process contains no flow. A flow can join a
- * process by invoking {@link Flow#joinProcess(Process)}.
+ * A task is created by calling its {@linkplain Task#Task() constructor}.
+ * Initially the task contains no flow. A flow can join a task by invoking
+ * {@link Flow#joinTask(Task)}.
  * <p>
  * This class can be subclassed. If the implementor wish to provide support for
  * long-running-process, the methods {@link #storeData(Object)},
@@ -62,14 +62,14 @@ import java.util.Random;
  * @see Flow
  * @author Fernando Colombo
  */
-public class Process implements Serializable {
+public class Task implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
     /**
-     * A constant indicating that the process is active. An active process have
-     * all its data on memory. It can run flows and allow new flows to
-     * {@linkplain Flow#joinProcess(Process) join} it.
+     * A constant indicating that the task is active. An active task have all
+     * its data on memory. It can run flows and allow new flows to
+     * {@linkplain Flow#joinTask(Task) join} it.
      * 
      * @see #getState()
      * @see #activate()
@@ -77,10 +77,10 @@ public class Process implements Serializable {
     public static final int ACTIVE = 1;
 
     /**
-     * A constant indicating that the process is passive. A passive process have
-     * its data on external storage. The actual storage is defined by the
-     * {@link Process} subclass. It can't run flows nor allow new flows to
-     * {@linkplain Flow#joinProcess(Process) join} it.
+     * A constant indicating that the task is passive. A passive task have its
+     * data on external storage. The actual storage is defined by the
+     * {@link Task} subclass. It can't run flows nor allow new flows to
+     * {@linkplain Flow#joinTask(Task) join} it.
      * 
      * @see #getState()
      * @see #passivate()
@@ -105,33 +105,32 @@ public class Process implements Serializable {
     }
 
     /**
-     * Returns the current process. This method returns non-null if the
-     * {@linkplain Flow#current() current flow} is running inside a process.
+     * Returns the current task. This method returns non-null if the
+     * {@linkplain Flow#current() current flow} is running inside a task.
      * Otherwise it returns <code>null</code>. If there is no current flow, this
      * method also returns <code>null</code>.
      * 
-     * @return The current process, or <code>null</code> if the current flow is
-     *         not running in the context of a process, or if there is no
-     *         current flow.
+     * @return The current task, or <code>null</code> if the current flow is not
+     *         running in the context of a task, or if there is no current flow.
      */
-    public static Process current() {
+    public static Task current() {
         Flow flow = Flow.current();
-        return flow == null ? null : flow.process;
+        return flow == null ? null : flow.task;
     }
 
     /**
-     * Returns the current process, or throws an exception if there is no
-     * current process. This method is similar to {@link #current()}, except in
-     * that it never returns <code>null</code>. In the absence of a current
-     * process, it will throw an exception.
+     * Returns the current task, or throws an exception if there is no current
+     * task. This method is similar to {@link #current()}, except in that it
+     * never returns <code>null</code>. In the absence of a current task, it
+     * will throw an exception.
      * 
-     * @return The current process.
-     * @throws IllegalStateException If there is no current process.
+     * @return The current task.
+     * @throws IllegalStateException If there is no current task.
      */
-    public static Process safeCurrent() {
-        Process ret = current();
+    public static Task safeCurrent() {
+        Task ret = current();
         if (ret == null) {
-            throw new IllegalStateException("No current process.");
+            throw new IllegalStateException("No current task.");
         }
         return ret;
     }
@@ -146,12 +145,12 @@ public class Process implements Serializable {
      * <code>notify</code> pairs. For example, the invocation
      * 
      * <pre>
-     *     Object result = Process.wait("ABC");
+     *     Object result = Task.wait("ABC");
      * </pre>
      * will wait until another flow invokes
      * 
      * <pre>
-     *     Process.notifyAll("ABC", "ResultOfABC");
+     *     Task.notifyAll("ABC", "ResultOfABC");
      * </pre>
      * , which will cause the first code to resume and assign
      * <code>"ResultOfABC"</code> to the variable <code>result</code>.
@@ -172,7 +171,7 @@ public class Process implements Serializable {
      *             return ((String) candidate).startsWith("ABC");
      *         }
      *     };
-     *     Object result = Process.wait(matcher);
+     *     Object result = Task.wait(matcher);
      * </pre>
      * The wait in the above example will resume for keys such as
      * <code>"ABCD"</code> or <code>"ABC123"</code>.
@@ -180,13 +179,13 @@ public class Process implements Serializable {
      * While waiting, the current flow will be suspended and thus will not
      * consume any thread. If such flow is resumed by means other than
      * {@link #notifyAll(Object, Object)}, the effect is unpredictable and the
-     * process manager will be corrupt.
+     * task manager will be corrupt.
      * 
      * @param key The key to wait for (may be <code>null</code>), or an
      *        {@link IMatcher} instance, as above specified.
      * @return The <code>message</code> argument that was passed to
      *         {@link #notifyAll(Object, Object)}.
-     * @throws IllegalStateException If there is no current process.
+     * @throws IllegalStateException If there is no current task.
      * @see #waitMany(Object)
      * @see #notifyAll(Object, Object)
      * @see #send(Object, Object)
@@ -209,7 +208,7 @@ public class Process implements Serializable {
      *        {@link IMatcher} instance, as specified on {@link #wait(Object)}.
      * @return The <code>message</code> argument that was passed to
      *         {@link #notifyAll(Object, Object)}.
-     * @throws IllegalStateException If there is no current process.
+     * @throws IllegalStateException If there is no current task.
      * @see #wait(Object)
      * @see #notifyAll(Object, Object)
      */
@@ -234,7 +233,7 @@ public class Process implements Serializable {
      * @param message The message to be sent to the resumed flows. It will be
      *        returned from the resumed {@link #wait(Object)} and
      *        {@link #waitMany(Object)} invocations.
-     * @throws IllegalStateException If there is no current process.
+     * @throws IllegalStateException If there is no current task.
      * @see #wait(Object)
      * @see #waitMany(Object)
      * @see #send(Object, Object)
@@ -255,12 +254,12 @@ public class Process implements Serializable {
      * link the sender and receiver flows. For example, the invocation
      * 
      * <pre>
-     *     Process.send("ABC", "MessageForABC");
+     *     Task.send("ABC", "MessageForABC");
      * </pre>
      * will send the object "MessageForABC" to a flow that invokes
      * 
      * <pre>
-     *     Object result = Process.receive("ABC");
+     *     Object result = Task.receive("ABC");
      * </pre>
      * The above <code>receive</code> invocation will assign "MessageForABC" to
      * the <code>result</code> variable.
@@ -273,12 +272,12 @@ public class Process implements Serializable {
      * <p>
      * While waiting, the current flow will be suspended and thus will not
      * consume any thread. If such flow is resumed by means other than a
-     * <code>receive</code> method, the effect is unpredictable and the process
+     * <code>receive</code> method, the effect is unpredictable and the task
      * manager will be corrupt.
      * 
      * @param address The address that identifies the listening flow.
      * @param message The message to be sent.
-     * @throws IllegalStateException If there is no current process.
+     * @throws IllegalStateException If there is no current task.
      * @see #receive(Object)
      * @see #serve(Object)
      */
@@ -306,7 +305,7 @@ public class Process implements Serializable {
      * <p>
      * While waiting, the current flow will be suspended and thus will not
      * consume any thread. If such flow is resumed by means other than a
-     * <code>send</code> method, the effect is unpredictable and the process
+     * <code>send</code> method, the effect is unpredictable and the task
      * manager will be corrupt.
      * <p>
      * For examples and more information, see the {@link #send(Object, Object)}
@@ -317,7 +316,7 @@ public class Process implements Serializable {
      *         via {@link #call(Object, Object)}.
      * @throws AddressAlreadyInUseException If another flow is listening on this
      *         address.
-     * @throws IllegalStateException If there is no current process.
+     * @throws IllegalStateException If there is no current task.
      * @see #send(Object, Object)
      * @see #serve(Object)
      */
@@ -335,14 +334,14 @@ public class Process implements Serializable {
      * it will be on a new flow. It never returns to the invoker's flow.
      * <p>
      * The informed address will be bound to the invoker's flow until the
-     * current process finishes.
+     * current task finishes.
      * 
      * @param address The address on which this flow will be listening.
      * @return The sent message, or an {@link IRequest} if the message was sent
      *         via {@link #call(Object, Object)}.
      * @throws AddressAlreadyInUseException If another flow is listening on this
      *         address.
-     * @throws IllegalStateException If there is no current process.
+     * @throws IllegalStateException If there is no current task.
      * @see #receive(Object)
      * @see #serveMany(Object)
      */
@@ -370,7 +369,7 @@ public class Process implements Serializable {
      * <p>
      * While waiting, the current flow will be suspended and thus will not
      * consume any thread. If such flow is resumed by means other than a
-     * <code>send</code> method, the effect is unpredictable and the process
+     * <code>send</code> method, the effect is unpredictable and the task
      * manager will be corrupt.
      * <p>
      * For examples and more information, see the {@link #call(Object, Object)}
@@ -380,7 +379,7 @@ public class Process implements Serializable {
      * @return An {@link IRequest} containing the sent message.
      * @throws AddressAlreadyInUseException If another flow is listening on this
      *         address.
-     * @throws IllegalStateException If there is no current process.
+     * @throws IllegalStateException If there is no current task.
      * @see IRequest
      * @see #call(Object, Object)
      * @see #serveMany(Object)
@@ -403,7 +402,7 @@ public class Process implements Serializable {
      * be on a new flow. It never returns to the invoker's flow.
      * <p>
      * The informed address will be bound to the invoker's flow until the
-     * current process finishes.
+     * current task finishes.
      * <p>
      * This method can be used to implement a very simple server.
      * 
@@ -411,7 +410,7 @@ public class Process implements Serializable {
      * @return An {@link IRequest} containing the sent message.
      * @throws AddressAlreadyInUseException If another flow is listening on this
      *         address.
-     * @throws IllegalStateException If there is no current process.
+     * @throws IllegalStateException If there is no current task.
      * @see #serve(Object)
      */
     @FlowMethod
@@ -437,16 +436,16 @@ public class Process implements Serializable {
      *
      *      &#064;{@link FlowMethod}
      *      public void run() {
-     *          // We must join a process.
-     *          Flow.joinProcess(new Process());
+     *          // We must join a task.
+     *          Flow.joinTask(new Task());
      *          if (Flow.split(1) == 0) {
      *              // Here is the server.
-     *              IRequest request = <b>Process.serve("PeerA")</b>;
+     *              IRequest request = <b>Task.serve("PeerA")</b>;
      *              System.out.println("Request: " + request.request());
      *              request.response("I'm fine.");
      *          } else {
      *              // Here is the client.
-     *              Object response = <b>Process.call("PeerA", "How are you?")</b>;
+     *              Object response = <b>Task.call("PeerA", "How are you?")</b>;
      *              System.out.println("Response: " + response);
      *          }
      *      }
@@ -471,19 +470,19 @@ public class Process implements Serializable {
      * <p>
      * While waiting, the current flow will be suspended and thus will not
      * consume any thread. If such flow is resumed by means other than a
-     * <code>receive</code> method, the effect is unpredictable and the process
+     * <code>receive</code> method, the effect is unpredictable and the task
      * manager will be corrupt.
      * 
      * @param address The address that identifies the listening flow.
      * @param message The message to be sent.
      * @return The listener's response.
-     * @throws IllegalStateException If there is no current process.
+     * @throws IllegalStateException If there is no current task.
      * @see #receive(Object)
      * @see #serve(Object)
      */
     @FlowMethod
     public static Object call(Object address, Object message) {
-        ProcessManager man = safeCurrent().manager;
+        TaskManager man = safeCurrent().manager;
         TwoWayRequest req = new TwoWayRequest(man, message);
         man.send(address, req);
         return man.receive(req);
@@ -509,25 +508,25 @@ public class Process implements Serializable {
         return safeCurrent().manager.connectMany(matcher);
     }
 
-    private final ProcessManager manager;
+    private final TaskManager manager;
     protected int state;
     private final HashSet<Flow> flows;
     private int activeFlows;
     private int suspendedFlows;
     private long passivationTime;
-    private transient IProcessListener listeners;
+    private transient ITaskListener listeners;
 
     /**
-     * Creates a new process. The new process will belong to the
-     * {@linkplain ProcessManager#getDefault() default} process manager. The
-     * process will contain no flow. To add a flow, it is necessary to call
-     * {@link Flow#joinProcess(Process)} specifying this process.
+     * Creates a new task. The new task will belong to the
+     * {@linkplain TaskManager#getDefault() default} task manager. The task will
+     * contain no flow. To add a flow, it is necessary to call
+     * {@link Flow#joinTask(Task)} specifying this task.
      */
-    public Process() {
-        this(ProcessManager.getDefault());
+    public Task() {
+        this(TaskManager.getDefault());
     }
 
-    public Process(ProcessManager manager) {
+    public Task(TaskManager manager) {
         if (manager == null) {
             throw new NullPointerException();
         }
@@ -537,7 +536,7 @@ public class Process implements Serializable {
     }
 
     /**
-     * Return an <code>int</code> whose value represents this process state.
+     * Return an <code>int</code> whose value represents this task state.
      * 
      * @see #ACTIVE
      * @see #PASSIVE
@@ -547,16 +546,16 @@ public class Process implements Serializable {
     }
 
     /**
-     * The number of active flows in this process. This number can vary quickly
-     * as flows are joined, leaved, suspended and resumed.
+     * The number of active flows in this task. This number can vary quickly as
+     * flows are joined, leaved, suspended and resumed.
      */
     public final int activeFlows() {
         return activeFlows;
     }
 
     /**
-     * The number of suspended flows in this process. This number can vary
-     * quickly as flows are joined, leaved, suspended and resumed.
+     * The number of suspended flows in this task. This number can vary quickly
+     * as flows are joined, leaved, suspended and resumed.
      */
     public final int suspendedFlows() {
         return suspendedFlows;
@@ -568,16 +567,16 @@ public class Process implements Serializable {
     }
 
     /**
-     * Adds an event listener to this process.
+     * Adds an event listener to this task.
      * 
      * @param listener The listener to be added. Must not be <code>null</code>
      *        otherwise a {@link NullPointerException} is thrown.
      * @return <code>true</code> if the listener was added, <code>false</code>
      *         if the informed listener was added this invocation.
-     * @see IProcessListener
-     * @see #removeEventListener(IProcessListener)
+     * @see ITaskListener
+     * @see #removeEventListener(ITaskListener)
      */
-    public final boolean addEventListener(IProcessListener listener) {
+    public final boolean addEventListener(ITaskListener listener) {
         if (listener == null) {
             throw new NullPointerException();
         }
@@ -588,24 +587,24 @@ public class Process implements Serializable {
         if (listeners.equals(listener)) {
             return false;
         }
-        if (listeners instanceof ProcessEventDispatcher) {
-            return ((ProcessEventDispatcher) listeners).add(listener);
+        if (listeners instanceof TaskEventDispatcher) {
+            return ((TaskEventDispatcher) listeners).add(listener);
         }
-        listeners = new ProcessEventDispatcher(listeners, listener);
+        listeners = new TaskEventDispatcher(listeners, listener);
         return true;
     }
 
     /**
-     * Removes an event listener from this process.
+     * Removes an event listener from this task.
      * 
      * @param listener The listener to be removed. Must not be <code>null</code>
      *        otherwise a {@link NullPointerException} is thrown.
      * @return <code>true</code> if the listener was removed, <code>false</code>
      *         if the informed listener was not found in the internal list of
      *         listeners.
-     * @see #addEventListener(IProcessListener)
+     * @see #addEventListener(ITaskListener)
      */
-    public final boolean removeEventListener(IProcessListener listener) {
+    public final boolean removeEventListener(ITaskListener listener) {
         if (listener == null) {
             throw new NullPointerException();
         }
@@ -616,50 +615,50 @@ public class Process implements Serializable {
             listeners = null;
             return true;
         }
-        if (listeners instanceof ProcessEventDispatcher) {
-            return ((ProcessEventDispatcher) listeners).remove(listener);
+        if (listeners instanceof TaskEventDispatcher) {
+            return ((TaskEventDispatcher) listeners).remove(listener);
         }
         return false;
     }
 
     synchronized final void add(Flow flow) {
-        if (flow.process != null) {
-            if (flow.process == this) {
+        if (flow.task != null) {
+            if (flow.task == this) {
                 assert flows.contains(flow);
-                throw new IllegalArgumentException("Flow already belongs to this process.");
+                throw new IllegalArgumentException("Flow already belongs to this task.");
             }
             assert !flows.contains(flow);
-            throw new IllegalArgumentException("Flow belongs to another process.");
+            throw new IllegalArgumentException("Flow belongs to another task.");
         }
         checkAddRemove();
         boolean added = flows.add(flow);
         assert added;
-        flow.process = this;
+        flow.task = this;
         if (flow.isActive()) {
             ++activeFlows;
         } else {
             assert flow.isSuspended();
             ++suspendedFlows;
         }
-        notify(IProcessListener.PE_FLOW_ADDED, flow);
+        notify(ITaskListener.PE_FLOW_ADDED, flow);
     }
 
     synchronized final void remove(Flow flow) {
-        if (flow.process != this) {
+        if (flow.task != this) {
             assert !flows.contains(flow);
-            throw new IllegalArgumentException("Flow does not belong to this process.");
+            throw new IllegalArgumentException("Flow does not belong to this task.");
         }
         checkAddRemove();
         boolean removed = flows.remove(flow);
         assert removed;
-        flow.process = null;
+        flow.task = null;
         if (flow.isActive()) {
             --activeFlows;
         } else {
             assert flow.isSuspended();
             --suspendedFlows;
         }
-        notify(IProcessListener.PE_FLOW_REMOVED, flow);
+        notify(ITaskListener.PE_FLOW_REMOVED, flow);
     }
 
     synchronized void notifySuspend(Flow flow) {
@@ -667,7 +666,7 @@ public class Process implements Serializable {
         assert flows.contains(flow);
         --activeFlows;
         ++suspendedFlows;
-        notify(IProcessListener.PE_FLOW_SUSPENDED, flow);
+        notify(ITaskListener.PE_FLOW_SUSPENDED, flow);
     }
 
     synchronized void notifyResume(Flow flow) {
@@ -679,7 +678,7 @@ public class Process implements Serializable {
         } catch (ClassNotFoundException e) {
             throw new IllegalStateException("Unable to resume flow because a class it uses wasn't found.", e);
         }
-        notify(IProcessListener.PE_RESUMING_FLOW, flow);
+        notify(ITaskListener.PE_RESUMING_FLOW, flow);
         --suspendedFlows;
         ++activeFlows;
     }
@@ -697,24 +696,22 @@ public class Process implements Serializable {
     }
 
     /**
-     * Stores this process and all its flows on a place outside memory. The
-     * actual storage place is defined by subclasses of {@link Process}.
+     * Stores this task and all its flows on a place outside memory. The actual
+     * storage place is defined by subclasses of {@link Task}.
      * <p>
-     * If all of this process flows are suspended, this method stores all flow
-     * data on an external storage and then returns <code>true</code>,
-     * indicating that the process was passivated. If this process was already
-     * passive when this method is called, it simply returns <code>true</code>
-     * doing nothing.
+     * If all of this task flows are suspended, this method stores all flow data
+     * on an external storage and then returns <code>true</code>, indicating
+     * that the task was passivated. If this task was already passive when this
+     * method is called, it simply returns <code>true</code> doing nothing.
      * <p>
-     * If the task of storing process data on the external storage fails, this
-     * method throws {@link IOException} and the process is kept active.
+     * If the task of storing task data on the external storage fails, this
+     * method throws {@link IOException} and the task is kept active.
      * <p>
-     * If one or more of this process flows is {@linkplain Flow#isActive()
-     * active}, the process is kept active and this method returns
-     * <code>false</code>.
+     * If one or more of this task flows is {@linkplain Flow#isActive() active},
+     * the task is kept active and this method returns <code>false</code>.
      * 
-     * @return <code>true</code> if the process was passivated,
-     *         <code>false</code> otherwise.
+     * @return <code>true</code> if the task was passivated, <code>false</code>
+     *         otherwise.
      * @throws IOException If some error happens during access to storage.
      * @see #activate()
      * @see #ACTIVE
@@ -725,7 +722,7 @@ public class Process implements Serializable {
             return true;
         }
         if (state != ACTIVE) {
-            throw new IllegalStateException("Cannot passivate while process is " + stateName(state));
+            throw new IllegalStateException("Cannot passivate while task is " + stateName(state));
         }
         if (activeFlows() != 0) {
             return false;
@@ -752,9 +749,9 @@ public class Process implements Serializable {
     }
 
     /**
-     * Reloads this process and all its flows from external storage back to
-     * memory. If this process is already active, this method does nothing.
-     * Otherwise, this method does the opposite of {@link #passivate()}.
+     * Reloads this task and all its flows from external storage back to memory.
+     * If this task is already active, this method does nothing. Otherwise, this
+     * method does the opposite of {@link #passivate()}.
      * 
      * @throws IOException If some error happens during access to storage.
      * @throws ClassNotFoundException If the class is not
@@ -767,7 +764,7 @@ public class Process implements Serializable {
             return;
         }
         if (state != PASSIVE) {
-            throw new IllegalStateException("Cannot activate while process is " + stateName(state));
+            throw new IllegalStateException("Cannot activate while task is " + stateName(state));
         }
         Object rawData = loadData();
         if (!(rawData instanceof FlowData[])) {
@@ -806,20 +803,20 @@ public class Process implements Serializable {
 
     private void checkAddRemove() {
         if (state != ACTIVE) {
-            throw new IllegalStateException("Cannot add/remove flows while process is " + stateName(state));
+            throw new IllegalStateException("Cannot add/remove flows while task is " + stateName(state));
         }
     }
 
     /**
      * Called by {@link #passivate()} to store data on some media. The default
      * implementation throws {@link IllegalStateException} indicating that the
-     * process cannot be passivated.
+     * task cannot be passivated.
      * <p>
      * This method must be implemented along with {@link #loadData()} and
      * {@link #discardData()} by subclasses that support long-running-processes.
-     * The implementation must associate the informed data with this process.
-     * This method might be called more than once. Any data stored by the
-     * previous invocation to this method must be discarded.
+     * The implementation must associate the informed data with this task. This
+     * method might be called more than once. Any data stored by the previous
+     * invocation to this method must be discarded.
      * <p>
      * This method typically serializes the informed <code>data</code> object,
      * so that an unserialized version is returned by the next call to
@@ -864,17 +861,17 @@ public class Process implements Serializable {
         throw new AssertionError();
     }
 
-    private static class ProcessEventDispatcher implements IProcessListener {
+    private static class TaskEventDispatcher implements ITaskListener {
 
-        private final ArrayList<IProcessListener> items;
+        private final ArrayList<ITaskListener> items;
 
-        ProcessEventDispatcher(IProcessListener l1, IProcessListener l2) {
-            items = new ArrayList<IProcessListener>(2);
+        TaskEventDispatcher(ITaskListener l1, ITaskListener l2) {
+            items = new ArrayList<ITaskListener>(2);
             items.add(l1);
             items.add(l2);
         }
 
-        boolean add(IProcessListener listener) {
+        boolean add(ITaskListener listener) {
             if (items.contains(listener)) {
                 return false;
             }
@@ -882,11 +879,11 @@ public class Process implements Serializable {
             return true;
         }
 
-        boolean remove(IProcessListener listener) {
+        boolean remove(ITaskListener listener) {
             return items.remove(listener);
         }
 
-        public void onEvent(Process sender, int event, Flow flow) {
+        public void onEvent(Task sender, int event, Flow flow) {
             for (int i = 0; i < items.size(); ++i) {
                 try {
                     items.get(i).onEvent(sender, event, flow);
@@ -924,11 +921,11 @@ public class Process implements Serializable {
     private static class TwoWayRequest implements IRequest, Serializable {
 
         private static final long serialVersionUID = 1L;
-        private final ProcessManager manager;
+        private final TaskManager manager;
         private final Object request;
         private boolean responseSent;
 
-        TwoWayRequest(ProcessManager manager, Object request) {
+        TwoWayRequest(TaskManager manager, Object request) {
             this.manager = manager;
             this.request = request;
         }

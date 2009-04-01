@@ -26,19 +26,19 @@ package org.lightwolf;
 
 import java.io.Serializable;
 
-import org.lightwolf.tools.SimpleProcessManager;
+import org.lightwolf.tools.SimpleTaskManager;
 
-public abstract class ProcessManager implements Serializable {
+public abstract class TaskManager implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    private static ProcessManager _default = new SimpleProcessManager("defaultProcessManager");
+    private static TaskManager _default = new SimpleTaskManager("defaultTaskManager");
 
-    public static ProcessManager getDefault() {
+    public static TaskManager getDefault() {
         return _default;
     }
 
-    public static void setDefault(ProcessManager manager) {
+    public static void setDefault(TaskManager manager) {
         if (manager == null) {
             throw new NullPointerException();
         }

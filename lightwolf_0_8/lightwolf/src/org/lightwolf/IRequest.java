@@ -29,7 +29,7 @@ package org.lightwolf;
  * can be use to send a {@linkplain #response(Object) response} for a given
  * {@linkplain #request() request}.
  * 
- * @see Process#serve(Object)
+ * @see Task#serve(Object)
  * @author Fernando Colombo
  */
 public interface IRequest {
@@ -44,8 +44,8 @@ public interface IRequest {
     /**
      * The object that represents the request. This is the object passed with
      * the <code>message</code> argument of methods such as
-     * {@link Process#send(Object, Object)} or
-     * {@link Process#call(Object, Object)}.
+     * {@link Task#send(Object, Object)} or
+     * {@link Task#call(Object, Object)}.
      */
     Object request();
 
@@ -57,7 +57,7 @@ public interface IRequest {
      * 
      * @param response The response to be sent to the flow that issued the
      *        request. This object will be the returned value of the ongoing
-     *        {@link Process#call(Object, Object)}.
+     *        {@link Task#call(Object, Object)}.
      * @throws IllegalStateException If there is no flow waiting for the
      *         response.
      */

@@ -192,7 +192,7 @@ public class TestBasics {
         q.put("123");
         s = q.take();
         Assert.assertEquals("123ABC", s);
-        s = (String) flow.waitSuspended();
+        s = (String) flow.waitSuspended().getResult();
         Assert.assertTrue(flow.isSuspended());
         Assert.assertEquals("DEF", s);
         flow.activate("456");

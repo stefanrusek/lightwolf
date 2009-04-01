@@ -102,14 +102,14 @@ import org.lightwolf.tools.SimpleFlowManager;
  * flow-methods, which does not cause the creation of new flow, as mentioned
  * above. Nevertheless, nested flows are allowed as an orthogonality feature.
  * <p>
- * If a flow <i>A</i> belongs to a {@link Process}, then every flow <i>B</i>
- * derived from <i>A</i> will automatically belong to the same process. Derived
+ * If a flow <i>A</i> belongs to a {@link Task}, then every flow <i>B</i>
+ * derived from <i>A</i> will automatically belong to the same task. Derived
  * flows are result of shallow {@linkplain #copy() copies}. Many utilities
  * perform shallow copies, including but not limited to {@link #fork(int)},
  * {@link #returnAndContinue()} and {@link Continuation}.
  * 
  * @see FlowMethod
- * @see Process
+ * @see Task
  * @author Fernando Colombo
  */
 public final class Flow implements Serializable {
@@ -143,9 +143,8 @@ public final class Flow implements Serializable {
 
     /**
      * A constant indicating that the flow is passive. A passive flow is not
-     * running and its data is stored on its {@linkplain #process() process}.
-     * Except for that, a passive flow is identical to a {@link #SUSPENDED}
-     * flow.
+     * running and its data is stored on its {@linkplain #task() task}. Except
+     * for that, a passive flow is identical to a {@link #SUSPENDED} flow.
      * 
      * @see #getState()
      */
@@ -180,7 +179,7 @@ public final class Flow implements Serializable {
     /**
      * Creates and returns a new flow. The new flow will be in {@link #ENDED}
      * state, which is suitable to be passed as argument to methods such as
-     * {@link Continuation#resume(Flow)}.
+     * {@link Continuation#resumeOnFlow(Flow, Object)}.
      * 
      * @return A newly created flow instance, in {@link #ENDED} state.
      */
@@ -247,19 +246,19 @@ public final class Flow implements Serializable {
     }
 
     /**
-     * The process to which this flow belongs.
+     * The task to which this flow belongs.
      * 
-     * @return An instance of {@link Process}, or <code>null</code> if this flow
-     *         does not belong to any process.
-     * @see #joinProcess(Process)
-     * @see #leaveProcess()
+     * @return An instance of {@link Task}, or <code>null</code> if this flow
+     *         does not belong to any task.
+     * @see #joinTask(Task)
+     * @see #leaveTask()
      */
     @FlowMethod(manual = true)
-    public static Process process() {
+    public static Task task() {
         Flow cur = Flow.fromInvoker();
         MethodFrame frame = cur.currentFrame;
         try {
-            return cur.process;
+            return cur.task;
         } finally {
             frame.invoked();
         }
@@ -267,35 +266,34 @@ public final class Flow implements Serializable {
 
     /**
      * Adds the {@linkplain Flow#current() current} flow to the informed
-     * {@linkplain Process process}. This method sets the
-     * {@linkplain #process() current flow's process} to the informed process.
-     * This allows usage of {@linkplain Process process utilities} from the
-     * current flow.
+     * {@linkplain Task task}. This method sets the {@linkplain #task() current
+     * flow's task} to the informed task. This allows usage of {@linkplain Task
+     * task utilities} from the current flow.
      * 
-     * @param process The process to which the current flow will be added. Must
-     *        not be <code>null</code>.
-     * @see Process
-     * @see #leaveProcess()
-     * @see #forgetProcess()
+     * @param task The task to which the current flow will be added. Must not be
+     *        <code>null</code>.
+     * @see Task
+     * @see #leaveTask()
+     * @see #forgetTask()
      * @throws IllegalStateException If the invoker is not a {@link FlowMethod}.
-     * @throws NullPointerException If the informed process is a
-     *         <code>null</code> reference.
+     * @throws NullPointerException If the informed task is a <code>null</code>
+     *         reference.
      */
     @FlowMethod(manual = true)
-    public static void joinProcess(Process process) {
+    public static void joinTask(Task task) {
         Flow cur = Flow.fromInvoker();
         MethodFrame frame = cur.currentFrame;
         try {
-            if (process == null) { // Must be called here, inside the try-finally.
+            if (task == null) { // Must be called here, inside the try-finally.
                 throw new NullPointerException();
             }
-            if (cur.process != null) {
-                if (cur.process == process) {
-                    throw new IllegalStateException("Flow already belongs to specified process.");
+            if (cur.task != null) {
+                if (cur.task == task) {
+                    throw new IllegalStateException("Flow already belongs to specified task.");
                 }
-                throw new IllegalStateException("Flow belongs to another process.");
+                throw new IllegalStateException("Flow belongs to another task.");
             }
-            process.add(cur);
+            task.add(cur);
         } finally {
             frame.invoked();
         }
@@ -303,26 +301,26 @@ public final class Flow implements Serializable {
 
     /**
      * Removes the {@linkplain Flow#current() current flow} from its
-     * {@linkplain #process() current process}. This method sets the
-     * {@linkplain #process() current flow's process} to <code>null</code>, or
-     * throws an exception if the {@linkplain Flow#current() current flow} does
-     * not belong to any process.
+     * {@linkplain #task() current task}. This method sets the
+     * {@linkplain #task() current flow's task} to <code>null</code>, or throws
+     * an exception if the {@linkplain Flow#current() current flow} does not
+     * belong to any task.
      * 
-     * @see #joinProcess(Process)
-     * @see #forgetProcess()
+     * @see #joinTask(Task)
+     * @see #forgetTask()
      * @throws IllegalStateException If the invoker is not a {@link FlowMethod},
-     *         or if the current flow does not belong to any process.
+     *         or if the current flow does not belong to any task.
      */
     @FlowMethod(manual = true)
-    public static void leaveProcess() {
+    public static void leaveTask() {
         Flow cur = Flow.fromInvoker();
         MethodFrame frame = cur.currentFrame;
         try {
-            Process process = cur.process;
-            if (process == null) {
-                throw new IllegalStateException("Flow does not belong to any process.");
+            Task task = cur.task;
+            if (task == null) {
+                throw new IllegalStateException("Flow does not belong to any task.");
             }
-            process.remove(cur);
+            task.remove(cur);
         } finally {
             frame.invoked();
         }
@@ -330,25 +328,25 @@ public final class Flow implements Serializable {
 
     /**
      * Removes the {@linkplain Flow#current() current flow} from its
-     * {@linkplain #process() current process}. This method sets the
-     * {@linkplain #process() current flow's process} to <code>null</code>, or
-     * does nothing if the {@linkplain Flow#current() current flow} does not
-     * belong to any process.
+     * {@linkplain #task() current task}. This method sets the
+     * {@linkplain #task() current flow's task} to <code>null</code>, or does
+     * nothing if the {@linkplain Flow#current() current flow} does not belong
+     * to any task.
      * 
-     * @see #joinProcess(Process)
-     * @see #leaveProcess()
+     * @see #joinTask(Task)
+     * @see #leaveTask()
      * @throws IllegalStateException If the invoker is not a {@link FlowMethod}.
      */
     @FlowMethod(manual = true)
-    public static boolean forgetProcess() {
+    public static boolean forgetTask() {
         Flow cur = Flow.fromInvoker();
         MethodFrame frame = cur.currentFrame;
         try {
-            Process process = cur.process;
-            if (process == null) {
+            Task task = cur.task;
+            if (task == null) {
                 return false;
             }
-            process.remove(cur);
+            task.remove(cur);
             return true;
         } finally {
             frame.invoked();
@@ -1434,12 +1432,12 @@ public final class Flow implements Serializable {
 
     private transient Flow previous;
     private final FlowManager manager;
-    transient Process process;
+    transient Task task;
     private int state;
     private MethodFrame currentFrame;
     private MethodFrame suspendedFrame;
     transient Fork currentFork;
-    private Object result;
+    Object result;
     private WeakHashMap<FlowLocal<?>, Object> locals;
 
     private Flow(FlowManager manager, Flow previous) {
@@ -1457,8 +1455,8 @@ public final class Flow implements Serializable {
     }
 
     /**
-     * This flow's state, which will be {@link #ACTIVE}, {@link #SUSPENDED} or
-     * {@link #ENDED}.
+     * This flow's state, which will be {@link #ACTIVE}, {@link #SUSPENDED},
+     * {@link #PASSIVE} or {@link #ENDED}.
      * 
      * @see #waitSuspended()
      * @see #waitNotRunning()
@@ -1535,7 +1533,7 @@ public final class Flow implements Serializable {
      * {@link FlowException} having the exception as its
      * {@linkplain Throwable#getCause() cause}.
      * <li>If the flow sends a {@linkplain #signal(FlowSignal) signal}, the flow
-     * is first suspended, then signal is thrown as an exception.
+     * is first suspended, then the signal is thrown as an exception.
      * </ul>
      * In other words, the invoker of {@link #resume(Object)} will behave as an
      * ordinary <a href="#flowcontroller">flow-controller</a>.
@@ -1557,10 +1555,10 @@ public final class Flow implements Serializable {
             if (state != SUSPENDED && state != PASSIVE) {
                 throw new IllegalStateException("Cannot resume if the flow is " + stateName(state) + '.');
             }
-            if (process != null) {
-                process.notifyResume(this);
+            if (task != null) {
+                task.notifyResume(this);
             }
-            // We redo the check because the process might have changed the state or might forget to
+            // We redo the check because the task might have changed the state or might forget to
             // set this PASSIVE flow to SUSPENDED.
             if (state != SUSPENDED) {
                 throw new IllegalStateException("Cannot resume if the flow is " + stateName(state) + '.');
@@ -1595,8 +1593,8 @@ public final class Flow implements Serializable {
                         Method m = clazz.getDeclaredMethod(suspendedFrame.getMethodName(), argClasses);
                         m.setAccessible(true);
                         Object owner = getRootValues(m, argValues);
-                        Object ret = m.invoke(owner, argValues);
-                        return ret;
+                        result = m.invoke(owner, argValues);
+                        return result;
                     } catch (NoSuchMethodException e) {
                         if (fe == null) {
                             fe = e;
@@ -1721,9 +1719,9 @@ public final class Flow implements Serializable {
         ret.state = state == TEMP_SUSP ? SUSPENDED : state;
         ret.suspendedFrame = suspendedFrame.copy(ret);
         ret.result = result;
-        if (process != null) {
-            process.add(ret);
-            assert ret.process == process;
+        if (task != null) {
+            task.add(ret);
+            assert ret.task == task;
         }
         return ret;
     }
@@ -1734,9 +1732,9 @@ public final class Flow implements Serializable {
         ret.state = state == TEMP_SUSP ? SUSPENDED : state;
         ret.suspendedFrame = suspendedFrame.shallowCopy(ret);
         ret.result = result;
-        if (process != null) {
-            process.add(ret);
-            assert ret.process == process;
+        if (task != null) {
+            task.add(ret);
+            assert ret.task == task;
         }
         return ret;
     }
@@ -1781,11 +1779,11 @@ public final class Flow implements Serializable {
         return result;
     }
 
-    public synchronized Object waitSuspended() throws InterruptedException {
+    public synchronized FlowSignal waitSuspended() throws InterruptedException {
         while (state != SUSPENDED && state != PASSIVE) {
             wait();
         }
-        return result;
+        return (FlowSignal) result;
     }
 
     public synchronized Object waitNotRunning() throws InterruptedException {
@@ -1795,6 +1793,22 @@ public final class Flow implements Serializable {
         return result;
     }
 
+    /**
+     * The current flow result. The actual value depends on the flow state.
+     * <ul>
+     * <li>If the flow has ended normally, the result is the value returned by
+     * the <a href="#flowcreator">flow-creator</a>. In the case where
+     * flow-creator is a <code>void</code> method, the result will be
+     * <code>null</code>.</li>
+     * <li>If the flow has ended by an exception, the result is the thrown
+     * exception.</li>
+     * <li>If the flow is suspended or passive, the result is the sent
+     * {@linkplain FlowSignal signal}.</li>
+     * <li>If the flow is active, the result is <code>null</code>.</li>
+     * </ul>
+     * 
+     * @see #getState()
+     */
     public synchronized Object getResult() {
         try {
             while (state == SUSPENDING) {
@@ -1803,11 +1817,14 @@ public final class Flow implements Serializable {
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
+        if (state == ACTIVE) {
+            return null;
+        }
         return result;
     }
 
     synchronized FlowData fetchState(long id) {
-        assert process != null;
+        assert task != null;
         assert state == SUSPENDED;
         FlowData ret = new FlowData(suspendedFrame, id);
         suspendedFrame = null;
@@ -1817,7 +1834,7 @@ public final class Flow implements Serializable {
     }
 
     synchronized void restoreState(FlowData flowState) {
-        assert process != null;
+        assert task != null;
         assert state == PASSIVE;
         suspendedFrame = flowState.suspendedFrame;
         state = SUSPENDED;
@@ -1841,12 +1858,12 @@ public final class Flow implements Serializable {
                     }
                     fork = fork.previous;
                 }
-                Process thisProcess = process;
-                if (thisProcess != null) {
-                    thisProcess.remove(this);
-                    // We still reference the process, for information issues and to
-                    // go back to process if this finished flow is resumed.
-                    process = thisProcess;
+                Task thisTask = task;
+                if (thisTask != null) {
+                    thisTask.remove(this);
+                    // We still reference the task, for information issues and to
+                    // go back to task if this finished flow is resumed.
+                    task = thisTask;
                 }
                 synchronized(this) {
                     state = ENDED;
@@ -1858,12 +1875,12 @@ public final class Flow implements Serializable {
             case SUSPENDING:
                 assert suspendedFrame != null;
                 FlowSignal signal = (FlowSignal) result;
-                result = signal.getResult();
+                result = signal;
                 currentFrame = null;
                 synchronized(this) {
                     state = SUSPENDED;
-                    if (process != null) {
-                        process.notifySuspend(this);
+                    if (task != null) {
+                        task.notifySuspend(this);
                     }
                     notifyAll();
                 }
@@ -1915,10 +1932,10 @@ public final class Flow implements Serializable {
             case ENDED:
                 suspendedFrame = frame;
                 state = SUSPENDED;
-                if (process != null) {
-                    Process thisProcess = process;
-                    process = null;
-                    thisProcess.add(this);
+                if (task != null) {
+                    Task thisTask = task;
+                    task = null;
+                    thisTask.add(this);
                 }
                 break;
             case SUSPENDED:

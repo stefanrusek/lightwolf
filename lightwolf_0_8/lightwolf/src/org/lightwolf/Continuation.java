@@ -29,9 +29,9 @@ import java.util.concurrent.Future;
 /**
  * An object that stores a {@linkplain Flow flow}'s execution context for
  * further resuming. Usage requires invocation of {@link #checkpoint()} and
- * {@link #resume()} on an instance of this class. It is allowed to subclass
- * this class as a way to associate additional data or functionality to a
- * continuation.
+ * {@link #resume(Object)} on an instance of this class. It is allowed to
+ * subclass this class as a way to associate additional data or functionality to
+ * a continuation.
  * 
  * @author Fernando Colombo
  */
@@ -69,7 +69,7 @@ public class Continuation implements Cloneable {
      * href="Flow.html#flowcreator">flow-creator</a> (inclusive) to the point of
      * invocation.
      * <p>
-     * After invocation, it's possible to call {@link #resume()} on this
+     * After invocation, it's possible to call {@link #resume(Object)} on this
      * continuation, so a flow can resume from the checkpoint. When a checkpoint
      * is created, this method returns <code>true</code>. Upon resuming, this
      * method returns <code>false</code>. The following example illustrates this
@@ -80,7 +80,7 @@ public class Continuation implements Cloneable {
      *        System.out.println(&quot;Before doFlow()&quot;);
      *        Continuation continuation = doFlow();
      *        System.out.println(&quot;After doFlow()&quot;);
-     *        continuation.{@link #resume()};
+     *        continuation.{@link #resume(Object) resume(null)};
      *        System.out.println(&quot;After continuation.resume()&quot;);
      *    }
      * 
@@ -145,6 +145,22 @@ public class Continuation implements Cloneable {
     }
 
     /**
+     * Returns the object specified by whoever resumed this continuation. This
+     * is the <code>result</code> parameter sent to one of the
+     * {@link #resume(Object) resume} methods.
+     */
+    public Object getResult() {
+        return Flow.current().result;
+    }
+
+    /**
+     * Equivalent to {@link #resume(Object) resume(null)}.
+     */
+    public Object resume() {
+        return resume(null);
+    }
+
+    /**
      * Creates a new flow and resumes it from the last checkpoint. Execution
      * resumes from the last invocation of {@link #checkpoint()} on this
      * continuation. Such invocation returns <code>false</code>, indicating that
@@ -161,92 +177,122 @@ public class Continuation implements Cloneable {
      * 
      * <pre>
      *     Flow flow = Flow.{@link Flow#newFlow() newFlow()};
-     *     continuation.{@link #resume(Flow) resume(flow)};
+     *     continuation.{@link #resumeOnFlow(Flow, Object) resume(flow, null)};
      * </pre>
      * Before resuming, this method performs a {@linkplain Flow#copy() copy} of
      * the current checkpoint, so a future <code>resume</code> operation will
      * succeed. If there is no intention to resume again, one should call
-     * {@link #resumeAndForget()}.
+     * {@link #resumeAndForget(Object)}.
      * 
+     * @param result An object sent to the resumed flow. The flow can retrieve
+     *        it by invoking {@link #getResult()}.
      * @return The <a href="Flow.html#flowcreator">flow-creator</a>'s result.
      * @throws IllegalStateException If there is no stored checkpoint on this
      *         continuation.
-     * @see #resume(Flow)
-     * @see #resumeAndForget()
-     * @see #resumeAndForget(Flow)
+     * @see #resumeOnFlow(Flow, Object)
+     * @see #resumeAndForget(Object)
+     * @see #resumeAndForgetOnFlow(Flow, Object)
      */
-    public Object resume() {
+    public Object resume(Object result) {
         Flow flow = Flow.newFlow();
-        return resume(flow);
+        return resumeOnFlow(flow, result);
+    }
+
+    /**
+     * Equivalent to {@link #resumeOnFlow(Flow, Object) resume(flow, null)}.
+     */
+    public Object resumeOnFlow(Flow flow) {
+        return resumeOnFlow(flow, null);
     }
 
     /**
      * Resumes the informed flow from the last checkpoint. This method is
-     * similar to {@link #resume()}. The difference is that no new flow is
+     * similar to {@link #resume(Object)}. The difference is that no new flow is
      * created. Instead, the informed {@linkplain Flow flow} is resumed.
      * 
+     * @param result An object sent to the resumed flow. The flow can retrieve
+     *        it by invoking {@link #getResult()}.
      * @return The <a href="Flow.html#flowcreator">flow-creator</a>'s result.
      * @throws IllegalStateException If there is no stored checkpoint on this
      *         continuation, or if the informed flow is on an invalid state for
      *         resuming.
      * @throws NullPointerException If the informed flow is <code>null</code>.
-     * @see #resume()
-     * @see #resumeAndForget(Flow)
+     * @see #resume(Object)
+     * @see #resumeAndForgetOnFlow(Flow, Object)
      */
-    public Object resume(Flow flow) {
+    public Object resumeOnFlow(Flow flow, Object result) {
         synchronized(this) {
             checkFrame();
             flow.setSuspendedFrame(frame.copy(flow));
         }
-        return flow.resume();
+        return flow.resume(result);
+    }
+
+    /**
+     * Equivalent to {@link #resumeAndForget(Object) resumeAndForget(null)}.
+     */
+    public Object resumeAndForget() {
+        return resumeAndForget(null);
     }
 
     /**
      * Creates a new flow and resumes it from the last checkpoint, throwing away
-     * the checkpoint. This method is similar to {@link #resume()}. The
+     * the checkpoint. This method is similar to {@link #resume(Object)}. The
      * difference is that after invocation, this continuation will have no
      * {@link #checkpoint()}, which means that further invocations of
      * <code>resume</code> methods will throw an exception.
      * <p>
-     * This method is cheaper than {@link #resume()}, because it does not
+     * This method is cheaper than {@link #resume(Object)}, because it does not
      * involves a copy of the current checkpoint.
      * 
+     * @param result An object sent to the resumed flow. The flow can retrieve
+     *        it by invoking {@link #getResult()}.
      * @return The <a href="Flow.html#flowcreator">flow-creator</a>'s result.
      * @throws IllegalStateException If there is no stored checkpoint on this
      *         continuation.
-     * @see #resume()
-     * @see #resumeAndForget(Flow)
+     * @see #resume(Object)
+     * @see #resumeAndForgetOnFlow(Flow, Object)
      */
-    public Object resumeAndForget() {
+    public Object resumeAndForget(Object result) {
         Flow flow = Flow.newFlow();
-        return resumeAndForget(flow);
+        return resumeAndForgetOnFlow(flow, result);
+    }
+
+    /**
+     * Equivalent to {@link #resumeAndForgetOnFlow(Flow, Object)
+     * resumeAndForget(flow, null)}.
+     */
+    public Object resumeAndForgetOnFlow(Flow flow) {
+        return resumeAndForgetOnFlow(flow, null);
     }
 
     /**
      * Resumes the informed flow from the last checkpoint, throwing away the
-     * checkpoint. This method is similar to {@link #resume(Flow)}. The
-     * difference is that after invocation, this continuation will have no
+     * checkpoint. This method is similar to {@link #resumeOnFlow(Flow, Object)}
+     * . The difference is that after invocation, this continuation will have no
      * {@link #checkpoint()}, which means that further invocations of
      * <code>resume</code> methods will throw an exception.
      * <p>
-     * This method is cheaper than {@link #resume(Flow)}, because it does not
-     * involves a copy of the current checkpoint.
+     * This method is cheaper than {@link #resumeOnFlow(Flow, Object)}, because
+     * it does not involves a copy of the current checkpoint.
      * 
+     * @param result An object sent to the resumed flow. The flow can retrieve
+     *        it by invoking {@link #getResult()}.
      * @return The <a href="Flow.html#flowcreator">flow-creator</a>'s result.
      * @throws IllegalStateException If there is no stored checkpoint on this
      *         continuation, or if the informed flow is on an invalid state for
      *         resuming.
      * @throws NullPointerException If the informed flow is <code>null</code>.
-     * @see #resume()
-     * @see #resumeAndForget()
+     * @see #resume(Object)
+     * @see #resumeAndForget(Object)
      */
-    public Object resumeAndForget(Flow flow) {
+    public Object resumeAndForgetOnFlow(Flow flow, Object result) {
         synchronized(this) {
             checkFrame();
             flow.setSuspendedFrame(frame);
             frame = null;
         }
-        return flow.resume();
+        return flow.resume(result);
     }
 
     public Future<?> activate() {

@@ -9,16 +9,16 @@ import java.io.ObjectInputStream;
 import org.lightwolf.tools.DebuggingObjectOutputStream;
 
 /**
- * A process that stores data on a file.
+ * A task that stores data on a file.
  * 
  * @author Fernando Colombo
  */
-public class FileProcess extends Process {
+public class FileTask extends Task {
 
     private static final long serialVersionUID = 1L;
     private final File file;
 
-    public FileProcess(ProcessManager manager, File file) {
+    public FileTask(TaskManager manager, File file) {
         super(manager);
         if (file == null) {
             throw new NullPointerException();
@@ -26,14 +26,14 @@ public class FileProcess extends Process {
         this.file = file;
     }
 
-    public FileProcess(File file) {
+    public FileTask(File file) {
         if (file == null) {
             throw new NullPointerException();
         }
         this.file = file;
     }
 
-    public FileProcess(ProcessManager manager, String fileName) {
+    public FileTask(TaskManager manager, String fileName) {
         super(manager);
         if (fileName == null) {
             throw new NullPointerException();
@@ -41,7 +41,7 @@ public class FileProcess extends Process {
         file = new File(fileName);
     }
 
-    public FileProcess(String fileName) {
+    public FileTask(String fileName) {
         if (fileName == null) {
             throw new NullPointerException();
         }

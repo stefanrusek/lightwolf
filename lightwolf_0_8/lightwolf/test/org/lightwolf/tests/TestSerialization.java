@@ -10,18 +10,18 @@ import java.util.concurrent.ArrayBlockingQueue;
 
 import org.junit.Assert;
 import org.junit.Test;
-import org.lightwolf.FileProcess;
+import org.lightwolf.FileTask;
 import org.lightwolf.Flow;
 import org.lightwolf.FlowMethod;
-import org.lightwolf.IProcessListener;
-import org.lightwolf.Process;
+import org.lightwolf.ITaskListener;
+import org.lightwolf.Task;
 import org.lightwolf.SuspendSignal;
 
 public class TestSerialization implements Serializable {
 
     private static final long serialVersionUID = 1L;
     private static ArrayBlockingQueue<Object> abq;
-    private static FileProcess process;
+    private static FileTask task;
 
     @Test
     public void testSuspend() throws Throwable {
@@ -71,22 +71,22 @@ public class TestSerialization implements Serializable {
     }
 
     @Test
-    public void testProcessSerialization() throws Throwable {
+    public void testTaskSerialization() throws Throwable {
         final int size = 10;
         abq = new ArrayBlockingQueue<Object>(size);
-        process = new FileProcess("testProcessSerialization.dat");
-        ProcessFlow[] pfs = new ProcessFlow[size];
+        task = new FileTask("testTaskSerialization.dat");
+        TaskFlow[] pfs = new TaskFlow[size];
         Flow[] flows = new Flow[size];
         for (int i = 0; i < size; ++i) {
-            pfs[i] = new ProcessFlow(i);
+            pfs[i] = new TaskFlow(i);
         }
         for (int i = 0; i < size; ++i) {
             flows[i] = Flow.submit(pfs[i]);
         }
         BitSet bs = new BitSet(size);
-        List<ProcessFlow> list = Arrays.asList(pfs);
+        List<TaskFlow> list = Arrays.asList(pfs);
         for (int i = 0; i < size; ++i) {
-            ProcessFlow pf = (ProcessFlow) abq.take();
+            TaskFlow pf = (TaskFlow) abq.take();
             int index = list.indexOf(pf);
             Assert.assertFalse(bs.get(index));
             bs.set(index);
@@ -94,13 +94,13 @@ public class TestSerialization implements Serializable {
         for (int i = 0; i < size; ++i) {
             flows[i].waitSuspended();
         }
-        Assert.assertTrue(process.passivate());
+        Assert.assertTrue(task.passivate());
         Random r = new Random(0);
         for (int i = 0; i < size; ++i) {
             Long l = r.nextLong();
             send(i, l);
             Assert.assertEquals(l, abq.take());
-            ProcessFlow pf = (ProcessFlow) abq.take();
+            TaskFlow pf = (TaskFlow) abq.take();
             Assert.assertNotSame(pfs[i], pf);
             Assert.assertFalse(list.contains(pf));
         }
@@ -112,14 +112,14 @@ public class TestSerialization implements Serializable {
     @Test
     public void testAutoPassivation() throws Throwable {
         abq = new ArrayBlockingQueue<Object>(2);
-        process = new FileProcess("testProcessSerialization.dat");
-        process.addEventListener(new IProcessListener() {
+        task = new FileTask("testTaskSerialization.dat");
+        task.addEventListener(new ITaskListener() {
 
-            public void onEvent(Process sender, int event, Flow flow) {
-                if (event == IProcessListener.PE_FLOW_SUSPENDED) {
+            public void onEvent(Task sender, int event, Flow flow) {
+                if (event == ITaskListener.PE_FLOW_SUSPENDED) {
                     if (sender.activeFlows() == 0) {
                         try {
-                            ((FileProcess) sender).passivate();
+                            ((FileTask) sender).passivate();
                         } catch (IOException e) {
                             throw new RuntimeException(e);
                         }
@@ -127,47 +127,47 @@ public class TestSerialization implements Serializable {
                 }
             }
         });
-        ProcessFlow initial = new ProcessFlow(45);
+        TaskFlow initial = new TaskFlow(45);
         Flow flow = Flow.submit(initial);
-        ProcessFlow temp = (ProcessFlow) abq.take();
+        TaskFlow temp = (TaskFlow) abq.take();
         Assert.assertEquals(initial, temp);
         flow.waitSuspended();
         for (int i = 0; i < 10; ++i) {
-            if (process.getState() == Process.PASSIVE) {
+            if (task.getState() == Task.PASSIVE) {
                 break;
             }
             Thread.sleep(100); // Wait for auto passivation.
         }
-        Assert.assertEquals(Process.PASSIVE, process.getState());
+        Assert.assertEquals(Task.PASSIVE, task.getState());
         Object data = new Long(123);
         send(45, data);
         Assert.assertEquals(data, abq.take());
-        temp = (ProcessFlow) abq.take();
+        temp = (TaskFlow) abq.take();
         Assert.assertNotSame(initial, temp);
         flow.join();
     }
 
     @FlowMethod
     private void send(Object addr, Object data) {
-        Flow.joinProcess(new Process());
-        Process.send(addr, data);
+        Flow.joinTask(new Task());
+        Task.send(addr, data);
     }
 
-    static class ProcessFlow implements Runnable, Serializable {
+    static class TaskFlow implements Runnable, Serializable {
 
         private static final long serialVersionUID = 1L;
         final Integer addr;
 
-        ProcessFlow(Integer addr) {
+        TaskFlow(Integer addr) {
             this.addr = addr;
         }
 
         @FlowMethod
         public void run() {
             try {
-                Flow.joinProcess(process);
+                Flow.joinTask(task);
                 abq.put(this);
-                Object data = Process.receive(addr);
+                Object data = Task.receive(addr);
                 abq.put(data);
                 abq.put(this);
             } catch (InterruptedException e) {

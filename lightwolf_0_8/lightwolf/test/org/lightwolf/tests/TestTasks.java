@@ -9,24 +9,24 @@ import org.junit.Test;
 import org.lightwolf.Flow;
 import org.lightwolf.FlowMethod;
 import org.lightwolf.IRequest;
-import org.lightwolf.Process;
+import org.lightwolf.Task;
 
-public class TestProcess {
+public class TestTasks {
 
     @Test
     @FlowMethod
     public void simpleWaitNotify() throws Throwable {
-        Process process = new Process();
-        Flow.joinProcess(process);
+        Task task = new Task();
+        Flow.joinTask(task);
         SynchronousQueue<String> sq = new SynchronousQueue<String>();
         int branch = Flow.split(1);
         if (branch == 1) {
-            String value = (String) Process.wait("key");
+            String value = (String) Task.wait("key");
             sq.put(value);
             Flow.end();
         }
         Thread.sleep(50); // Wait for the other thread arrive at receive.
-        Process.notifyAll("key", "value");
+        Task.notifyAll("key", "value");
         String value = sq.take();
         Assert.assertEquals("value", value);
     }
@@ -34,12 +34,12 @@ public class TestProcess {
     @Test
     @FlowMethod
     public void waitManyNotify() throws Throwable {
-        Process process = new Process();
-        Flow.joinProcess(process);
+        Task task = new Task();
+        Flow.joinTask(task);
         SynchronousQueue<Integer> sq = new SynchronousQueue<Integer>();
         int branch = Flow.split(1);
         if (branch == 1) {
-            Integer value = (Integer) Process.waitMany("key");
+            Integer value = (Integer) Task.waitMany("key");
             System.out.println("Received " + value);
             sq.put(value);
             Flow.end();
@@ -48,17 +48,18 @@ public class TestProcess {
         Integer value;
 
         value = 123;
-        Process.notifyAll("key", value);
+        Task.notifyAll("key", value);
         Assert.assertEquals(value, sq.take());
+        System.out.println("Took " + value);
 
         value = 456;
-        Process.notifyAll("key", value);
+        Task.notifyAll("key", value);
         Assert.assertEquals(value, sq.take());
 
         boolean[] test = new boolean[8];
         branch = Flow.split(test.length);
         if (branch > 0) {
-            Process.notifyAll("key", branch);
+            Task.notifyAll("key", branch);
             System.out.println("Sent " + branch);
             branch = sq.take();
             synchronized(test) {
@@ -88,16 +89,16 @@ public class TestProcess {
 
             @FlowMethod
             public Object call() throws Exception {
-                Process process = new Process();
-                Flow.joinProcess(process);
+                Task task = new Task();
+                Flow.joinTask(task);
                 SynchronousQueue<String> sq = new SynchronousQueue<String>();
                 int branch = Flow.split(1);
                 if (branch == 1) {
-                    String value = (String) Process.receive("key");
+                    String value = (String) Task.receive("key");
                     sq.put(value);
                     Flow.end();
                 }
-                Process.send("key", "value");
+                Task.send("key", "value");
                 String value = sq.take();
                 Assert.assertEquals("value", value);
                 success[0] = true;
@@ -116,12 +117,12 @@ public class TestProcess {
 
             @FlowMethod
             public Object call() throws Exception {
-                Process process = new Process();
-                Flow.joinProcess(process);
+                Task task = new Task();
+                Flow.joinTask(task);
                 SynchronousQueue<Integer> sq = new SynchronousQueue<Integer>();
                 int branch = Flow.split(1);
                 if (branch == 1) {
-                    Integer value = (Integer) Process.receiveMany("key");
+                    Integer value = (Integer) Task.receiveMany("key");
                     System.out.println("Received " + value);
                     sq.put(value);
                     Flow.end();
@@ -129,7 +130,7 @@ public class TestProcess {
                 boolean[] test = new boolean[8];
                 branch = Flow.split(test.length);
                 if (branch > 0) {
-                    Process.send("key", branch);
+                    Task.send("key", branch);
                     System.out.println("Sent " + branch);
                     branch = sq.take();
                     synchronized(test) {
@@ -166,9 +167,9 @@ public class TestProcess {
             @FlowMethod
             public void run() {
                 try {
-                    Flow.joinProcess(new Process());
+                    Flow.joinTask(new Task());
                     if (Flow.split(1) == 0) {
-                        IRequest request = Process.serveMany("PeerA");
+                        IRequest request = Task.serveMany("PeerA");
                         sq.put("Req:" + request.request());
                         request.response(sq.take());
                     } else {
@@ -177,7 +178,7 @@ public class TestProcess {
                             if (request.equals("end")) {
                                 return;
                             }
-                            Object response = Process.call("PeerA", request);
+                            Object response = Task.call("PeerA", request);
                             sq.put("Res:" + response);
                         }
                     }
