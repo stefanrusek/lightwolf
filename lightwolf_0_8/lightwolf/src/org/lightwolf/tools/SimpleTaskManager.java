@@ -121,6 +121,12 @@ public final class SimpleTaskManager extends TaskManager {
 
     @Override
     @FlowMethod
+    protected synchronized void sendThrowing(Object address, Throwable exception) {
+        send(address, new ExceptionEnvelope(exception));
+    }
+
+    @Override
+    @FlowMethod
     protected synchronized Object receive(Object address) {
         MessageQueue queue = msgQueues.get(address);
         if (queue != null) {
@@ -299,12 +305,22 @@ public final class SimpleTaskManager extends TaskManager {
             if (receiver != null) {
                 assert continuation == null;
                 assert senders.isEmpty();
-                receiver.activate(msg);
+                if (!(msg instanceof ExceptionEnvelope)) {
+                    receiver.activate(msg);
+                } else {
+                    ExceptionEnvelope envelope = (ExceptionEnvelope) msg;
+                    receiver.activateThrowing(envelope.exception);
+                }
                 return true;
             }
             if (continuation != null) {
                 assert receiver == null;
-                continuation.activate(msg);
+                if (!(msg instanceof ExceptionEnvelope)) {
+                    continuation.activate(msg);
+                } else {
+                    ExceptionEnvelope envelope = (ExceptionEnvelope) msg;
+                    continuation.activateThrowing(envelope.exception);
+                }
                 return true;
             }
             senders.add(sender);
@@ -328,6 +344,16 @@ public final class SimpleTaskManager extends TaskManager {
 
         boolean hasSenders() {
             return !senders.isEmpty();
+        }
+
+    }
+
+    private static final class ExceptionEnvelope {
+
+        Throwable exception;
+
+        public ExceptionEnvelope(Throwable exception) {
+            this.exception = exception;
         }
 
     }

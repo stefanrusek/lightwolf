@@ -307,6 +307,12 @@ public class Continuation implements Cloneable {
         return flow.activate(result);
     }
 
+    public Future<?> activateThrowing(Throwable exception) {
+        Flow flow = Flow.newFlow();
+        placeOnCheckpoint(flow);
+        return flow.activateThrowing(exception);
+    }
+
     public void placeOnCheckpoint(Flow flow) {
         synchronized(this) {
             checkFrame();

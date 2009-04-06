@@ -58,6 +58,9 @@ public abstract class TaskManager implements Serializable {
     protected abstract void send(Object destKey, Object message);
 
     @FlowMethod
+    protected abstract void sendThrowing(Object destKey, Throwable exception);
+
+    @FlowMethod
     protected abstract Object receive(Object matcher);
 
     @FlowMethod

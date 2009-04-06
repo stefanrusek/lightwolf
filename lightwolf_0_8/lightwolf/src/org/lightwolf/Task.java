@@ -297,7 +297,7 @@ public class Task implements Serializable {
      * If another flow sends a message using {@link #call(Object, Object)}, this
      * method will return an instance of {@link IRequest} that contains the sent
      * message. Such call will be blocked until invocation of
-     * {@link IRequest#response(Object)}.
+     * {@link IRequest#respond(Object)}.
      * <p>
      * This method binds the current flow to the informed address. An address
      * can have at most one flow bound to it. When this method returns (that is,
@@ -486,6 +486,29 @@ public class Task implements Serializable {
         TwoWayRequest req = new TwoWayRequest(man, message);
         man.send(address, req);
         return man.receive(req);
+    }
+
+    @FlowMethod
+    public static <T> T call(Object address, Object message, Class<T> resultClass) {
+        if (resultClass == null) {
+            throw new NullPointerException();
+        }
+        Object result = call(address, message);
+        if (!resultClass.isInstance(result)) {
+            if (result == null) {
+                throw new RuntimeException("Unexpected result: null.");
+            }
+            throw new RuntimeException("Unexpected result: (" + result.getClass().getName() + ") " + result + ".");
+        }
+        return (T) result;
+    }
+
+    @FlowMethod
+    public static void callVoid(Object address, Object message) {
+        Object result = call(address, message);
+        if (result != null) {
+            throw new RuntimeException("Unexpected result: (" + result.getClass().getName() + ") " + result + ".");
+        }
     }
 
     @FlowMethod
@@ -913,7 +936,11 @@ public class Task implements Serializable {
             return request;
         }
 
-        public void response(Object response) {
+        public void respond(Object response) {
+            throw new IllegalStateException("This request does not need a response.");
+        }
+
+        public void respondThrowing(Throwable exception) {
             throw new IllegalStateException("This request does not need a response.");
         }
     }
@@ -939,12 +966,21 @@ public class Task implements Serializable {
         }
 
         @FlowMethod
-        public synchronized void response(Object response) {
+        public synchronized void respond(Object response) {
             if (responseSent) {
                 throw new IllegalStateException("The response was already sent.");
             }
             responseSent = true;
             manager.send(this, response);
+        }
+
+        @FlowMethod
+        public synchronized void respondThrowing(Throwable exception) {
+            if (responseSent) {
+                throw new IllegalStateException("The response was already sent.");
+            }
+            responseSent = true;
+            manager.sendThrowing(this, exception);
         }
     }
 

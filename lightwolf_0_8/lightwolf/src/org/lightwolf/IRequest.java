@@ -26,7 +26,7 @@ package org.lightwolf;
 
 /**
  * An object that contains a request sent to a flow. Instances of this interface
- * can be use to send a {@linkplain #response(Object) response} for a given
+ * can be use to send a {@linkplain #respond(Object) response} for a given
  * {@linkplain #request() request}.
  * 
  * @see Task#serve(Object)
@@ -44,8 +44,7 @@ public interface IRequest {
     /**
      * The object that represents the request. This is the object passed with
      * the <code>message</code> argument of methods such as
-     * {@link Task#send(Object, Object)} or
-     * {@link Task#call(Object, Object)}.
+     * {@link Task#send(Object, Object)} or {@link Task#call(Object, Object)}.
      */
     Object request();
 
@@ -62,6 +61,22 @@ public interface IRequest {
      *         response.
      */
     @FlowMethod
-    void response(Object response);
+    void respond(Object response);
+
+    /**
+     * Sends an exception as the response, causing the waiting flow to throw a
+     * {@link ResumeException}. This method can only be called when
+     * {@link #needResponse()} is <code>true</code>, otherwise an exception is
+     * thrown. Once called, this method causes further invocations to
+     * {@link #needResponse()} to return <code>false</code>.
+     * 
+     * @param exception The exception to be sent to the flow that issued the
+     *        request. This will be the {@link Throwable#getCause() cause} of
+     *        the thrown {@link ResumeException}.
+     * @throws IllegalStateException If there is no flow waiting for the
+     *         response.
+     */
+    @FlowMethod
+    void respondThrowing(Throwable exception);
 
 }

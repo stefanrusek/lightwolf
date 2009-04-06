@@ -2058,6 +2058,16 @@ public final class Flow implements Serializable {
         return locals;
     }
 
+    private static final class ExceptionEnvelope {
+
+        Throwable exception;
+
+        public ExceptionEnvelope(Throwable exception) {
+            this.exception = exception;
+        }
+
+    }
+
     // TODO: Add wrappers for java.lang.Thread??? Consider static and instance methods.
 
 }

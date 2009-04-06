@@ -171,7 +171,7 @@ public class TestTasks {
                     if (Flow.split(1) == 0) {
                         IRequest request = Task.serveMany("PeerA");
                         sq.put("Req:" + request.request());
-                        request.response(sq.take());
+                        request.respond(sq.take());
                     } else {
                         for (;;) {
                             Object request = sq.take();
