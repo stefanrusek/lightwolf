@@ -9,6 +9,7 @@ import org.lightwolf.Continuation;
 import org.lightwolf.Flow;
 import org.lightwolf.FlowMethod;
 import org.lightwolf.FlowSignal;
+import org.lightwolf.SuspendSignal;
 
 public class TestBasics {
 
@@ -36,6 +37,25 @@ public class TestBasics {
     @FlowMethod
     private void callCountOnly(Counter c) {
         c.count();
+    }
+
+    @Test
+    public void catchSignal() {
+        try {
+            suspend();
+            Assert.fail("Must never get here.");
+        } catch (SuspendSignal s) {
+            // Fine.
+        }
+    }
+
+    @FlowMethod
+    public void suspend() {
+        try {
+            Flow.suspend();
+        } catch (Throwable e) {
+            throw new RuntimeException("Must never get here.", e);
+        }
     }
 
     /**

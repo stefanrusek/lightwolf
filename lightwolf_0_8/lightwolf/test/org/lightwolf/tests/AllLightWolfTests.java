@@ -11,6 +11,7 @@ public class AllLightWolfTests {
         //$JUnit-BEGIN$
         suite.addTest(new JUnit4TestAdapter(TestBasics.class));
         suite.addTest(new JUnit4TestAdapter(TestTasks.class));
+        suite.addTest(new JUnit4TestAdapter(TestInterrupt.class));
         suite.addTest(new JUnit4TestAdapter(TestParallel.class));
         suite.addTest(new JUnit4TestAdapter(TestReturnAndContinue.class));
         suite.addTest(new JUnit4TestAdapter(TestSocketIO.class));

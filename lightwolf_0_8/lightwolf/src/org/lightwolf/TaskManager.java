@@ -78,4 +78,6 @@ public abstract class TaskManager implements Serializable {
     @FlowMethod
     protected abstract Connection connectMany(Object matcher);
 
+    protected abstract void notifyInterrupt(Task task);
+
 }

@@ -2,6 +2,7 @@ package org.lightwolf.tools;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -22,10 +23,11 @@ public class ClassLoaderProvider implements IClassProvider {
     }
 
     public IClassResource getClass(String resName) throws IOException {
-        InputStream is = classLoader.getResourceAsStream(resName);
-        if (is == null) {
+        URL url = classLoader.getResource(resName);
+        if (url == null) {
             return null;
         }
+        InputStream is = url.openStream();
         try {
             return makeClassResource(is);
         } finally {

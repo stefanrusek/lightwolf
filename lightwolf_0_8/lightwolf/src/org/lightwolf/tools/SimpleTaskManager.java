@@ -40,6 +40,7 @@ import org.lightwolf.Flow;
 import org.lightwolf.FlowMethod;
 import org.lightwolf.FlowSignal;
 import org.lightwolf.IMatcher;
+import org.lightwolf.Task;
 import org.lightwolf.TaskManager;
 
 public final class SimpleTaskManager extends TaskManager {
@@ -111,7 +112,7 @@ public final class SimpleTaskManager extends TaskManager {
     protected synchronized void send(Object address, Object message) {
         MessageQueue queue = msgQueues.get(address);
         if (queue == null) {
-            queue = new MessageQueue(null, null);
+            queue = new MessageQueue(address, null, null);
             msgQueues.put(address, queue);
         }
         if (!queue.send(Flow.current(), message)) {
@@ -128,43 +129,50 @@ public final class SimpleTaskManager extends TaskManager {
     @Override
     @FlowMethod
     protected synchronized Object receive(Object address) {
-        MessageQueue queue = msgQueues.get(address);
-        if (queue != null) {
-            queue.bind(Flow.current(), address);
-        } else {
-            queue = new MessageQueue(Flow.current(), null);
-            msgQueues.put(address, queue);
+        MessageQueue queue = getQueue(address);
+        try {
+            Flow flow = Flow.current();
+            queue.bind(flow);
+            try {
+                if (queue.receive()) {
+                    return queue.getMessage();
+                }
+                return Flow.suspend();
+            } finally {
+                queue.unbind(flow);
+            }
+        } finally {
+            releaseQueue(queue);
         }
-        Object ret;
-        if (queue.receive()) {
-            ret = queue.getMessage();
-        } else {
-            ret = Flow.suspend();
-        }
-        if (!queue.hasSenders()) {
-            msgQueues.remove(address);
-        }
-        return ret;
     }
 
     @Override
     @FlowMethod
     protected synchronized Object receiveMany(Object address) {
-        Continuation cont = new Continuation();
-        MessageQueue queue = msgQueues.get(address);
-        if (queue != null) {
-            queue.bind(cont, address);
-        } else {
-            queue = new MessageQueue(null, cont);
-            msgQueues.put(address, queue);
-        }
-        if (cont.checkpoint()) {
-            while (queue.receive()) {
-                cont.activate(queue.getMessage());
+        boolean success = false;
+        MessageQueue queue = getQueue(address);
+        try {
+            ReceiveManyContinuation cont = new ReceiveManyContinuation(Task.safeCurrent());
+            queue.bind(cont);
+            try {
+                if (cont.checkpoint()) {
+                    while (queue.receive()) {
+                        cont.activate(queue.getMessage());
+                    }
+                    Flow.end();
+                }
+                success = true;
+                return cont.getResult();
+            } finally {
+                if (!success) {
+                    queue.unbind(cont);
+                }
             }
-            Flow.end();
+        } finally {
+            if (!success) {
+                releaseQueue(queue);
+            }
         }
-        return cont.getResult();
     }
 
     @Override
@@ -191,6 +199,22 @@ public final class SimpleTaskManager extends TaskManager {
         throw new AssertionError("Not implemented.");
     }
 
+    @Override
+    protected void notifyInterrupt(Task task) {
+        LinkedList<ReceiveManyContinuation> continuations = new LinkedList<ReceiveManyContinuation>();
+        synchronized(this) {
+            for (Entry<Object, MessageQueue> entry : msgQueues.entrySet()) {
+                MessageQueue queue = entry.getValue();
+                if (queue.continuation.task == task) {
+                    continuations.add(queue.continuation);
+                }
+            }
+        }
+        for (ReceiveManyContinuation cont : continuations) {
+            cont.interrupt();
+        }
+    }
+
     private void addWaiter(Object matcher, Flow flow) {
         LinkedList<Flow> list;
         if (matcher instanceof IMatcher) {
@@ -210,6 +234,21 @@ public final class SimpleTaskManager extends TaskManager {
                 i.remove();
             }
             flow.activate(message);
+        }
+    }
+
+    private MessageQueue getQueue(Object address) {
+        MessageQueue queue = msgQueues.get(address);
+        if (queue == null) {
+            queue = new MessageQueue(address, null, null);
+            msgQueues.put(address, queue);
+        }
+        return queue;
+    }
+
+    private void releaseQueue(MessageQueue queue) {
+        if (!queue.hasSenders()) {
+            msgQueues.remove(queue.address);
         }
     }
 
@@ -270,28 +309,41 @@ public final class SimpleTaskManager extends TaskManager {
     private static final class MessageQueue implements Serializable {
 
         private static final long serialVersionUID = 1L;
+        private final Object address;
         private final LinkedList<Flow> senders;
         private Flow receiver;
-        private Continuation continuation;
+        private ReceiveManyContinuation continuation;
         private Flow freeSender;
 
-        MessageQueue(Flow receiver, Continuation continuation) {
+        MessageQueue(Object address, Flow receiver, ReceiveManyContinuation continuation) {
+            this.address = address;
             senders = new LinkedList<Flow>();
             this.receiver = receiver;
             this.continuation = continuation;
         }
 
-        void bind(Flow newRecvr, Object address) {
-            if (newRecvr == null) {
+        void bind(Flow recvFlow) {
+            if (recvFlow == null) {
                 throw new NullPointerException();
             }
             if (receiver != null || continuation != null) {
                 throw new AddressAlreadyInUseException(address);
             }
-            receiver = newRecvr;
+            receiver = recvFlow;
         }
 
-        void bind(Continuation newCont, Object address) {
+        void unbind(Flow recvFlow) {
+            if (recvFlow == null) {
+                throw new NullPointerException();
+            }
+            if (receiver != recvFlow) {
+                throw new IllegalStateException("Flow is not bound.");
+            }
+            assert continuation == null;
+            receiver = null;
+        }
+
+        void bind(ReceiveManyContinuation newCont) {
             if (newCont == null) {
                 throw new NullPointerException();
             }
@@ -299,6 +351,17 @@ public final class SimpleTaskManager extends TaskManager {
                 throw new AddressAlreadyInUseException(address);
             }
             continuation = newCont;
+        }
+
+        void unbind(ReceiveManyContinuation cont) {
+            if (cont == null) {
+                throw new NullPointerException();
+            }
+            if (continuation != cont) {
+                throw new IllegalStateException("Flow is not bound.");
+            }
+            assert receiver == null;
+            continuation = null;
         }
 
         boolean send(Flow sender, Object msg) {
@@ -344,6 +407,16 @@ public final class SimpleTaskManager extends TaskManager {
 
         boolean hasSenders() {
             return !senders.isEmpty();
+        }
+
+    }
+
+    private static final class ReceiveManyContinuation extends Continuation {
+
+        private final Task task;
+
+        ReceiveManyContinuation(Task task) {
+            this.task = task;
         }
 
     }

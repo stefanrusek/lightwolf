@@ -99,7 +99,7 @@ public class TestSocketIO {
     private void server1(IOActivator socketIO) throws IOException {
         ServerSocketChannel channel = ServerSocketChannel.open();
         channel.configureBlocking(false);
-        channel.socket().bind(new InetSocketAddress(8080));
+        channel.socket().bind(new InetSocketAddress(12543));
         SocketChannel socket = socketIO.acceptMany(channel);
         serve(socket);
         if (flags == EXPECTED) {
@@ -115,7 +115,7 @@ public class TestSocketIO {
 
         ServerSocketChannel channel = ServerSocketChannel.open();
         channel.configureBlocking(false);
-        channel.socket().bind(new InetSocketAddress(8080));
+        channel.socket().bind(new InetSocketAddress(12543));
 
         int i = 0;
         do {
@@ -144,7 +144,7 @@ public class TestSocketIO {
     }
 
     private void client(int branch) throws IOException {
-        SocketChannel socket = SocketChannel.open(new InetSocketAddress("localhost", 8080));
+        SocketChannel socket = SocketChannel.open(new InetSocketAddress("localhost", 12543));
         ByteBuffer buffer = ByteBuffer.allocate(4);
         buffer.putInt(branch);
         buffer.flip();

@@ -38,6 +38,7 @@ import java.util.concurrent.Future;
 public class Continuation implements Cloneable {
 
     private MethodFrame frame;
+    private Object lastResult;
 
     /**
      * Creates a new continuation. This constructor doesn't set any checkpoint.
@@ -134,10 +135,13 @@ public class Continuation implements Cloneable {
     public final boolean checkpoint() {
         MethodFrame invokerFrame = Flow.invokerFrame();
         try {
+            Flow flow = invokerFrame.flow;
             if (invokerFrame.isInvoking()) {
+                flow.beforeCheckpoint();
                 frame = invokerFrame.copy(null);
                 return true;
             }
+            lastResult = flow.restore();
             return false;
         } finally {
             invokerFrame.invoked();
@@ -150,7 +154,7 @@ public class Continuation implements Cloneable {
      * {@link #resume(Object) resume} methods.
      */
     public Object getResult() {
-        return Flow.current().result;
+        return lastResult;
     }
 
     /**
@@ -293,6 +297,19 @@ public class Continuation implements Cloneable {
             frame = null;
         }
         return flow.resume(result);
+    }
+
+    public void interrupt() {
+        Flow flow = Flow.newFlow();
+        interruptOnFlow(flow);
+    }
+
+    public void interruptOnFlow(Flow flow) {
+        synchronized(this) {
+            checkFrame();
+            flow.setSuspendedFrame(frame.copy(flow));
+        }
+        flow.interrupt();
     }
 
     public Future<?> activate() {

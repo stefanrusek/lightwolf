@@ -87,7 +87,16 @@ public class Task implements Serializable {
      */
     public static final int PASSIVE = 2;
 
-    private static String[] stateNames = new String[] { "ACTIVE", "PASSIVE" };
+    /**
+     * A constant indicating that the task has been interrupted. An interrupted
+     * task contains only interrupted flows and doesn't allow new flows to
+     * {@linkplain Flow#joinTask(Task) join} it.
+     * 
+     * @see #getState()
+     */
+    public static final int INTERRUPTED = 3;
+
+    private static String[] stateNames = new String[] { "ACTIVE", "PASSIVE", "OFF" };
 
     /**
      * Return the name of the specified state; provided for debugging and
@@ -193,7 +202,7 @@ public class Task implements Serializable {
      */
     @FlowMethod
     public static Object wait(Object key) {
-        return safeCurrent().manager.wait(key);
+        return safeCurrent().doWait(key);
     }
 
     /**
@@ -214,7 +223,7 @@ public class Task implements Serializable {
      */
     @FlowMethod
     public static Object waitMany(Object key) {
-        return safeCurrent().manager.waitMany(key);
+        return safeCurrent().doWaitMany(key);
     }
 
     /**
@@ -240,7 +249,7 @@ public class Task implements Serializable {
      * @see #receive(Object)
      */
     public static void notifyAll(Object key, Object message) {
-        safeCurrent().manager.notify(key, message);
+        safeCurrent().doNotifyAll(key, message);
     }
 
     /**
@@ -283,7 +292,7 @@ public class Task implements Serializable {
      */
     @FlowMethod
     public static void send(Object address, Object message) {
-        safeCurrent().manager.send(address, message);
+        safeCurrent().doSend(address, message);
     }
 
     /**
@@ -322,7 +331,7 @@ public class Task implements Serializable {
      */
     @FlowMethod
     public static Object receive(Object address) {
-        return safeCurrent().manager.receive(address);
+        return safeCurrent().doReceive(address);
     }
 
     /**
@@ -347,7 +356,7 @@ public class Task implements Serializable {
      */
     @FlowMethod
     public static Object receiveMany(Object address) {
-        return safeCurrent().manager.receiveMany(address);
+        return safeCurrent().doReceiveMany(address);
     }
 
     /**
@@ -482,10 +491,7 @@ public class Task implements Serializable {
      */
     @FlowMethod
     public static Object call(Object address, Object message) {
-        TaskManager man = safeCurrent().manager;
-        TwoWayRequest req = new TwoWayRequest(man, message);
-        man.send(address, req);
-        return man.receive(req);
+        return safeCurrent().doCall(address, message);
     }
 
     @FlowMethod
@@ -513,22 +519,22 @@ public class Task implements Serializable {
 
     @FlowMethod
     public static Connection accept(Object matcher) {
-        return safeCurrent().manager.accept(matcher);
+        return safeCurrent().doAccept(matcher);
     }
 
     @FlowMethod
     public static Connection acceptMany(Object matcher) {
-        return safeCurrent().manager.acceptMany(matcher);
+        return safeCurrent().doAcceptMany(matcher);
     }
 
     @FlowMethod
     public static Connection connect(Object matcher) {
-        return safeCurrent().manager.connect(matcher);
+        return safeCurrent().doConnect(matcher);
     }
 
     @FlowMethod
     public static Connection connectMany(Object matcher) {
-        return safeCurrent().manager.connectMany(matcher);
+        return safeCurrent().doConnectMany(matcher);
     }
 
     private final TaskManager manager;
@@ -563,6 +569,7 @@ public class Task implements Serializable {
      * 
      * @see #ACTIVE
      * @see #PASSIVE
+     * @see #INTERRUPTED
      */
     public final int getState() {
         return state;
@@ -644,6 +651,100 @@ public class Task implements Serializable {
         return false;
     }
 
+    public void interrupt() {
+        Flow[] myFlows;
+        synchronized(this) {
+            if (state == INTERRUPTED) {
+                return;
+            }
+            try {
+                activate();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            } catch (ClassNotFoundException e) {
+                throw new RuntimeException(e);
+            }
+            if (state != ACTIVE) {
+                throw new IllegalStateException("Cannot interrupt while task is " + stateName(state) + ".");
+            }
+            state = INTERRUPTED;
+            myFlows = getFlows();
+        }
+        manager.notifyInterrupt(this);
+        for (Flow flow : myFlows) {
+            // TODO: interrupt() might throw an exception, lefting half of the flows interrupted and half not.
+            flow.interrupt();
+        }
+    }
+
+    @FlowMethod
+    private synchronized Object doWait(Object key) {
+        checkNotInterrupted();
+        return manager.wait(key);
+    }
+
+    @FlowMethod
+    private synchronized Object doWaitMany(Object key) {
+        checkNotInterrupted();
+        return manager.waitMany(key);
+    }
+
+    private synchronized void doNotifyAll(Object key, Object message) {
+        checkNotInterrupted();
+        manager.notify(key, message);
+    }
+
+    @FlowMethod
+    private synchronized void doSend(Object address, Object message) {
+        checkNotInterrupted();
+        manager.send(address, message);
+    }
+
+    @FlowMethod
+    private synchronized Object doReceive(Object address) {
+        checkNotInterrupted();
+        return manager.receive(address);
+    }
+
+    @FlowMethod
+    private synchronized Object doReceiveMany(Object address) {
+        checkNotInterrupted();
+        return manager.receiveMany(address);
+    }
+
+    @FlowMethod
+    private synchronized Object doCall(Object address, Object message) {
+        checkNotInterrupted();
+        TaskManager man = manager;
+        TwoWayRequest req = new TwoWayRequest(man, message);
+        man.send(address, req);
+        return man.receive(req);
+    }
+
+    @FlowMethod
+    private synchronized Connection doAccept(Object matcher) {
+        checkNotInterrupted();
+        return manager.accept(matcher);
+    }
+
+    @FlowMethod
+    private synchronized Connection doAcceptMany(Object matcher) {
+        checkNotInterrupted();
+        return manager.acceptMany(matcher);
+    }
+
+    @FlowMethod
+    private synchronized Connection doConnect(Object matcher) {
+        checkNotInterrupted();
+        return manager.connect(matcher);
+    }
+
+    @FlowMethod
+    private synchronized Connection doConnectMany(Object matcher) {
+        checkNotInterrupted();
+        return manager.connectMany(matcher);
+    }
+
     synchronized final void add(Flow flow) {
         if (flow.task != null) {
             if (flow.task == this) {
@@ -653,7 +754,9 @@ public class Task implements Serializable {
             assert !flows.contains(flow);
             throw new IllegalArgumentException("Flow belongs to another task.");
         }
-        checkAddRemove();
+        if (state != ACTIVE) {
+            throw new IllegalStateException("Cannot add flows while task is " + stateName(state));
+        }
         boolean added = flows.add(flow);
         assert added;
         flow.task = this;
@@ -671,7 +774,9 @@ public class Task implements Serializable {
             assert !flows.contains(flow);
             throw new IllegalArgumentException("Flow does not belong to this task.");
         }
-        checkAddRemove();
+        if (state != ACTIVE && state != INTERRUPTED) {
+            throw new IllegalStateException("Cannot remove flows while task is " + stateName(state));
+        }
         boolean removed = flows.remove(flow);
         assert removed;
         flow.task = null;
@@ -704,6 +809,12 @@ public class Task implements Serializable {
         notify(ITaskListener.PE_RESUMING_FLOW, flow);
         --suspendedFlows;
         ++activeFlows;
+    }
+
+    private void checkNotInterrupted() {
+        if (state == INTERRUPTED) {
+            throw new FlowInterruptedException();
+        }
     }
 
     protected void notify(int event, Flow flow) {
@@ -821,12 +932,6 @@ public class Task implements Serializable {
                     fs[i].fetchState(-1);
                 }
             }
-        }
-    }
-
-    private void checkAddRemove() {
-        if (state != ACTIVE) {
-            throw new IllegalStateException("Cannot add/remove flows while task is " + stateName(state));
         }
     }
 

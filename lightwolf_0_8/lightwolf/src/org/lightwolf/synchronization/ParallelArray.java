@@ -31,13 +31,13 @@ public final class ParallelArray<T> {
 
         private final int threadCount;
         private final T[] data;
-        private final FlowLocal<ThreadState> state;
+        private final ThreadLocal<ThreadState> state;
         private int current;
 
         public ParallelArrayIterator(int threadCount, T[] data) {
             this.threadCount = threadCount;
             this.data = data;
-            this.state = new FlowLocal<ThreadState>();
+            this.state = new ThreadLocal<ThreadState>();
         }
 
         @FlowMethod

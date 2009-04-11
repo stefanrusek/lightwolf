@@ -216,10 +216,9 @@ public final class MethodFrame implements Serializable {
                 resumePoint = 0;
                 throw new IllegalMonitorStateException("Attempt to break a synchronized block.");
             }
-            exit();
             return true;
         }
-        assert state == ACTIVE;
+        assert state == ACTIVE : state;
         assert resumePoint == 0;
         return false;
     }
@@ -576,7 +575,7 @@ public final class MethodFrame implements Serializable {
         if (state != ACTIVE) {
             throw new IllegalStateException("Current frame must be active to set prior frame to leave method.");
         }
-        assert prior.state == INVOKING;
+        assert prior == null || prior.state == INVOKING;
         state = LEAVING_METHOD;
     }
 

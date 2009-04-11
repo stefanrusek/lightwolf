@@ -51,8 +51,8 @@ import org.lightwolf.FlowMethod;
  * whether they contain flow methods that are referenced by enhanced classes.
  * <p>
  * This task is a matching task, which means that you can add selectors such as
- * <code>&lt;exclude&gt;</code> and <code>&lt;different&gt;</code>. Below
- * are some examples:
+ * <code>&lt;exclude&gt;</code> and <code>&lt;different&gt;</code>. Below are
+ * some examples:
  * <p>
  * Example 1: enhances all classes in the <code>bin</code> directory:
  * 
@@ -64,7 +64,6 @@ import org.lightwolf.FlowMethod;
  *     &lt;/target&gt;
  * &lt;/project&gt;
  * </pre>
- * 
  * Example 2: enhances all classes in the <code>bin</code> directory, except
  * <code>Test*</code> classes:
  * 
@@ -78,7 +77,6 @@ import org.lightwolf.FlowMethod;
  *     &lt;/target&gt;
  * &lt;/project&gt;
  * </pre>
- * 
  * Example 3: enhances all classes in the <code>lwbin</code> directory, except
  * those that are identical to classes in the <code>bin</code> directory:
  * 
@@ -92,10 +90,9 @@ import org.lightwolf.FlowMethod;
  *     &lt;/target&gt;
  * &lt;/project&gt;
  * </pre>
- * 
  * Example 4: enhances all classes in the <code>bin1</code> and
- * <code>bin2</code> directories, considering flow methods that might be in
- * the <code>referenced.jar</code> file.
+ * <code>bin2</code> directories, considering flow methods that might be in the
+ * <code>referenced.jar</code> file.
  * 
  * <pre>
  * &lt;project name=&quot;Sample&quot; default=&quot;main&quot;&gt;
@@ -143,8 +140,8 @@ public class LightWolfAntTask extends MatchingTask {
             URL[] urls = stringsToURLs(list);
             LightWolfEnhancer enhancer = new LightWolfEnhancer(new URLClassLoader(urls));
 
-            for (int i = 0; i < list.length; i++) {
-                File dir = getProject().resolveFile(list[i]);
+            for (String element : list) {
+                File dir = getProject().resolveFile(element);
                 if (dir.isFile()) {
                     continue;
                 }
@@ -154,8 +151,17 @@ public class LightWolfAntTask extends MatchingTask {
                 DirectoryScanner ds = getDirectoryScanner(dir);
                 String[] files = ds.getIncludedFiles();
                 for (String s : files) {
+                    if (!s.toLowerCase().endsWith(".class")) {
+                        continue;
+                    }
                     File f = new File(dir, s);
-                    int result = enhancer.transform(f);
+                    int result;
+                    try {
+                        result = enhancer.transform(f);
+                    } catch (RuntimeException e) {
+                        System.out.printf("%s: %s.\n", f.getAbsolutePath(), e.getMessage());
+                        throw e;
+                    }
                     if (result != LightWolfEnhancer.DONT_NEED_TRANSFORM) {
                         System.out.printf("%s: %s.\n", f.getAbsolutePath(), LightWolfEnhancer.getResultName(result));
                     }

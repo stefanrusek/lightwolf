@@ -1,6 +1,8 @@
+
 <project name="Sample" default="main">
 	<taskdef name="lightwolf" classname="org.lightwolf.tools.LightWolfAntTask" />
 	<target name="main">
 		<lightwolf classesdir="bin" />
+        <lightwolf classesdir="bin-test" />
 	</target>
 </project>

@@ -269,23 +269,50 @@ public class LightWolfEnhancer {
         boolean isStatic = (method.access & Opcodes.ACC_STATIC) != 0;
         int frameVar = method.maxLocals;
         InsnList insts = method.instructions;
-
         Frame[] frames = analyzer.analyze(clazz.name, method);
         ArrayList<ResumeInfo> gotos = new ArrayList<ResumeInfo>();
-
         int invId = 0;
         AbstractInsnNode last = insts.getLast();
+
+        // Build a catch block in the method end, so we can track when the method exits with exception.
+
+        LabelNode catchBlock = new LabelNode();
+        insts.add(catchBlock);
+        insts.add(new InsnNode(Opcodes.DUP));
+        insts.add(new VarInsnNode(Opcodes.ALOAD, frameVar));
+        insts.add(new InsnNode(Opcodes.SWAP));
+        insts.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, FRAME_CLASS, "exit", "(Ljava/lang/Throwable;)V"));
+        insts.add(new InsnNode(Opcodes.ATHROW));
+
+        // After the catch block we put a suffix were we track normal exit conditions.
+        // Every xRETURN in this method will be replaced by a GOTO this suffix. 
+
+        LabelNode returnPoint = new LabelNode();
+        insts.add(returnPoint);
+        insts.add(new VarInsnNode(Opcodes.ALOAD, frameVar));
+        insts.add(new MethodInsnNode(Opcodes.INVOKEVIRTUAL, FRAME_CLASS, "exit", "()V"));
+        Type returnType = Type.getReturnType(method.desc);
+        insts.add(new InsnNode(getReturnOpcode(returnType)));
+
+        // Now we decorate the original method instructions, from the last to the first.
+
         int index = insts.indexOf(last);
         for (AbstractInsnNode cur = last; cur != null;) {
             AbstractInsnNode previous = cur.getPrevious();
             switch (cur.getOpcode()) {
-                case Opcodes.RETURN:
+                case Opcodes.RETURN: {
+                    decorateExit(insts, cur, 0, getStackTypes(frames[index]), returnPoint);
+                    break;
+                }
                 case Opcodes.ARETURN:
                 case Opcodes.IRETURN:
-                case Opcodes.FRETURN:
+                case Opcodes.FRETURN: {
+                    decorateExit(insts, cur, 1, getStackTypes(frames[index]), returnPoint);
+                    break;
+                }
                 case Opcodes.DRETURN:
                 case Opcodes.LRETURN: {
-                    decorateExit(insts, cur, frameVar);
+                    decorateExit(insts, cur, 2, getStackTypes(frames[index]), returnPoint);
                     break;
                 }
                 case Opcodes.MONITORENTER: {
@@ -305,8 +332,9 @@ public class LightWolfEnhancer {
                         break;
                     }
                     Type[] vars = getVarTypes(frames[index], isStatic);
-                    Type[] stack = getStackTypes(frames[index]);
-                    ResumeInfo ri = decorateInvocation(method, insts, cur, frameVar, vars, stack, ++invId);
+                    Type[] stackBefore = getStackTypes(frames[index]);
+                    Type[] stackAfter = getStackTypes(frames[index + 1]);
+                    ResumeInfo ri = decorateInvocation(method, insts, cur, frameVar, vars, stackBefore, stackAfter, ++invId, returnPoint);
                     gotos.add(ri);
                     break;
                 }
@@ -318,8 +346,9 @@ public class LightWolfEnhancer {
         method.maxLocals++;
         method.maxStack += 100; // TODO: That's too much; find a way to optimize it.
 
+        // Now we get the start and end labels.
+
         LabelNode start;
-        LabelNode end;
 
         AbstractInsnNode first = insts.getFirst();
         if (first instanceof LabelNode) {
@@ -329,13 +358,7 @@ public class LightWolfEnhancer {
             insts.insert(start);
         }
 
-        last = insts.getLast();
-        if (last instanceof LabelNode) {
-            end = (LabelNode) last;
-        } else {
-            end = new LabelNode();
-            insts.add(end);
-        }
+        // Decorate method entry-point with a call to <FRAME_CLASS>.enter().
 
         if (isStatic) {
             insts.insertBefore(start, new LdcInsnNode(Type.getObjectType(clazz.name)));
@@ -352,6 +375,8 @@ public class LightWolfEnhancer {
         if (!gotos.isEmpty()) {
             insts.insertBefore(start, new MethodInsnNode(Opcodes.INVOKEVIRTUAL, FRAME_CLASS, "resumePoint", "()I"));
         }
+
+        // Build a switch table entry, so a resuming method can go directly to the one that caused suspension.
 
         AbstractInsnNode aftResPoint = start.getPrevious();
         LabelNode[] labels = new LabelNode[gotos.size()];
@@ -375,7 +400,7 @@ public class LightWolfEnhancer {
                 pushShort(insts, start, ri.objVarCount + ri.stackObjVarCount);
                 insts.insertBefore(start, new MethodInsnNode(Opcodes.INVOKEVIRTUAL, FRAME_CLASS, "prepare", "(II)L" + FRAME_CLASS + ";"));
             } else {
-                // But if there is not stack value to restore, we must remove the useless frame object from the stack.
+                // But if there is no stack value to restore, we must remove the useless frame object from the stack.
                 insts.insertBefore(start, new InsnNode(Opcodes.POP));
             }
             // Goto the "restore stack values" point, or directly to the invocation.
@@ -386,11 +411,6 @@ public class LightWolfEnhancer {
             insts.insert(aftResPoint, new TableSwitchInsnNode(1, gotos.size(), start, labels));
         }
 
-        InsnNode lastIns = new InsnNode(Opcodes.ATHROW);
-        insts.add(lastIns);
-        assert lastIns.getPrevious() == end;
-        decorateExitWithError(insts, lastIns, frameVar);
-
         List<TryCatchBlockNode> tryCatchBlocks = method.tryCatchBlocks;
         for (int i = 0; i < tryCatchBlocks.size(); ++i) {
             TryCatchBlockNode aTry = tryCatchBlocks.get(i);
@@ -400,21 +420,24 @@ public class LightWolfEnhancer {
             }
         }
 
-        TryCatchBlockNode tryFinally = new TryCatchBlockNode(start, end, end, null);
-        method.tryCatchBlocks.add(tryFinally);
+        TryCatchBlockNode tryCatch = new TryCatchBlockNode(start, catchBlock, catchBlock, null);
+        method.tryCatchBlocks.add(tryCatch);
 
-        //        TraceMethodVisitor tmv = new TraceMethodVisitor(null);
-        //        method.accept(tmv);
-        //        for (int i = 0; i < tmv.text.size(); ++i) {
-        //            LightWolfLog.print(tmv.text.get(i));
-        //        }
+        try {
+            frames = analyzer.analyze(clazz.name, method);
+        } catch (Throwable e) {
+            e.printStackTrace(System.out);
+            printTrace(method, null, insts);
+            if (e instanceof AnalyzerException) {
+                throw (AnalyzerException) e;
+            }
+            if (e instanceof RuntimeException) {
+                throw (RuntimeException) e;
+            }
+            throw (Error) e;
+        }
 
-        //        try {
-        //            frames = analyzer.analyze(clazz.name, method);
-        //        } catch (Throwable e) {
-        //            e.printStackTrace(LightWolfLog);
-        //            printTrace(method, null, insts);
-        //        }
+        // printTrace(method, frames, insts);
 
     }
 
@@ -528,19 +551,60 @@ public class LightWolfEnhancer {
         insts.insertBefore(after, new MethodInsnNode(Opcodes.INVOKEVIRTUAL, FRAME_CLASS, "monitorExit", "(Ljava/lang/Object;)V"));
     }
 
-    private static void decorateExit(InsnList insts, AbstractInsnNode exitInst, int frameVar) {
-        insts.insertBefore(exitInst, new VarInsnNode(Opcodes.ALOAD, frameVar));
-        insts.insertBefore(exitInst, new MethodInsnNode(Opcodes.INVOKEVIRTUAL, FRAME_CLASS, "exit", "()V"));
+    private static void decorateExit(InsnList insts, AbstractInsnNode exitInst, int returnSize, Type[] stack, LabelNode returnPoint) {
+
+        // We must remove everything from the stack, except for the top-most value, which is the value being returned.
+        // Otherwise JVM will complain about mismatching frame contents. Redundant, but necessary.
+
+        if (returnSize == 0) {
+            // Returning void.
+            clearStack(insts, exitInst, stack);
+        } else {
+            int last = stack.length - 1;
+            if (returnSize == 1) {
+                // Returning object, int or float.
+                for (int i = last - 1; i >= 0; --i) {
+                    switch (stack[i].getSize()) {
+                        case 1:
+                            insts.insertBefore(exitInst, new InsnNode(Opcodes.SWAP));
+                            insts.insertBefore(exitInst, new InsnNode(Opcodes.POP));
+                            break;
+                        case 2:
+                            insts.insertBefore(exitInst, new InsnNode(Opcodes.DUP_X2));
+                            insts.insertBefore(exitInst, new InsnNode(Opcodes.POP));
+                            insts.insertBefore(exitInst, new InsnNode(Opcodes.POP2));
+                            break;
+                        default:
+                            throw new AssertionError();
+                    }
+                }
+            } else {
+                // Returning long or double.
+                for (int i = last - 1; i >= 0; --i) {
+                    switch (stack[i].getSize()) {
+                        case 1:
+                            insts.insertBefore(exitInst, new InsnNode(Opcodes.DUP2_X1));
+                            insts.insertBefore(exitInst, new InsnNode(Opcodes.POP2));
+                            insts.insertBefore(exitInst, new InsnNode(Opcodes.POP));
+                            break;
+                        case 2:
+                            insts.insertBefore(exitInst, new InsnNode(Opcodes.DUP2_X2));
+                            insts.insertBefore(exitInst, new InsnNode(Opcodes.POP2));
+                            insts.insertBefore(exitInst, new InsnNode(Opcodes.POP2));
+                            break;
+                        default:
+                            throw new AssertionError();
+                    }
+                }
+            }
+        }
+
+        insts.insertBefore(exitInst, new JumpInsnNode(Opcodes.GOTO, returnPoint));
+        insts.remove(exitInst);
     }
 
-    private static void decorateExitWithError(InsnList insts, AbstractInsnNode exitInst, int frameVar) {
-        insts.insertBefore(exitInst, new InsnNode(Opcodes.DUP));
-        insts.insertBefore(exitInst, new VarInsnNode(Opcodes.ALOAD, frameVar));
-        insts.insertBefore(exitInst, new InsnNode(Opcodes.SWAP));
-        insts.insertBefore(exitInst, new MethodInsnNode(Opcodes.INVOKEVIRTUAL, FRAME_CLASS, "exit", "(Ljava/lang/Throwable;)V"));
-    }
-
-    private static ResumeInfo decorateInvocation(MethodNode method, InsnList insts, AbstractInsnNode invIns, int frameVar, Type[] vars, Type[] stack, int id) {
+    private static ResumeInfo decorateInvocation(MethodNode method, InsnList insts, AbstractInsnNode invIns, int frameVar, Type[] vars, Type[] stackBefore, Type[] stackAfter, int id,
+            LabelNode returnPoint) {
         // Load frameVar. Will save the context invoking methods from frameVar.
         insts.insertBefore(invIns, new VarInsnNode(Opcodes.ALOAD, frameVar));
 
@@ -569,10 +633,10 @@ public class LightWolfEnhancer {
         // Save all stack values (just temporary values, not local variables).
         int stackVarCount = 0;
         int stackObjVarCount = 0;
-        for (int i = stack.length - 1; i >= 0; --i) {
-            saveStack(stack[i], insts, invIns);
-            if (isPrimitive(stack[i])) {
-                stackVarCount += stack[i].getSize();
+        for (int i = stackBefore.length - 1; i >= 0; --i) {
+            saveStack(stackBefore[i], insts, invIns);
+            if (isPrimitive(stackBefore[i])) {
+                stackVarCount += stackBefore[i].getSize();
             } else {
                 ++stackObjVarCount;
             }
@@ -584,8 +648,8 @@ public class LightWolfEnhancer {
 
         // At this point, there is a frame object on the stack. It will be used to restore stack values.
         // But if the number of stack values is zero, then the method will be called immediately.
-        // Under this circunstances, we must remove the frame object now.
-        if (stack.length == 0) {
+        // On this situation, we must remove the frame object now.
+        if (stackBefore.length == 0) {
             insts.insertBefore(invIns, new InsnNode(Opcodes.POP));
         }
 
@@ -595,8 +659,8 @@ public class LightWolfEnhancer {
 
         // Restore stack values, so the method can be invoked normally.
         // In the last restore, the frame object is removed from the stack.
-        for (int i = 0; i < stack.length; ++i) {
-            restoreStack(stack[i], insts, invIns, i == stack.length - 1);
+        for (int i = 0; i < stackBefore.length; ++i) {
+            restoreStack(stackBefore[i], insts, invIns, i == stackBefore.length - 1);
         }
 
         // Here we invoke the method (no change, since this is the invIns instruction).
@@ -614,46 +678,39 @@ public class LightWolfEnhancer {
         // If resuming, jump to the instruction that follows invocation.
         insts.insertBefore(afterInvok, new JumpInsnNode(Opcodes.IFEQ, afterInvok));
 
-        // Otherwise (leaving), return.
+        // Otherwise (leaving), jump to the return point.
+
+        // We must remove whatever is on stack after invocation, because the return point
+        // must contain only the returned value (or nothing if void). This is redundant,
+        // but JVM will complain if we don't do this.
+        clearStack(insts, afterInvok, stackAfter);
+
         Type returnType = Type.getReturnType(method.desc);
         int returnSort = returnType.getSort();
-        switch (returnSort) {
-            case Type.VOID:
-                insts.insertBefore(afterInvok, new InsnNode(Opcodes.RETURN));
-                break;
-            case Type.BOOLEAN:
-            case Type.CHAR:
-            case Type.BYTE:
-            case Type.SHORT:
-            case Type.INT:
-                getResult(returnType, insts, afterInvok, frameVar);
-                insts.insertBefore(afterInvok, new InsnNode(Opcodes.IRETURN));
-                break;
-            case Type.LONG:
-                getResult(returnType, insts, afterInvok, frameVar);
-                insts.insertBefore(afterInvok, new InsnNode(Opcodes.LRETURN));
-                break;
-            case Type.FLOAT:
-                getResult(returnType, insts, afterInvok, frameVar);
-                insts.insertBefore(afterInvok, new InsnNode(Opcodes.FRETURN));
-                break;
-            case Type.DOUBLE:
-                getResult(returnType, insts, afterInvok, frameVar);
-                insts.insertBefore(afterInvok, new InsnNode(Opcodes.DRETURN));
-                break;
-            case Type.OBJECT:
-            case Type.ARRAY:
-                getResult(returnType, insts, afterInvok, frameVar);
-                insts.insertBefore(afterInvok, new InsnNode(Opcodes.ARETURN));
-                break;
-            default:
-                throw new IllegalStateException(returnType.toString());
+        if (returnSort != Type.VOID) {
+            getResult(returnType, insts, afterInvok, frameVar);
         }
+        insts.insertBefore(afterInvok, new JumpInsnNode(Opcodes.GOTO, returnPoint));
 
         // Return ResumeInfo, so we can add code to the header, that jumps to this instruction upon resuming.
         ResumeInfo ri = new ResumeInfo(id, befInvLabel, (MethodInsnNode) invIns, vars, varCount, objVarCount, stackVarCount, stackObjVarCount);
 
         return ri;
+    }
+
+    private static void clearStack(InsnList insts, AbstractInsnNode position, Type[] stack) throws AssertionError {
+        for (int i = stack.length - 1; i >= 0; --i) {
+            switch (stack[i].getSize()) {
+                case 1:
+                    insts.insertBefore(position, new InsnNode(Opcodes.POP));
+                    break;
+                case 2:
+                    insts.insertBefore(position, new InsnNode(Opcodes.POP2));
+                    break;
+                default:
+                    throw new AssertionError();
+            }
+        }
     }
 
     private static void pushShort(InsnList insts, AbstractInsnNode location, int value) {
@@ -668,8 +725,34 @@ public class LightWolfEnhancer {
         }
     }
 
+    private static int getReturnOpcode(Type returnType) {
+        int returnSort = returnType.getSort();
+        switch (returnSort) {
+            case Type.VOID:
+                return Opcodes.RETURN;
+            case Type.BOOLEAN:
+            case Type.CHAR:
+            case Type.BYTE:
+            case Type.SHORT:
+            case Type.INT:
+                return Opcodes.IRETURN;
+            case Type.LONG:
+                return Opcodes.LRETURN;
+            case Type.FLOAT:
+                return Opcodes.FRETURN;
+            case Type.DOUBLE:
+                return Opcodes.DRETURN;
+            case Type.OBJECT:
+            case Type.ARRAY:
+                return Opcodes.ARETURN;
+            default:
+                throw new IllegalStateException(returnType.toString());
+        }
+    }
+
     private boolean isFlowMethod(MethodInsnNode ins) {
         MethodKey mk = new MethodKey(ins.owner, ins.name, ins.desc);
+        // System.out.printf("Method %s is flow: %s.\n", mk, isFlowMethod(mk));
         return isFlowMethod(mk);
     }
 
@@ -752,7 +835,9 @@ public class LightWolfEnhancer {
         String resName = className + ".class";
         clazz = classProvider.getClass(resName);
         if (clazz == null) {
-            LightWolfLog.println("Resource not found: " + resName);
+            LightWolfLog.println("[WARNING] +----------------------------------------");
+            LightWolfLog.println("[WARNING] | Resource not found: " + resName);
+            LightWolfLog.println("[WARNING] +----------------------------------------");
             return null;
         }
         classCache.put(className, clazz);
@@ -974,11 +1059,10 @@ public class LightWolfEnhancer {
         }
     }
 
-    @SuppressWarnings("unused")
     private static void printTrace(MethodNode method, Frame[] frames, InsnList insts) {
-        LightWolfLog.println(method.name + ", " + method.signature);
+        LightWolfLog.printf("Method: %s %s.\n", method.name, method.signature);
         for (int i = 0; i < insts.size(); ++i) {
-            LightWolfLog.print("" + i + ": ");
+            LightWolfLog.printf("%3d: ", i + 1);
             if (frames != null) {
                 LightWolfLog.println(frames[i]);
             }
@@ -988,8 +1072,10 @@ public class LightWolfEnhancer {
             }
             LightWolfLog.println(toString(inst));
         }
-        LightWolfLog.println();
-        LightWolfLog.println();
+        for (int i = 0; i < method.tryCatchBlocks.size(); ++i) {
+            TryCatchBlockNode tcb = (TryCatchBlockNode) method.tryCatchBlocks.get(i);
+            LightWolfLog.printf("catch(%s) start: %s, end: %s, handler: %s.", tcb.type, tcb.start.getLabel(), tcb.end.getLabel(), tcb.handler.getLabel());
+        }
         LightWolfLog.println();
         LightWolfLog.println();
     }
