@@ -96,7 +96,7 @@ public class Task implements Serializable {
      */
     public static final int INTERRUPTED = 3;
 
-    private static String[] stateNames = new String[] { "ACTIVE", "PASSIVE", "OFF" };
+    private static String[] stateNames = new String[] { "ACTIVE", "PASSIVE", "INTERRUPTED" };
 
     /**
      * Return the name of the specified state; provided for debugging and
@@ -651,27 +651,23 @@ public class Task implements Serializable {
         return false;
     }
 
-    public void interrupt() {
-        Flow[] myFlows;
-        synchronized(this) {
-            if (state == INTERRUPTED) {
-                return;
-            }
-            try {
-                activate();
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            } catch (ClassNotFoundException e) {
-                throw new RuntimeException(e);
-            }
-            if (state != ACTIVE) {
-                throw new IllegalStateException("Cannot interrupt while task is " + stateName(state) + ".");
-            }
-            state = INTERRUPTED;
-            myFlows = getFlows();
+    public synchronized void interrupt() {
+        if (state == INTERRUPTED) {
+            return;
         }
+        try {
+            activate();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+        if (state != ACTIVE) {
+            throw new IllegalStateException("Cannot interrupt while task is " + stateName(state) + ".");
+        }
+        state = INTERRUPTED;
         manager.notifyInterrupt(this);
-        for (Flow flow : myFlows) {
+        for (Flow flow : flows) {
             // TODO: interrupt() might throw an exception, lefting half of the flows interrupted and half not.
             flow.interrupt();
         }
@@ -690,7 +686,6 @@ public class Task implements Serializable {
     }
 
     private synchronized void doNotifyAll(Object key, Object message) {
-        checkNotInterrupted();
         manager.notify(key, message);
     }
 
@@ -745,7 +740,12 @@ public class Task implements Serializable {
         return manager.connectMany(matcher);
     }
 
-    synchronized final void add(Flow flow) {
+    final void add(Flow flow) {
+        add(flow, false);
+    }
+
+    final void add(Flow flow, boolean force) {
+        assert Thread.holdsLock(this);
         if (flow.task != null) {
             if (flow.task == this) {
                 assert flows.contains(flow);
@@ -754,8 +754,16 @@ public class Task implements Serializable {
             assert !flows.contains(flow);
             throw new IllegalArgumentException("Flow belongs to another task.");
         }
-        if (state != ACTIVE) {
-            throw new IllegalStateException("Cannot add flows while task is " + stateName(state));
+        switch (state) {
+            case ACTIVE:
+                break;
+            case INTERRUPTED:
+                if (force) {
+                    break;
+                }
+                // Yes, fall.
+            default:
+                throw new IllegalStateException("Cannot add flows while task is " + stateName(state));
         }
         boolean added = flows.add(flow);
         assert added;
@@ -763,13 +771,14 @@ public class Task implements Serializable {
         if (flow.isActive()) {
             ++activeFlows;
         } else {
-            assert flow.isSuspended();
+            assert flow.isSuspended() || force;
             ++suspendedFlows;
         }
         notify(ITaskListener.PE_FLOW_ADDED, flow);
     }
 
-    synchronized final void remove(Flow flow) {
+    final void remove(Flow flow) {
+        assert Thread.holdsLock(this);
         if (flow.task != this) {
             assert !flows.contains(flow);
             throw new IllegalArgumentException("Flow does not belong to this task.");
@@ -789,7 +798,8 @@ public class Task implements Serializable {
         notify(ITaskListener.PE_FLOW_REMOVED, flow);
     }
 
-    synchronized void notifySuspend(Flow flow) {
+    void notifySuspend(Flow flow) {
+        assert Thread.holdsLock(this);
         assert state == ACTIVE;
         assert flows.contains(flow);
         --activeFlows;
@@ -797,7 +807,8 @@ public class Task implements Serializable {
         notify(ITaskListener.PE_FLOW_SUSPENDED, flow);
     }
 
-    synchronized void notifyResume(Flow flow) {
+    void notifyResume(Flow flow) {
+        assert Thread.holdsLock(this);
         assert flows.contains(flow);
         try {
             activate();
@@ -894,7 +905,7 @@ public class Task implements Serializable {
      * @see #PASSIVE
      */
     public final synchronized void activate() throws IOException, ClassNotFoundException {
-        if (state == ACTIVE) {
+        if (state == ACTIVE || state == INTERRUPTED) {
             return;
         }
         if (state != PASSIVE) {

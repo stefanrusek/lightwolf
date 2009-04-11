@@ -46,6 +46,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.lightwolf.synchronization.EventPicker;
 import org.lightwolf.synchronization.ThreadFreeLock;
+import org.lightwolf.tools.LightWolfLog;
 import org.lightwolf.tools.PublicByteArrayInputStream;
 import org.lightwolf.tools.PublicByteArrayOutputStream;
 import org.lightwolf.tools.SimpleFlowManager;
@@ -239,13 +240,19 @@ public final class Flow implements Serializable {
             if (task == null) { // Must be called here, inside the try-finally.
                 throw new NullPointerException();
             }
-            if (cur.task != null) {
-                if (cur.task == task) {
-                    throw new IllegalStateException("Flow already belongs to specified task.");
+            Object sync = cur.sync();
+            synchronized(sync) {
+                synchronized(task) {
+                    if (cur.task != null) {
+                        if (cur.task == task) {
+                            throw new IllegalStateException("Flow already belongs to specified task.");
+                        }
+                        throw new IllegalStateException("Flow belongs to another task.");
+                    }
+                    task.add(cur);
                 }
-                throw new IllegalStateException("Flow belongs to another task.");
+                sync.notifyAll();
             }
-            task.add(cur);
         } finally {
             frame.invoked();
         }
@@ -268,11 +275,15 @@ public final class Flow implements Serializable {
         Flow cur = Flow.fromInvoker();
         MethodFrame frame = cur.currentFrame;
         try {
-            Task task = cur.task;
-            if (task == null) {
-                throw new IllegalStateException("Flow does not belong to any task.");
+            Object sync = cur.sync();
+            synchronized(sync) {
+                Task task = cur.task;
+                if (task == null) {
+                    throw new IllegalStateException("Flow does not belong to any task.");
+                }
+                task.remove(cur);
+                sync.notifyAll();
             }
-            task.remove(cur);
         } finally {
             frame.invoked();
         }
@@ -294,12 +305,14 @@ public final class Flow implements Serializable {
         Flow cur = Flow.fromInvoker();
         MethodFrame frame = cur.currentFrame;
         try {
-            Task task = cur.task;
-            if (task == null) {
-                return false;
+            synchronized(cur.sync()) {
+                Task task = cur.task;
+                if (task == null) {
+                    return false;
+                }
+                task.remove(cur);
+                return true;
             }
-            task.remove(cur);
-            return true;
         } finally {
             frame.invoked();
         }
@@ -1248,7 +1261,7 @@ public final class Flow implements Serializable {
     @FlowMethod(manual = true)
     public static Object signal(FlowSignal signal) {
         Flow cur = fromInvoker();
-        synchronized(cur) {
+        synchronized(cur.sync()) {
             MethodFrame frame = cur.currentFrame;
             try {
                 if (frame.isInvoking()) {
@@ -1498,7 +1511,7 @@ public final class Flow implements Serializable {
      * @see #activate(Object)
      */
     public Object resume(Object signalResult) {
-        synchronized(this) {
+        synchronized(sync()) {
             if (state != SUSPENDED && state != PASSIVE) {
                 throw new IllegalStateException("Cannot resume if the flow is " + state + '.');
             }
@@ -1634,26 +1647,28 @@ public final class Flow implements Serializable {
         return manager.submit(this, signalResult);
     }
 
-    public synchronized void interrupt() {
-        if (state == INTERRUPTED) {
-            return;
+    public void interrupt() {
+        synchronized(sync()) {
+            if (state == INTERRUPTED) {
+                return;
+            }
+            if (state == ACTIVE) {
+                state = INTERRUPTED;
+                return;
+            }
+            if (state == PASSIVE) {
+                throw new IllegalStateException("Cannot interrupt while flow is " + state + ".");
+            }
+            try {
+                waitNotRunning();
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+            if (state == ENDED) {
+                return;
+            }
+            activate(INTERRUPT_SIGNAL);
         }
-        if (state == ACTIVE) {
-            state = INTERRUPTED;
-            return;
-        }
-        if (state == PASSIVE) {
-            throw new IllegalStateException("Cannot interrupt while flow is " + state + ".");
-        }
-        try {
-            waitNotRunning();
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-        if (state == ENDED) {
-            return;
-        }
-        activate(INTERRUPT_SIGNAL);
     }
 
     /**
@@ -1682,30 +1697,34 @@ public final class Flow implements Serializable {
      *         all heap objects referenced by stack frames.
      * @throws IllegalStateException If this flow is not suspended nor ended.
      */
-    public synchronized Flow copy() {
-        checkSteady();
-        Flow ret = new Flow(manager, null);
-        ret.state = state == TEMP_SUSP ? SUSPENDED : state;
-        ret.suspendedFrame = suspendedFrame.copy(ret);
-        ret.result = result;
-        if (task != null) {
-            task.add(ret);
-            assert ret.task == task;
+    public Flow copy() {
+        synchronized(sync()) {
+            checkSteady();
+            Flow ret = new Flow(manager, null);
+            ret.state = state == TEMP_SUSP ? SUSPENDED : state;
+            ret.suspendedFrame = suspendedFrame.copy(ret);
+            ret.result = result;
+            if (task != null) {
+                task.add(ret);
+                assert ret.task == task;
+            }
+            return ret;
         }
-        return ret;
     }
 
-    private synchronized Flow frameCopy() {
-        checkSteady();
-        Flow ret = new Flow(manager, null);
-        ret.state = state == TEMP_SUSP ? SUSPENDED : state;
-        ret.suspendedFrame = suspendedFrame.shallowCopy(ret);
-        ret.result = result;
-        if (task != null) {
-            task.add(ret);
-            assert ret.task == task;
+    private Flow frameCopy() {
+        synchronized(sync()) {
+            checkSteady();
+            Flow ret = new Flow(manager, null);
+            ret.state = state == TEMP_SUSP ? SUSPENDED : state;
+            ret.suspendedFrame = suspendedFrame.shallowCopy(ret);
+            ret.result = result;
+            if (task != null) {
+                task.add(ret);
+                assert ret.task == task;
+            }
+            return ret;
         }
-        return ret;
     }
 
     private void checkSteady() {
@@ -1741,25 +1760,43 @@ public final class Flow implements Serializable {
         }
     }
 
-    public synchronized Object join() throws InterruptedException {
-        while (state != ENDED) {
-            wait();
+    public Object join() throws InterruptedException {
+        for (;;) {
+            Object sync = sync();
+            synchronized(sync) {
+                if (state != ENDED) {
+                    sync.wait();
+                    continue;
+                }
+                return result;
+            }
         }
-        return result;
     }
 
-    public synchronized FlowSignal waitSuspended() throws InterruptedException {
-        while (state != SUSPENDED && state != PASSIVE) {
-            wait();
+    public FlowSignal waitSuspended() throws InterruptedException {
+        for (;;) {
+            Object sync = sync();
+            synchronized(sync) {
+                if (state != SUSPENDED && state != PASSIVE) {
+                    sync.wait();
+                    continue;
+                }
+                return (FlowSignal) result;
+            }
         }
-        return (FlowSignal) result;
     }
 
-    public synchronized Object waitNotRunning() throws InterruptedException {
-        while (state != SUSPENDED && state != PASSIVE && state != ENDED) {
-            wait();
+    public Object waitNotRunning() throws InterruptedException {
+        for (;;) {
+            Object sync = sync();
+            synchronized(sync) {
+                if (state != SUSPENDED && state != PASSIVE && state != ENDED) {
+                    sync.wait();
+                    continue;
+                }
+                return result;
+            }
         }
-        return result;
     }
 
     /**
@@ -1778,106 +1815,127 @@ public final class Flow implements Serializable {
      * 
      * @see #getState()
      */
-    public synchronized Object getResult() {
-        try {
-            while (state == SUSPENDING) {
-                wait();
-            }
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-        if (state == ACTIVE) {
-            return null;
-        }
-        return result;
-    }
-
-    synchronized FlowData fetchState(long id) {
-        assert task != null;
-        assert state == SUSPENDED;
-        FlowData ret = new FlowData(suspendedFrame, id);
-        suspendedFrame = null;
-        state = PASSIVE;
-        notifyAll();
-        return ret;
-    }
-
-    synchronized void restoreState(FlowData flowState) {
-        assert task != null;
-        assert state == PASSIVE;
-        suspendedFrame = flowState.suspendedFrame;
-        state = SUSPENDED;
-        notifyAll();
-    }
-
-    synchronized void beforeCheckpoint() {
-        if (state == INTERRUPTED) {
-            throw new FlowInterruptedException();
-        }
-        assert state == ACTIVE;
-    }
-
-    synchronized Object restore() {
-        assert state == ACTIVE;
-        //log("Restored from signal.");
-        // assert signal.flow == cur : signal.flow;
-        Object ret = result;
-        result = null;
-        if (ret == INTERRUPT_SIGNAL) {
-            state = INTERRUPTED;
-            throw new FlowInterruptedException();
-        }
-        if (ret instanceof ExceptionEnvelope) {
-            Throwable exception = ((ExceptionEnvelope) ret).exception;
-            throw new ResumeException(exception);
-        }
-        return ret;
-    }
-
-    synchronized void finish() {
-        log("finishing...");
-        assert current.get() == this;
-        current.set(previous);
-        previous = null;
-        switch (state) {
-            case ACTIVE:
-            case INTERRUPTED:
-                assert suspendedFrame == null;
-                Fork fork = currentFork;
-                while (fork != null) {
-                    if (fork.number > 0) {
-                        assert fork.previous == null;
-                        fork.finished();
-                        break;
+    public Object getResult() {
+        Object sync = sync();
+        for (;;) {
+            synchronized(sync) {
+                try {
+                    if (state == SUSPENDING) {
+                        sync.wait();
+                        continue;
                     }
-                    fork = fork.previous;
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
                 }
-                Task thisTask = task;
-                if (thisTask != null) {
-                    thisTask.remove(this);
-                    // We still reference the task, for information issues and to
-                    // go back to task if this finished flow is resumed.
-                    task = thisTask;
+                if (state == ACTIVE) {
+                    return null;
                 }
-                state = ENDED;
-                currentFrame = null;
-                notifyAll();
-                log("normally");
+                return result;
+            }
+        }
+    }
+
+    FlowData fetchState(long id) {
+        Object sync = sync();
+        synchronized(sync) {
+            assert task != null;
+            assert state == SUSPENDED;
+            FlowData ret = new FlowData(suspendedFrame, id);
+            suspendedFrame = null;
+            state = PASSIVE;
+            sync.notifyAll();
+            return ret;
+        }
+    }
+
+    void restoreState(FlowData flowState) {
+        Object sync = sync();
+        synchronized(sync) {
+            assert task != null;
+            assert state == PASSIVE;
+            suspendedFrame = flowState.suspendedFrame;
+            state = SUSPENDED;
+            sync.notifyAll();
+        }
+    }
+
+    void beforeCheckpoint() {
+        switch (state) {
+            case INTERRUPTED:
+                throw new FlowInterruptedException();
+            case ACTIVE:
                 return;
-            case SUSPENDING:
-                assert suspendedFrame != null;
-                FlowSignal signal = (FlowSignal) result;
-                result = signal;
-                currentFrame = null;
-                state = SUSPENDED;
-                if (task != null) {
-                    task.notifySuspend(this);
-                }
-                notifyAll();
-                log("throwing signal");
-                throw signal;
             default:
-                throw new AssertionError("state shouldn't be " + state);
+                throw new AssertionError();
+        }
+    }
+
+    Object restore() {
+        synchronized(sync()) {
+            assert state == ACTIVE;
+            //log("Restored from signal.");
+            // assert signal.flow == cur : signal.flow;
+            Object ret = result;
+            result = null;
+            if (ret == INTERRUPT_SIGNAL) {
+                state = INTERRUPTED;
+                throw new FlowInterruptedException();
+            }
+            if (ret instanceof ExceptionEnvelope) {
+                Throwable exception = ((ExceptionEnvelope) ret).exception;
+                throw new ResumeException(exception);
+            }
+            return ret;
+        }
+    }
+
+    void finish() {
+        Object sync = sync();
+        synchronized(sync) {
+            log("finishing...");
+            assert current.get() == this;
+            current.set(previous);
+            previous = null;
+            switch (state) {
+                case ACTIVE:
+                case INTERRUPTED:
+                    assert suspendedFrame == null;
+                    Fork fork = currentFork;
+                    while (fork != null) {
+                        if (fork.number > 0) {
+                            assert fork.previous == null;
+                            fork.finished();
+                            break;
+                        }
+                        fork = fork.previous;
+                    }
+                    Task thisTask = task;
+                    if (thisTask != null) {
+                        thisTask.remove(this);
+                        // We still reference the task, for information issues and to
+                        // go back to task if this finished flow is resumed.
+                        task = thisTask;
+                    }
+                    state = ENDED;
+                    currentFrame = null;
+                    sync.notifyAll();
+                    log("normally");
+                    return;
+                case SUSPENDING:
+                    assert suspendedFrame != null;
+                    FlowSignal signal = (FlowSignal) result;
+                    result = signal;
+                    currentFrame = null;
+                    state = SUSPENDED;
+                    if (task != null) {
+                        task.notifySuspend(this);
+                    }
+                    sync.notifyAll();
+                    log("throwing signal");
+                    throw signal;
+                default:
+                    throw new AssertionError("state shouldn't be " + state);
+            }
         }
     }
 
@@ -1910,52 +1968,67 @@ public final class Flow implements Serializable {
         currentFork = fork;
     }
 
-    synchronized void setSuspendedFrame(MethodFrame frame) {
-        try {
-            while (state == SUSPENDING) {
-                wait();
-            }
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-        switch (state) {
-            case ENDED:
-                suspendedFrame = frame;
-                state = SUSPENDED;
-                if (task != null) {
-                    Task thisTask = task;
-                    task = null;
-                    thisTask.add(this);
+    void setSuspendedFrame(MethodFrame frame) {
+        for (;;) {
+            Object sync = sync();
+            synchronized(sync) {
+                try {
+                    if (state == SUSPENDING) {
+                        sync.wait();
+                        continue;
+                    }
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
                 }
+                switch (state) {
+                    case ENDED:
+                        suspendedFrame = frame;
+                        state = SUSPENDED;
+                        if (task != null) {
+                            Task thisTask = task;
+                            task = null;
+                            thisTask.add(this, true);
+                        }
+                        break;
+                    case SUSPENDED:
+                        suspendedFrame = frame;
+                        break;
+                    default:
+                        throw new IllegalStateException("Cannot resume if flow is " + state + '.');
+                }
+                sync.notifyAll();
                 break;
-            case SUSPENDED:
-                suspendedFrame = frame;
-                break;
-            default:
-                throw new IllegalStateException("Cannot resume if flow is " + state + '.');
+            }
         }
-        notifyAll();
     }
 
-    private synchronized void suspendInPlace() {
-        if (state == INTERRUPTED) {
-            throw new FlowInterruptedException();
+    private void suspendInPlace() {
+        synchronized(sync()) {
+            if (state == INTERRUPTED) {
+                throw new FlowInterruptedException();
+            }
+            assert state == ACTIVE;
+            assert currentFrame != null;
+            assert suspendedFrame == null;
+            state = TEMP_SUSP;
+            suspendedFrame = currentFrame;
+            currentFrame = null;
         }
-        assert state == ACTIVE;
-        assert currentFrame != null;
-        assert suspendedFrame == null;
-        state = TEMP_SUSP;
-        suspendedFrame = currentFrame;
-        currentFrame = null;
     }
 
-    private synchronized void restoreInPlace() {
-        assert state == TEMP_SUSP;
-        assert currentFrame == null;
-        assert suspendedFrame != null;
-        state = ACTIVE;
-        currentFrame = suspendedFrame;
-        suspendedFrame = null;
+    private void restoreInPlace() {
+        synchronized(sync()) {
+            assert state == TEMP_SUSP;
+            assert currentFrame == null;
+            assert suspendedFrame != null;
+            state = ACTIVE;
+            currentFrame = suspendedFrame;
+            suspendedFrame = null;
+        }
+    }
+
+    private Object sync() {
+        return task != null ? task : this;
     }
 
     private void restoreFrame() {

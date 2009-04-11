@@ -259,7 +259,7 @@ public class TestInterrupt {
         } catch (FlowInterruptedException e) {
             //OK.
         }
-        //Assert.assertEquals(Flow.task(), task);
+        Assert.assertEquals(Flow.task(), task);
         send(sync, 3);
     }
 

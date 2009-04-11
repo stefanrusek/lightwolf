@@ -26,7 +26,6 @@ package org.lightwolf;
 
 import java.io.Serializable;
 
-import org.lightwolf.tools.SimpleTaskManager;
 
 public abstract class TaskManager implements Serializable {
 

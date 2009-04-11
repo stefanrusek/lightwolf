@@ -22,7 +22,7 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-package org.lightwolf.tools;
+package org.lightwolf;
 
 import java.io.InvalidObjectException;
 import java.io.ObjectStreamException;
@@ -32,16 +32,6 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.WeakHashMap;
 import java.util.Map.Entry;
-
-import org.lightwolf.AddressAlreadyInUseException;
-import org.lightwolf.Connection;
-import org.lightwolf.Continuation;
-import org.lightwolf.Flow;
-import org.lightwolf.FlowMethod;
-import org.lightwolf.FlowSignal;
-import org.lightwolf.IMatcher;
-import org.lightwolf.Task;
-import org.lightwolf.TaskManager;
 
 public final class SimpleTaskManager extends TaskManager {
 
@@ -211,7 +201,9 @@ public final class SimpleTaskManager extends TaskManager {
             }
         }
         for (ReceiveManyContinuation cont : continuations) {
-            cont.interrupt();
+            Flow flow = Flow.newFlow();
+            flow.task = task;
+            cont.placeOnCheckpoint(flow);
         }
     }
 
@@ -378,11 +370,14 @@ public final class SimpleTaskManager extends TaskManager {
             }
             if (continuation != null) {
                 assert receiver == null;
+                Flow flow = Flow.newFlow();
+                flow.task = continuation.task;
+                continuation.placeOnCheckpoint(flow);
                 if (!(msg instanceof ExceptionEnvelope)) {
-                    continuation.activate(msg);
+                    flow.activate(msg);
                 } else {
                     ExceptionEnvelope envelope = (ExceptionEnvelope) msg;
-                    continuation.activateThrowing(envelope.exception);
+                    flow.activateThrowing(envelope.exception);
                 }
                 return true;
             }

@@ -225,10 +225,7 @@ public class Continuation implements Cloneable {
      * @see #resumeAndForgetOnFlow(Flow, Object)
      */
     public Object resumeOnFlow(Flow flow, Object result) {
-        synchronized(this) {
-            checkFrame();
-            flow.setSuspendedFrame(frame.copy(flow));
-        }
+        placeOnCheckpoint(flow);
         return flow.resume(result);
     }
 
@@ -291,11 +288,7 @@ public class Continuation implements Cloneable {
      * @see #resumeAndForget(Object)
      */
     public Object resumeAndForgetOnFlow(Flow flow, Object result) {
-        synchronized(this) {
-            checkFrame();
-            flow.setSuspendedFrame(frame);
-            frame = null;
-        }
+        placeOnCheckpointAndForget(flow);
         return flow.resume(result);
     }
 
@@ -305,10 +298,7 @@ public class Continuation implements Cloneable {
     }
 
     public void interruptOnFlow(Flow flow) {
-        synchronized(this) {
-            checkFrame();
-            flow.setSuspendedFrame(frame.copy(flow));
-        }
+        placeOnCheckpoint(flow);
         flow.interrupt();
     }
 

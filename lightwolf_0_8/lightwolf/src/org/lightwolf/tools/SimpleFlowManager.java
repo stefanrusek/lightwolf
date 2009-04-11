@@ -100,6 +100,7 @@ public class SimpleFlowManager extends FlowManager implements Serializable {
 
     @Override
     protected Future<?> submit(final Flow flow, final Object message) {
+        final Throwable track = new Throwable();
         Runnable command = new Runnable() {
 
             public void run() {
@@ -117,7 +118,7 @@ public class SimpleFlowManager extends FlowManager implements Serializable {
                     }
                     assert flow.isEnded();
                 } catch (Throwable e) {
-                    notifyException(e);
+                    notifyException(e, track);
                 }
             }
         };
@@ -125,9 +126,10 @@ public class SimpleFlowManager extends FlowManager implements Serializable {
         return executor.submit(command);
     }
 
-    private void notifyException(Throwable e) {
+    private void notifyException(Throwable e, Throwable track) {
         Flow.log("Threw exception: " + e.getMessage());
         LightWolfLog.printTrace(e);
+        LightWolfLog.printTrace(track);
     }
 
     private Object writeReplace() {
