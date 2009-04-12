@@ -46,7 +46,6 @@ import java.util.concurrent.TimeUnit;
 
 import org.lightwolf.synchronization.EventPicker;
 import org.lightwolf.synchronization.ThreadFreeLock;
-import org.lightwolf.tools.LightWolfLog;
 import org.lightwolf.tools.PublicByteArrayInputStream;
 import org.lightwolf.tools.PublicByteArrayOutputStream;
 import org.lightwolf.tools.SimpleFlowManager;
@@ -1098,6 +1097,11 @@ public final class Flow implements Serializable {
         } finally {
             frame.invoked();
         }
+    }
+
+    @FlowMethod(manual = true)
+    public static Object invoke(Method method, Object owner, Object... args) throws IllegalAccessException, InvocationTargetException {
+        return method.invoke(owner, args);
     }
 
     /**

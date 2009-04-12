@@ -3,7 +3,6 @@ package org.lightwolf.synchronization;
 import java.util.NoSuchElementException;
 
 import org.lightwolf.Flow;
-import org.lightwolf.FlowLocal;
 import org.lightwolf.FlowMethod;
 
 public final class ParallelArray<T> {
