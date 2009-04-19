@@ -106,7 +106,7 @@ public class SimpleFlowManager extends FlowManager implements Serializable {
             public void run() {
                 try {
                     clearThread();
-                    //Flow.log("Resuming " + flow + ", message=" + message);
+                    Flow.log("Resuming " + flow + ", message=" + message);
                     try {
                         flow.resume(message);
                     } catch (FlowSignal s) {

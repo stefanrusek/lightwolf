@@ -24,6 +24,10 @@
  */
 package org.lightwolf;
 
+import static org.lightwolf.TaskState.ACTIVE;
+import static org.lightwolf.TaskState.INTERRUPTED;
+import static org.lightwolf.TaskState.PASSIVE;
+
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -65,53 +69,6 @@ import java.util.Random;
 public class Task implements Serializable {
 
     private static final long serialVersionUID = 1L;
-
-    /**
-     * A constant indicating that the task is active. An active task have all
-     * its data on memory. It can run flows and allow new flows to
-     * {@linkplain Flow#joinTask(Task) join} it.
-     * 
-     * @see #getState()
-     * @see #activate()
-     */
-    public static final int ACTIVE = 1;
-
-    /**
-     * A constant indicating that the task is passive. A passive task have its
-     * data on external storage. The actual storage is defined by the
-     * {@link Task} subclass. It can't run flows nor allow new flows to
-     * {@linkplain Flow#joinTask(Task) join} it.
-     * 
-     * @see #getState()
-     * @see #passivate()
-     */
-    public static final int PASSIVE = 2;
-
-    /**
-     * A constant indicating that the task has been interrupted. An interrupted
-     * task contains only interrupted flows and doesn't allow new flows to
-     * {@linkplain Flow#joinTask(Task) join} it.
-     * 
-     * @see #getState()
-     */
-    public static final int INTERRUPTED = 3;
-
-    private static String[] stateNames = new String[] { "ACTIVE", "PASSIVE", "INTERRUPTED" };
-
-    /**
-     * Return the name of the specified state; provided for debugging and
-     * diagnostic purposes.
-     * 
-     * @param state The state to get the name from.
-     * @return A String containing the state name. Will never be
-     *         <code>null</code>.
-     */
-    protected static String stateName(int state) {
-        if (state >= 1 || state <= 2) {
-            return stateNames[state - 1];
-        }
-        return "(unknown state: " + state + ")";
-    }
 
     /**
      * Returns the current task. This method returns non-null if the
@@ -538,7 +495,8 @@ public class Task implements Serializable {
     }
 
     private final TaskManager manager;
-    protected int state;
+    private TaskState state;
+    private FlowContext properties;
     private final HashSet<Flow> flows;
     private int activeFlows;
     private int suspendedFlows;
@@ -571,8 +529,31 @@ public class Task implements Serializable {
      * @see #PASSIVE
      * @see #INTERRUPTED
      */
-    public final int getState() {
+    public final TaskState getState() {
         return state;
+    }
+
+    public synchronized Object getProperty(String propId) {
+        if (propId == null) {
+            throw new NullPointerException();
+        }
+        if (properties == null) {
+            return null;
+        }
+        return properties.getProperty(propId);
+    }
+
+    public synchronized Object setProperty(String propId, Object value) {
+        if (propId == null) {
+            throw new NullPointerException();
+        }
+        if (properties == null) {
+            if (value == null) {
+                return null;
+            }
+            properties = new FlowContext();
+        }
+        return properties.setProperty(propId, value);
     }
 
     /**
@@ -663,7 +644,7 @@ public class Task implements Serializable {
             throw new RuntimeException(e);
         }
         if (state != ACTIVE) {
-            throw new IllegalStateException("Cannot interrupt while task is " + stateName(state) + ".");
+            throw new IllegalStateException("Cannot interrupt while task is " + state + ".");
         }
         state = INTERRUPTED;
         manager.notifyInterrupt(this);
@@ -671,6 +652,10 @@ public class Task implements Serializable {
             // TODO: interrupt() might throw an exception, lefting half of the flows interrupted and half not.
             flow.interrupt();
         }
+    }
+
+    FlowContext readContext() {
+        return properties == null ? null : properties.copy();
     }
 
     @FlowMethod
@@ -763,7 +748,7 @@ public class Task implements Serializable {
                 }
                 // Yes, fall.
             default:
-                throw new IllegalStateException("Cannot add flows while task is " + stateName(state));
+                throw new IllegalStateException("Cannot add flows while task is " + state);
         }
         boolean added = flows.add(flow);
         assert added;
@@ -784,7 +769,7 @@ public class Task implements Serializable {
             throw new IllegalArgumentException("Flow does not belong to this task.");
         }
         if (state != ACTIVE && state != INTERRUPTED) {
-            throw new IllegalStateException("Cannot remove flows while task is " + stateName(state));
+            throw new IllegalStateException("Cannot remove flows while task is " + state);
         }
         boolean removed = flows.remove(flow);
         assert removed;
@@ -867,7 +852,7 @@ public class Task implements Serializable {
             return true;
         }
         if (state != ACTIVE) {
-            throw new IllegalStateException("Cannot passivate while task is " + stateName(state));
+            throw new IllegalStateException("Cannot passivate while task is " + state);
         }
         if (activeFlows() != 0) {
             return false;
@@ -909,7 +894,7 @@ public class Task implements Serializable {
             return;
         }
         if (state != PASSIVE) {
-            throw new IllegalStateException("Cannot activate while task is " + stateName(state));
+            throw new IllegalStateException("Cannot activate while task is " + state);
         }
         Object rawData = loadData();
         if (!(rawData instanceof FlowData[])) {

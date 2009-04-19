@@ -39,6 +39,7 @@ import java.io.Serializable;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.util.Map;
 import java.util.WeakHashMap;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
@@ -249,6 +250,8 @@ public final class Flow implements Serializable {
                         throw new IllegalStateException("Flow belongs to another task.");
                     }
                     task.add(cur);
+                    assert cur.task == task;
+                    cur.currentContext = task.readContext();
                 }
                 sync.notifyAll();
             }
@@ -281,6 +284,8 @@ public final class Flow implements Serializable {
                     throw new IllegalStateException("Flow does not belong to any task.");
                 }
                 task.remove(cur);
+                assert cur.task == null;
+                cur.currentContext = null;
                 sync.notifyAll();
             }
         } finally {
@@ -315,6 +320,38 @@ public final class Flow implements Serializable {
         } finally {
             frame.invoked();
         }
+    }
+
+    public static FlowContext enterContext() {
+        return current().doEnterContext();
+    }
+
+    public static void leaveContext(FlowContext context) {
+        current().doLeaveContext(context);
+    }
+
+    public static Object getProperty(String propId) {
+        return current().doGetProperty(propId);
+    }
+
+    public static Object setProperty(String propId, Object value) {
+        return current().doSetProperty(propId, value);
+    }
+
+    public static FlowContext readContext() {
+        return current().doReadContext();
+    }
+
+    public static void writeContext(FlowContext context) {
+        current().doWriteContext(context);
+    }
+
+    public static void readProperties(Map<String, Object> dest) {
+        current().doReadProperties(dest);
+    }
+
+    public static void writeProperties(Map<String, Object> properties) {
+        current().doWriteProperties(properties);
     }
 
     public static Flow snapshot() {
@@ -1270,7 +1307,7 @@ public final class Flow implements Serializable {
             try {
                 if (frame.isInvoking()) {
                     // We are suspending.
-                    cur.beforeCheckpoint();
+                    cur.getCheckpointContext();
                     //log("Signaling, signal=" + signal);
                     if (signal == null) {
                         throw new NullPointerException();
@@ -1396,10 +1433,11 @@ public final class Flow implements Serializable {
 
     private transient Flow previous;
     private final FlowManager manager;
-    transient Task task;
     private FlowState state;
     private MethodFrame currentFrame;
     private MethodFrame suspendedFrame;
+    transient Task task;
+    private FlowContext currentContext;
     transient Fork currentFork;
     private Object result;
     private WeakHashMap<FlowLocal<?>, Object> locals;
@@ -1515,19 +1553,31 @@ public final class Flow implements Serializable {
      * @see #activate(Object)
      */
     public Object resume(Object signalResult) {
-        synchronized(sync()) {
-            if (state != SUSPENDED && state != PASSIVE) {
-                throw new IllegalStateException("Cannot resume if the flow is " + state + '.');
+        for (;;) {
+            Object sync = sync();
+            synchronized(sync()) {
+                if (state == SUSPENDING) {
+                    try {
+                        sync.wait();
+                    } catch (InterruptedException e) {
+                        throw new RuntimeException(e);
+                    }
+                    continue;
+                }
+                if (state != SUSPENDED && state != PASSIVE) {
+                    throw new IllegalStateException("Cannot resume if the flow is " + state + '.');
+                }
+                if (task != null) {
+                    task.notifyResume(this);
+                }
+                // We redo the check because the task might have changed the state or might forget to
+                // set this PASSIVE flow to SUSPENDED.
+                if (state != SUSPENDED) {
+                    throw new IllegalStateException("Cannot resume if the flow is " + state + '.');
+                }
+                state = ACTIVE;
+                break;
             }
-            if (task != null) {
-                task.notifyResume(this);
-            }
-            // We redo the check because the task might have changed the state or might forget to
-            // set this PASSIVE flow to SUSPENDED.
-            if (state != SUSPENDED) {
-                throw new IllegalStateException("Cannot resume if the flow is " + state + '.');
-            }
-            state = ACTIVE;
         }
         String debugMethodName = null;
         boolean success = false;
@@ -1712,6 +1762,9 @@ public final class Flow implements Serializable {
                 task.add(ret);
                 assert ret.task == task;
             }
+            if (currentContext != null) {
+                ret.currentContext = currentContext.copy();
+            }
             return ret;
         }
     }
@@ -1726,6 +1779,9 @@ public final class Flow implements Serializable {
             if (task != null) {
                 task.add(ret);
                 assert ret.task == task;
+            }
+            if (currentContext != null) {
+                ret.currentContext = currentContext.copy();
             }
             return ret;
         }
@@ -1863,15 +1919,23 @@ public final class Flow implements Serializable {
         }
     }
 
-    void beforeCheckpoint() {
+    FlowContext getCheckpointContext() {
+        FlowContext ret;
         switch (state) {
             case INTERRUPTED:
                 throw new FlowInterruptedException();
             case ACTIVE:
-                return;
+                ret = currentContext;
+                currentContext = null;
+                return ret;
             default:
                 throw new AssertionError();
         }
+    }
+
+    void setCheckpointContext(FlowContext context) {
+        assert state == SUSPENDED;
+        currentContext = context;
     }
 
     Object restore() {
@@ -2029,6 +2093,64 @@ public final class Flow implements Serializable {
             currentFrame = suspendedFrame;
             suspendedFrame = null;
         }
+    }
+
+    private FlowContext doEnterContext() {
+        currentContext = new FlowContext(currentContext);
+        return currentContext;
+    }
+
+    private void doLeaveContext(FlowContext context) {
+        FlowContext thisContext = currentContext;
+        while (thisContext != context && thisContext != null) {
+            thisContext = thisContext.parent;
+        }
+        if (thisContext == null) {
+            throw new IllegalArgumentException("Illegal context: " + context);
+        }
+        currentContext = thisContext.parent;
+    }
+
+    private Object doGetProperty(String propId) {
+        if (propId == null) {
+            throw new NullPointerException();
+        }
+        return currentContext == null ? null : currentContext.getProperty(propId);
+    }
+
+    private Object doSetProperty(String propId, Object value) {
+        if (propId == null) {
+            throw new NullPointerException();
+        }
+        if (currentContext == null) {
+            currentContext = new FlowContext();
+        }
+        return currentContext.setProperty(propId, value);
+    }
+
+    private FlowContext doReadContext() {
+        return currentContext == null ? new FlowContext() : currentContext.copy();
+    }
+
+    private void doWriteContext(FlowContext context) {
+        if (currentContext == null) {
+            currentContext = context.copy();
+        } else {
+            currentContext.writeProperties(context);
+        }
+    }
+
+    private void doReadProperties(Map<String, Object> dest) {
+        if (currentContext != null) {
+            currentContext.readProperties(dest);
+        }
+    }
+
+    private void doWriteProperties(Map<String, Object> properties) {
+        if (currentContext == null) {
+            currentContext = new FlowContext();
+        }
+        currentContext.writeProperties(properties);
     }
 
     private Object sync() {

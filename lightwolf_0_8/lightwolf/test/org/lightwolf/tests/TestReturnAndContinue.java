@@ -236,6 +236,7 @@ public class TestReturnAndContinue {
     @Test
     @FlowMethod
     public void testObject() throws Throwable {
+        Flow.setProperty("test", Class.class);
         ArrayBlockingQueue<Object> abq = new ArrayBlockingQueue<Object>(1);
         Counter c = new Counter();
         c.count();
@@ -251,8 +252,10 @@ public class TestReturnAndContinue {
 
     @FlowMethod
     private String callObject(ArrayBlockingQueue<Object> abq, Counter c, String input) throws InterruptedException {
+        Assert.assertEquals(Class.class, Flow.getProperty("test"));
         c.count();
         Flow.returnAndContinue(input + "XYZ");
+        Assert.assertEquals(Class.class, Flow.getProperty("test"));
         c.count();
         input = (String) abq.take();
         abq.put(input + "RST");

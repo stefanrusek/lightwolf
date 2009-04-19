@@ -37,6 +37,7 @@ import java.util.concurrent.Future;
  */
 public class Continuation implements Cloneable {
 
+    private FlowContext context;
     private MethodFrame frame;
     private Object lastResult;
 
@@ -137,7 +138,7 @@ public class Continuation implements Cloneable {
         try {
             Flow flow = invokerFrame.flow;
             if (invokerFrame.isInvoking()) {
-                flow.beforeCheckpoint();
+                context = flow.getCheckpointContext();
                 frame = invokerFrame.copy(null);
                 return true;
             }
@@ -324,6 +325,7 @@ public class Continuation implements Cloneable {
         synchronized(this) {
             checkFrame();
             flow.setSuspendedFrame(frame.copy(null));
+            flow.setCheckpointContext(context == null ? null : context.copy());
         }
     }
 
@@ -331,7 +333,9 @@ public class Continuation implements Cloneable {
         synchronized(this) {
             checkFrame();
             flow.setSuspendedFrame(frame);
+            flow.setCheckpointContext(context);
             frame = null;
+            context = null;
         }
     }
 

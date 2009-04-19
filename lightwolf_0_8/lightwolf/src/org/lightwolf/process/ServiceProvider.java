@@ -2,6 +2,8 @@ package org.lightwolf.process;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.HashMap;
+import java.util.concurrent.Callable;
 
 import org.lightwolf.Flow;
 import org.lightwolf.FlowMethod;
@@ -12,8 +14,9 @@ import org.lightwolf.TaskManager;
 public class ServiceProvider {
 
     private final Task task;
-    private boolean started;
+    private ServiceState state;
     private String addressPrefix;
+    private final HashMap<String, Method> methods;
 
     public ServiceProvider() {
         this(TaskManager.getDefault());
@@ -21,6 +24,19 @@ public class ServiceProvider {
 
     public ServiceProvider(TaskManager taskManager) {
         task = new Task(taskManager);
+        state = ServiceState.CREATED;
+        addressPrefix = "";
+        methods = new HashMap<String, Method>();
+        for (Method method : getClass().getMethods()) {
+            if (!method.isAnnotationPresent(Service.class)) {
+                continue;
+            }
+            String name = method.getName();
+            if (methods.containsKey(name)) {
+                throw new RuntimeException("Duplicate service-method name: " + name);
+            }
+            methods.put(name, method);
+        }
     }
 
     public String getAddressPrefix() {
@@ -28,32 +44,62 @@ public class ServiceProvider {
     }
 
     public synchronized void setAddressPrefix(String addressPrefix) {
-        checkNotStarted();
         this.addressPrefix = addressPrefix;
     }
 
     @FlowMethod
     public synchronized void start() {
-        checkNotStarted();
-        Flow.joinTask(task);
-        Method[] methods = getClass().getMethods();
-        for (Method method : methods) {
-            if (method.isAnnotationPresent(Service.class)) {
-                startService(method);
-            }
+        if (state != ServiceState.CREATED) {
+            throw new IllegalStateException("Cannot start service provider when it is " + state + ".");
         }
-        started = true;
+        Flow.joinTask(task);
+        for (Method method : methods.values()) {
+            startService(method);
+        }
+        state = ServiceState.STARTED;
+    }
+
+    public synchronized void stop() {
+        if (state == ServiceState.STOPPED) {
+            return;
+        }
+        if (state != ServiceState.STARTED) {
+            throw new IllegalStateException("Cannot stop service provider when it is " + state + ".");
+        }
+        state = ServiceState.STOPPED;
+        task.interrupt();
+    }
+
+    public Flow submit(String methodName, final Object... args) {
+        final Method method = methods.get(methodName);
+        if (method == null) {
+            throw new RuntimeException("Could not find service-method with name: " + methodName);
+        }
+        Callable<?> callable = new Callable<?>() {
+
+            @FlowMethod
+            public Object call() throws Exception {
+                try {
+                    Flow.joinTask(new Task());
+                    return Flow.invoke(method, this, args);
+                } catch (Throwable e) {
+                    return e;
+                }
+            }
+
+        };
+        return Flow.submit(callable);
     }
 
     @FlowMethod
     private void startService(Method method) {
         Flow.returnAndContinue();
         try {
-            Object message = Task.receiveMany(addressPrefix + method.getName());
+            Object message = Task.receiveMany(addressPrefix + Helper.getSignature(method));
             if (message instanceof IRequest) {
                 IRequest request = (IRequest) message;
-                Object ret;
-                ret = Flow.invoke(method, this, request.request());
+                Object[] args = (Object[]) request.request();
+                Object ret = Flow.invoke(method, this, args);
                 request.respond(ret);
             } else {
                 Flow.invoke(method, this, message);
@@ -62,20 +108,6 @@ public class ServiceProvider {
             throw new RuntimeException(e);
         } catch (InvocationTargetException e) {
             throw new RuntimeException(e);
-        }
-    }
-
-    public synchronized void stop() {
-        if (!started) {
-            throw new IllegalStateException("Service " + this + " was not started.");
-        }
-        started = false;
-        task.interrupt();
-    }
-
-    private void checkNotStarted() {
-        if (started) {
-            throw new IllegalStateException("Service " + this + " is started.");
         }
     }
 

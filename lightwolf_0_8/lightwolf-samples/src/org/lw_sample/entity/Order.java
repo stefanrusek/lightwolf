@@ -9,8 +9,16 @@ public class Order {
     private OrderStatus status;
     private boolean closed;
 
+    public Order() {
+        this.items = new LinkedList<Item>();
+    }
+
     public Iterable<Item> getItems() {
         return Collections.unmodifiableList(items);
+    }
+
+    public void addItem(Item item) {
+        items.add(item);
     }
 
     public OrderStatus getStatus() {

@@ -1,16 +1,16 @@
-package org.lw_sample.inventory;
+package org.lw_sample.sales;
 
 import java.util.ArrayList;
 
 import org.lightwolf.FlowMethod;
-import org.lightwolf.ResumeException;
-import org.lightwolf.Task;
+import org.lightwolf.process.ServiceInvoker;
 import org.lw_sample.BusinessException;
 import org.lw_sample.entity.Product;
 import org.lw_sample.entity.Reservation;
 import org.lw_sample.entity.Storage;
+import org.lw_sample.test.IInventory;
 
-public class Inventory {
+public class InventoryHelper {
 
     public static Reservation placeReservation(String productId, double quantity, String currentReservationId) throws BusinessException {
         Reservation ret;
@@ -35,11 +35,8 @@ public class Inventory {
 
     @FlowMethod
     public static void waitForAvailability(ArrayList<Reservation> reservations) throws BusinessException {
-        try {
-            Task.callVoid("InventorySubsystem.WaitForAvailability", reservations);
-        } catch (ResumeException e) {
-            throw BusinessException.buildException(e.getCause());
-        }
+        IInventory inventory = ServiceInvoker.getInstance(IInventory.class);
+        inventory.waitForAvailability(reservations);
     }
 
     public static void cancelReservations(ArrayList<Reservation> reservations) throws BusinessException {

@@ -14,8 +14,9 @@ import org.lightwolf.FileTask;
 import org.lightwolf.Flow;
 import org.lightwolf.FlowMethod;
 import org.lightwolf.ITaskListener;
-import org.lightwolf.Task;
 import org.lightwolf.SuspendSignal;
+import org.lightwolf.Task;
+import org.lightwolf.TaskState;
 
 public class TestSerialization implements Serializable {
 
@@ -133,12 +134,12 @@ public class TestSerialization implements Serializable {
         Assert.assertEquals(initial, temp);
         flow.waitSuspended();
         for (int i = 0; i < 10; ++i) {
-            if (task.getState() == Task.PASSIVE) {
+            if (task.getState() == TaskState.PASSIVE) {
                 break;
             }
             Thread.sleep(100); // Wait for auto passivation.
         }
-        Assert.assertEquals(Task.PASSIVE, task.getState());
+        Assert.assertEquals(TaskState.PASSIVE, task.getState());
         Object data = new Long(123);
         send(45, data);
         Assert.assertEquals(data, abq.take());

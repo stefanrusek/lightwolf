@@ -1,5 +1,6 @@
 package org.lightwolf.tests;
 
+import java.lang.reflect.Method;
 import java.util.concurrent.Callable;
 import java.util.concurrent.SynchronousQueue;
 
@@ -136,10 +137,12 @@ public class TestBasics {
 
     @FlowMethod
     private static Continuation doContinuation(Counter c, int count) {
+        Flow.setProperty("test", 123);
         c.count();
         c.assertEquals(++count, 1);
         Continuation cont = new Continuation();
         if (!cont.checkpoint()) {
+            Assert.assertEquals(123, Flow.getProperty("test"));
             c.count();
             c.assertEquals(++count, 1, 2);
             return null;
@@ -245,6 +248,59 @@ public class TestBasics {
         };
         Flow flow = Flow.submit(obj);
         checkRunnable(flow, q);
+    }
+
+    @Test
+    @FlowMethod
+    public void invokeJavaLangMethod() throws Throwable, NoSuchMethodException {
+        Method m = getClass().getMethod("theMethod", Counter.class, int[].class, Continuation[].class);
+        Counter counter = new Counter();
+        int[] sync = new int[1];
+        Continuation[] cont = new Continuation[1];
+        if (Flow.split(1) == 1) {
+            int v = (Integer) Flow.invoke(m, this, counter, sync, cont);
+            counter.count();
+            send(sync, v + 1);
+            Flow.end();
+        }
+        wait(sync, 123 + 1);
+        counter.assertEquals(7, 5);
+        sync[0] = 1;
+        cont[0].activate();
+        wait(sync, 1 + 1);
+        sync[0] = 2;
+        cont[0].activate();
+        wait(sync, 2 + 1);
+        counter.assertEquals(11, 7);
+    }
+
+    @FlowMethod
+    public int theMethod(Counter counter, int[] sync, Continuation[] cont) throws Throwable {
+        counter.count(); // 1
+        Flow.fork(4);
+        counter.count(); // 1 + 4
+        Flow.merge();
+        cont[0] = new Continuation();
+        if (cont[0].checkpoint()) {
+            return 123;
+        }
+        counter.count(); // N
+        return sync[0];
+    }
+
+    private static void send(int[] sync, int i) {
+        synchronized(sync) {
+            sync[0] = i;
+            sync.notifyAll();
+        }
+    }
+
+    private static void wait(int[] sync, int i) throws InterruptedException {
+        synchronized(sync) {
+            while (sync[0] != i) {
+                sync.wait();
+            }
+        }
     }
 
 }
