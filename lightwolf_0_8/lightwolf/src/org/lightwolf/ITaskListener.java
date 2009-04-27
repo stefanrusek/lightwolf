@@ -57,7 +57,7 @@ public interface ITaskListener {
      * A constant indicating that a flow was suspended. There are many
      * situations that cause a flow to be suspended. The simplest way is the
      * {@link Flow#suspend(Object)} method, but some APIs such as
-     * {@link Task#receive(Object)} may cause a flow to be temporarily
+     * {@link Flow#receive(Object)} may cause a flow to be temporarily
      * suspended.
      */
     int PE_FLOW_SUSPENDED = 3;
@@ -67,7 +67,7 @@ public interface ITaskListener {
      * are many situations that cause a flow to be resumed. For example, if
      * {@link Flow#split(int)} is issued on a flow that belongs to a task,
      * new suspended flows are created, then added to the task, and finally
-     * they are resumed. Some APIs such as {@link Task#receive(Object)} may
+     * they are resumed. Some APIs such as {@link Flow#receive(Object)} may
      * cause a flow to be temporarily suspended and resumed.
      */
     int PE_RESUMING_FLOW = 4;

@@ -119,13 +119,17 @@ public class ServiceProvider {
     private void startService(Method method) {
         Flow.returnAndContinue();
         try {
-            Object message = Task.receiveMany(addressPrefix + Helper.getSignature(method));
+            String address = addressPrefix + Helper.getSignature(method);
+            // Flow.log("Starting " + address);
+            Object message = Flow.receiveMany(address);
             if (message instanceof IRequest) {
+                // Flow.log("Received request on " + address);
                 IRequest request = (IRequest) message;
                 Object[] args = (Object[]) request.request();
                 Object ret = Flow.invoke(method, this, args);
                 request.respond(ret);
             } else {
+                // Flow.log("Received message on " + address);
                 Flow.invoke(method, this, message);
             }
         } catch (IllegalAccessException e) {

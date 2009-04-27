@@ -45,13 +45,14 @@ import java.util.Random;
  * This class contains utilities for communication and synchronization between
  * task flows:
  * <ul>
- * <li>The {@link #wait(Object) wait} and {@link #notifyAll(Object, Object)
- * notify} methods can be used to wait-for and get/provide information about
- * specific conditions and events.</li>
- * <li>The {@link #send(Object, Object) send} and {@link #receive(Object)
- * receive} methods allow safe delivery of one-way messages.</li>
- * <li>The {@link #call(Object, Object) call} and {@link #serve(Object) serve}
- * methods provide a simple request-response mechanism.</li>
+ * <li>The {@link Flow#wait(Object) wait} and
+ * {@link Flow#notifyAll(Object, Object) notify} methods can be used to wait-for
+ * and get/provide information about specific conditions and events.</li>
+ * <li>The {@link Flow#send(Object, Object) send} and
+ * {@link Flow#receive(Object) receive} methods allow safe delivery of one-way
+ * messages.</li>
+ * <li>The {@link Flow#call(Object, Object) call} and {@link Flow#serve(Object)
+ * serve} methods provide a simple request-response mechanism.</li>
  * <li>A connection can be established between two flows, providing both
  * synchronous and asynchronous modes of operation.</li>
  * </ul>
@@ -72,9 +73,9 @@ public class Task implements Serializable {
 
     /**
      * Returns the current task. This method returns non-null if the
-     * {@linkplain Flow#current() current flow} is running inside a task.
-     * Otherwise it returns <code>null</code>. If there is no current flow, this
-     * method also returns <code>null</code>.
+     * {@linkplain current current flow} is running inside a task. Otherwise it
+     * returns <code>null</code>. If there is no current flow, this method also
+     * returns <code>null</code>.
      * 
      * @return The current task, or <code>null</code> if the current flow is not
      *         running in the context of a task, or if there is no current flow.
@@ -101,400 +102,7 @@ public class Task implements Serializable {
         return ret;
     }
 
-    /**
-     * Waits for a notification that matches the informed key. The
-     * {@linkplain Flow#current() current flow} is
-     * {@linkplain Flow#suspend(Object) suspended} until another flow invokes
-     * {@link #notifyAll(Object, Object)}.
-     * <p>
-     * The specified object is used to link <code>wait</code> and
-     * <code>notify</code> pairs. For example, the invocation
-     * 
-     * <pre>
-     *     Object result = Task.wait("ABC");
-     * </pre>
-     * will wait until another flow invokes
-     * 
-     * <pre>
-     *     Task.notifyAll("ABC", "ResultOfABC");
-     * </pre>
-     * , which will cause the first code to resume and assign
-     * <code>"ResultOfABC"</code> to the variable <code>result</code>.
-     * <p>
-     * If the <code>key</code> argument is not <code>null</code>, it must
-     * provide consistent behaviors for {@link Object#equals(Object)} and
-     * {@link Object#hashCode()}. While not an absolute requirement, it is
-     * strongly recommended to use an immutable object as the <code>key</code>.
-     * <p>
-     * Optionally, the <code>key</code> argument can be an instance of
-     * {@link IMatcher}. In this case, the matcher will not behave as a key, but
-     * as a <i>selector</i>. The following example illustrates this behavior:
-     * 
-     * <pre>
-     *     IMatcher matcher = new IMatcher() {
-     *         boolean match(Object candidate) {
-     *             if (!(candidate instanceof String)) { return false; }
-     *             return ((String) candidate).startsWith("ABC");
-     *         }
-     *     };
-     *     Object result = Task.wait(matcher);
-     * </pre>
-     * The wait in the above example will resume for keys such as
-     * <code>"ABCD"</code> or <code>"ABC123"</code>.
-     * <p>
-     * While waiting, the current flow will be suspended and thus will not
-     * consume any thread. If such flow is resumed by means other than
-     * {@link #notifyAll(Object, Object)}, the effect is unpredictable and the
-     * task manager will be corrupt.
-     * 
-     * @param key The key to wait for (may be <code>null</code>), or an
-     *        {@link IMatcher} instance, as above specified.
-     * @return The <code>message</code> argument that was passed to
-     *         {@link #notifyAll(Object, Object)}.
-     * @throws IllegalStateException If there is no current task.
-     * @see #waitMany(Object)
-     * @see #notifyAll(Object, Object)
-     * @see #send(Object, Object)
-     * @see #receive(Object)
-     */
-    @FlowMethod
-    public static Object wait(Object key) {
-        return safeCurrent().doWait(key);
-    }
-
-    /**
-     * Waits for multiple notifications that matches the informed key. This
-     * method is similar to {@link #wait(Object)}, except in that it may return
-     * multiple times and to concurrent flows. Every subsequent call to
-     * {@link #notifyAll(Object, Object)} with a key that matches the informed
-     * key will cause this method to return. Whenever this method returns, it
-     * will be on a new flow. It never returns to the invoker's flow.
-     * 
-     * @param key The key to wait for (may be <code>null</code>), or an
-     *        {@link IMatcher} instance, as specified on {@link #wait(Object)}.
-     * @return The <code>message</code> argument that was passed to
-     *         {@link #notifyAll(Object, Object)}.
-     * @throws IllegalStateException If there is no current task.
-     * @see #wait(Object)
-     * @see #notifyAll(Object, Object)
-     */
-    @FlowMethod
-    public static Object waitMany(Object key) {
-        return safeCurrent().doWaitMany(key);
-    }
-
-    /**
-     * Wakes-up all flows awaiting for the specified key. This method causes all
-     * previous invocations to {@link #wait(Object)} and
-     * {@link #waitMany(Object)}, that matches the informed key, to return. The
-     * informed message is returned in such invocations. If more than one flow
-     * is resumed, they all get the same message instance, so either the message
-     * must be immutable, or adequate synchronization must be used. If there is
-     * no flow awaiting for the specified key, invoking this method has no
-     * effect. For examples and more information, see the {@link #wait(Object)}
-     * method.
-     * 
-     * @param key The key that identifies which {@link #wait(Object)} and
-     *        {@link #waitMany(Object)} invocations will be resumed.
-     * @param message The message to be sent to the resumed flows. It will be
-     *        returned from the resumed {@link #wait(Object)} and
-     *        {@link #waitMany(Object)} invocations.
-     * @throws IllegalStateException If there is no current task.
-     * @see #wait(Object)
-     * @see #waitMany(Object)
-     * @see #send(Object, Object)
-     * @see #receive(Object)
-     */
-    public static void notifyAll(Object key, Object message) {
-        safeCurrent().doNotifyAll(key, message);
-    }
-
-    /**
-     * Sends a message to the informed address. If another flow is listening on
-     * the informed address, this method causes such flow to resume and then
-     * returns immediately. Otherwise, the {@linkplain Flow#current() current
-     * flow} is {@linkplain Flow#suspend(Object) suspended} until some flow
-     * starts listening on the informed address.
-     * <p>
-     * The informed address is not a network address. It is an object used to
-     * link the sender and receiver flows. For example, the invocation
-     * 
-     * <pre>
-     *     Task.send("ABC", "MessageForABC");
-     * </pre>
-     * will send the object "MessageForABC" to a flow that invokes
-     * 
-     * <pre>
-     *     Object result = Task.receive("ABC");
-     * </pre>
-     * The above <code>receive</code> invocation will assign "MessageForABC" to
-     * the <code>result</code> variable.
-     * <p>
-     * If the <code>address</code> argument is not <code>null</code>, it must
-     * provide consistent behaviors for {@link Object#equals(Object)} and
-     * {@link Object#hashCode()}. While not an absolute requirement, it is
-     * strongly recommended to use an immutable object as the
-     * <code>address</code>.
-     * <p>
-     * While waiting, the current flow will be suspended and thus will not
-     * consume any thread. If such flow is resumed by means other than a
-     * <code>receive</code> method, the effect is unpredictable and the task
-     * manager will be corrupt.
-     * 
-     * @param address The address that identifies the listening flow.
-     * @param message The message to be sent.
-     * @throws IllegalStateException If there is no current task.
-     * @see #receive(Object)
-     * @see #serve(Object)
-     */
-    @FlowMethod
-    public static void send(Object address, Object message) {
-        safeCurrent().doSend(address, message);
-    }
-
-    /**
-     * Listens for a single message sent to the informed address. If another
-     * flow is blocked while sending a message to the informed address, this
-     * method causes such flow to resume and then immediately returns the sent
-     * message. Otherwise the {@linkplain Flow#current() current flow} is
-     * {@linkplain Flow#suspend(Object) suspended} until such invocation is
-     * issued.
-     * <p>
-     * If another flow sends a message using {@link #call(Object, Object)}, this
-     * method will return an instance of {@link IRequest} that contains the sent
-     * message. Such call will be blocked until invocation of
-     * {@link IRequest#respond(Object)}.
-     * <p>
-     * This method binds the current flow to the informed address. An address
-     * can have at most one flow bound to it. When this method returns (that is,
-     * when the message is received), the address will be free again.
-     * <p>
-     * While waiting, the current flow will be suspended and thus will not
-     * consume any thread. If such flow is resumed by means other than a
-     * <code>send</code> method, the effect is unpredictable and the task
-     * manager will be corrupt.
-     * <p>
-     * For examples and more information, see the {@link #send(Object, Object)}
-     * method.
-     * 
-     * @param address The address on which this flow will be listening.
-     * @return The sent message, or an {@link IRequest} if the message was sent
-     *         via {@link #call(Object, Object)}.
-     * @throws AddressAlreadyInUseException If another flow is listening on this
-     *         address.
-     * @throws IllegalStateException If there is no current task.
-     * @see #send(Object, Object)
-     * @see #serve(Object)
-     */
-    @FlowMethod
-    public static Object receive(Object address) {
-        return safeCurrent().doReceive(address);
-    }
-
-    /**
-     * Listens for multiple messages sent to the informed address. This method
-     * is similar to {@link #receive(Object)}, except in that it may return
-     * multiple times and to concurrent flows. For example, every subsequent
-     * call to a {@link #send(Object, Object) send} method with the informed
-     * address will cause this method to return. Whenever this method returns,
-     * it will be on a new flow. It never returns to the invoker's flow.
-     * <p>
-     * The informed address will be bound to the invoker's flow until the
-     * current task finishes.
-     * 
-     * @param address The address on which this flow will be listening.
-     * @return The sent message, or an {@link IRequest} if the message was sent
-     *         via {@link #call(Object, Object)}.
-     * @throws AddressAlreadyInUseException If another flow is listening on this
-     *         address.
-     * @throws IllegalStateException If there is no current task.
-     * @see #receive(Object)
-     * @see #serveMany(Object)
-     */
-    @FlowMethod
-    public static Object receiveMany(Object address) {
-        return safeCurrent().doReceiveMany(address);
-    }
-
-    /**
-     * Listens for a single request sent to the informed address. If another
-     * flow is blocked while sending a message to the informed address, this
-     * method causes such flow to resume and then immediately returns a request
-     * with the cited message. Otherwise the {@linkplain Flow#current() current
-     * flow} is {@linkplain Flow#suspend(Object) suspended} until such
-     * invocation is issued.
-     * <p>
-     * If another flow sends a message using {@link #send(Object, Object)}, this
-     * method will cause such invocation to return, and then it will return an
-     * instance of {@link IRequest} that contains the sent message and requires
-     * no response.
-     * <p>
-     * This method binds the current flow to the informed address. An address
-     * can have at most one flow bound to it. When this method returns (that is,
-     * when the message is received), the address will be free again.
-     * <p>
-     * While waiting, the current flow will be suspended and thus will not
-     * consume any thread. If such flow is resumed by means other than a
-     * <code>send</code> method, the effect is unpredictable and the task
-     * manager will be corrupt.
-     * <p>
-     * For examples and more information, see the {@link #call(Object, Object)}
-     * method.
-     * 
-     * @param address The address on which this flow will be listening.
-     * @return An {@link IRequest} containing the sent message.
-     * @throws AddressAlreadyInUseException If another flow is listening on this
-     *         address.
-     * @throws IllegalStateException If there is no current task.
-     * @see IRequest
-     * @see #call(Object, Object)
-     * @see #serveMany(Object)
-     */
-    @FlowMethod
-    public static IRequest serve(Object address) {
-        Object ret = receive(address);
-        if (ret instanceof TwoWayRequest) {
-            return (IRequest) ret;
-        }
-        return new OneWayRequest(ret);
-    }
-
-    /**
-     * Listens for multiple messages sent to the informed address. This method
-     * is similar to {@link #serve(Object)}, except in that it may return
-     * multiple times and to concurrent flows. For example, every subsequent
-     * invocation to {@link #call(Object, Object)} with the informed address
-     * will cause this method to return. Whenever this method returns, it will
-     * be on a new flow. It never returns to the invoker's flow.
-     * <p>
-     * The informed address will be bound to the invoker's flow until the
-     * current task finishes.
-     * <p>
-     * This method can be used to implement a very simple server.
-     * 
-     * @param address The address on which this flow will be listening.
-     * @return An {@link IRequest} containing the sent message.
-     * @throws AddressAlreadyInUseException If another flow is listening on this
-     *         address.
-     * @throws IllegalStateException If there is no current task.
-     * @see #serve(Object)
-     */
-    @FlowMethod
-    public static IRequest serveMany(Object address) {
-        Object ret = receiveMany(address);
-        if (ret instanceof TwoWayRequest) {
-            return (IRequest) ret;
-        }
-        return new OneWayRequest(ret);
-    }
-
-    /**
-     * Sends a request to the informed address and waits for a response. This
-     * method is similar to {@link #send(Object, Object)}, except in that it
-     * waits for a response from the listening flow. While waiting, the
-     * {@linkplain Flow#current() current flow} is
-     * {@linkplain Flow#suspend(Object) suspended}.
-     * <p>
-     * The following example illustrates the call behavior:
-     * 
-     * <pre>
-     *  public class Example implements Runnable {
-     *
-     *      &#064;{@link FlowMethod}
-     *      public void run() {
-     *          // We must join a task.
-     *          Flow.joinTask(new Task());
-     *          if (Flow.split(1) == 0) {
-     *              // Here is the server.
-     *              IRequest request = <b>Task.serve("PeerA")</b>;
-     *              System.out.println("Request: " + request.request());
-     *              request.response("I'm fine.");
-     *          } else {
-     *              // Here is the client.
-     *              Object response = <b>Task.call("PeerA", "How are you?")</b>;
-     *              System.out.println("Response: " + response);
-     *          }
-     *      }
-     *
-     *      public static void main(String[] args) throws InterruptedException {
-     *          Flow.submit(new Example());
-     *          Thread.sleep(1000); // Wait for all flows to finish.
-     *      }
-     *  }
-     * </pre>
-     * The above class prints the following:
-     * 
-     * <pre>
-     *  Request: How are you?
-     *  Response: I'm fine.
-     * </pre>
-     * If the <code>address</code> argument is not <code>null</code>, it must
-     * provide consistent behaviors for {@link Object#equals(Object)} and
-     * {@link Object#hashCode()}. While not an absolute requirement, it is
-     * strongly recommended to use an immutable object as the
-     * <code>address</code>.
-     * <p>
-     * While waiting, the current flow will be suspended and thus will not
-     * consume any thread. If such flow is resumed by means other than a
-     * <code>receive</code> method, the effect is unpredictable and the task
-     * manager will be corrupt.
-     * 
-     * @param address The address that identifies the listening flow.
-     * @param message The message to be sent.
-     * @return The listener's response.
-     * @throws IllegalStateException If there is no current task.
-     * @see #receive(Object)
-     * @see #serve(Object)
-     */
-    @FlowMethod
-    public static Object call(Object address, Object message) {
-        return safeCurrent().doCall(address, message);
-    }
-
-    @FlowMethod
-    public static <T> T call(Object address, Object message, Class<T> resultClass) {
-        if (resultClass == null) {
-            throw new NullPointerException();
-        }
-        Object result = call(address, message);
-        if (!resultClass.isInstance(result)) {
-            if (result == null) {
-                throw new RuntimeException("Unexpected result: null.");
-            }
-            throw new RuntimeException("Unexpected result: (" + result.getClass().getName() + ") " + result + ".");
-        }
-        return (T) result;
-    }
-
-    @FlowMethod
-    public static void callVoid(Object address, Object message) {
-        Object result = call(address, message);
-        if (result != null) {
-            throw new RuntimeException("Unexpected result: (" + result.getClass().getName() + ") " + result + ".");
-        }
-    }
-
-    @FlowMethod
-    public static Connection accept(Object matcher) {
-        return safeCurrent().doAccept(matcher);
-    }
-
-    @FlowMethod
-    public static Connection acceptMany(Object matcher) {
-        return safeCurrent().doAcceptMany(matcher);
-    }
-
-    @FlowMethod
-    public static Connection connect(Object matcher) {
-        return safeCurrent().doConnect(matcher);
-    }
-
-    @FlowMethod
-    public static Connection connectMany(Object matcher) {
-        return safeCurrent().doConnectMany(matcher);
-    }
-
-    private final TaskManager manager;
+    final TaskManager manager;
     private TaskState state;
     private FlowContext properties;
     private final HashSet<Flow> flows;
@@ -658,78 +266,11 @@ public class Task implements Serializable {
         return properties == null ? null : properties.copy();
     }
 
-    @FlowMethod
-    private synchronized Object doWait(Object key) {
-        checkNotInterrupted();
-        return manager.wait(key);
-    }
-
-    @FlowMethod
-    private synchronized Object doWaitMany(Object key) {
-        checkNotInterrupted();
-        return manager.waitMany(key);
-    }
-
-    private synchronized void doNotifyAll(Object key, Object message) {
-        manager.notify(key, message);
-    }
-
-    @FlowMethod
-    private synchronized void doSend(Object address, Object message) {
-        checkNotInterrupted();
-        manager.send(address, message);
-    }
-
-    @FlowMethod
-    private synchronized Object doReceive(Object address) {
-        checkNotInterrupted();
-        return manager.receive(address);
-    }
-
-    @FlowMethod
-    private synchronized Object doReceiveMany(Object address) {
-        checkNotInterrupted();
-        return manager.receiveMany(address);
-    }
-
-    @FlowMethod
-    private synchronized Object doCall(Object address, Object message) {
-        checkNotInterrupted();
-        TaskManager man = manager;
-        TwoWayRequest req = new TwoWayRequest(man, message);
-        man.send(address, req);
-        return man.receive(req);
-    }
-
-    @FlowMethod
-    private synchronized Connection doAccept(Object matcher) {
-        checkNotInterrupted();
-        return manager.accept(matcher);
-    }
-
-    @FlowMethod
-    private synchronized Connection doAcceptMany(Object matcher) {
-        checkNotInterrupted();
-        return manager.acceptMany(matcher);
-    }
-
-    @FlowMethod
-    private synchronized Connection doConnect(Object matcher) {
-        checkNotInterrupted();
-        return manager.connect(matcher);
-    }
-
-    @FlowMethod
-    private synchronized Connection doConnectMany(Object matcher) {
-        checkNotInterrupted();
-        return manager.connectMany(matcher);
-    }
-
     final void add(Flow flow) {
         add(flow, false);
     }
 
-    final void add(Flow flow, boolean force) {
+    synchronized final void add(Flow flow, boolean force) {
         assert Thread.holdsLock(this);
         if (flow.task != null) {
             if (flow.task == this) {
@@ -762,7 +303,7 @@ public class Task implements Serializable {
         notify(ITaskListener.PE_FLOW_ADDED, flow);
     }
 
-    final void remove(Flow flow) {
+    synchronized final void remove(Flow flow) {
         assert Thread.holdsLock(this);
         if (flow.task != this) {
             assert !flows.contains(flow);
@@ -783,7 +324,7 @@ public class Task implements Serializable {
         notify(ITaskListener.PE_FLOW_REMOVED, flow);
     }
 
-    void notifySuspend(Flow flow) {
+    synchronized void notifySuspend(Flow flow) {
         assert Thread.holdsLock(this);
         assert state == ACTIVE;
         assert flows.contains(flow);
@@ -792,7 +333,7 @@ public class Task implements Serializable {
         notify(ITaskListener.PE_FLOW_SUSPENDED, flow);
     }
 
-    void notifyResume(Flow flow) {
+    synchronized void notifyResume(Flow flow) {
         assert Thread.holdsLock(this);
         assert flows.contains(flow);
         try {
@@ -807,7 +348,7 @@ public class Task implements Serializable {
         ++activeFlows;
     }
 
-    private void checkNotInterrupted() {
+    void checkNotInterrupted() {
         if (state == INTERRUPTED) {
             throw new FlowInterruptedException();
         }
@@ -1018,71 +559,6 @@ public class Task implements Serializable {
             }
         }
 
-    }
-
-    private static class OneWayRequest implements IRequest, Serializable {
-
-        private static final long serialVersionUID = 1L;
-        private final Object request;
-
-        OneWayRequest(Object request) {
-            this.request = request;
-        }
-
-        public boolean needResponse() {
-            return false;
-        }
-
-        public Object request() {
-            return request;
-        }
-
-        public void respond(Object response) {
-            throw new IllegalStateException("This request does not need a response.");
-        }
-
-        public void respondThrowing(Throwable exception) {
-            throw new IllegalStateException("This request does not need a response.");
-        }
-    }
-
-    private static class TwoWayRequest implements IRequest, Serializable {
-
-        private static final long serialVersionUID = 1L;
-        private final TaskManager manager;
-        private final Object request;
-        private boolean responseSent;
-
-        TwoWayRequest(TaskManager manager, Object request) {
-            this.manager = manager;
-            this.request = request;
-        }
-
-        public boolean needResponse() {
-            return !responseSent;
-        }
-
-        public Object request() {
-            return request;
-        }
-
-        @FlowMethod
-        public synchronized void respond(Object response) {
-            if (responseSent) {
-                throw new IllegalStateException("The response was already sent.");
-            }
-            responseSent = true;
-            manager.send(this, response);
-        }
-
-        @FlowMethod
-        public synchronized void respondThrowing(Throwable exception) {
-            if (responseSent) {
-                throw new IllegalStateException("The response was already sent.");
-            }
-            responseSent = true;
-            manager.sendThrowing(this, exception);
-        }
     }
 
 }

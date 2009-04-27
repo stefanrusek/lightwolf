@@ -57,6 +57,8 @@ import org.lightwolf.tools.LightWolfAntTask;
 @Retention(RetentionPolicy.CLASS)
 public @interface FlowMethod {
 
+    boolean blocking() default false;
+
     /**
      * Determines weather this flow method will be manually or automatically
      * enhanced. The default value is <code>false</code>, which indicates that

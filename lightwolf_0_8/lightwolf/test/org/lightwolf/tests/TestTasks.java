@@ -45,12 +45,12 @@ public class TestTasks {
         SynchronousQueue<String> sq = new SynchronousQueue<String>();
         int branch = Flow.split(1);
         if (branch == 1) {
-            String value = (String) Task.wait("key");
+            String value = (String) Flow.wait("key");
             sq.put(value);
             Flow.end();
         }
         Thread.sleep(50); // Wait for the other thread arrive at receive.
-        Task.notifyAll("key", "value");
+        Flow.notifyAll("key", "value");
         String value = sq.take();
         Assert.assertEquals("value", value);
     }
@@ -63,7 +63,7 @@ public class TestTasks {
         SynchronousQueue<Integer> sq = new SynchronousQueue<Integer>();
         int branch = Flow.split(1);
         if (branch == 1) {
-            Integer value = (Integer) Task.waitMany("key");
+            Integer value = (Integer) Flow.waitMany("key");
             System.out.println("Received " + value);
             sq.put(value);
             Flow.end();
@@ -72,18 +72,18 @@ public class TestTasks {
         Integer value;
 
         value = 123;
-        Task.notifyAll("key", value);
+        Flow.notifyAll("key", value);
         Assert.assertEquals(value, sq.take());
         System.out.println("Took " + value);
 
         value = 456;
-        Task.notifyAll("key", value);
+        Flow.notifyAll("key", value);
         Assert.assertEquals(value, sq.take());
 
         boolean[] test = new boolean[8];
         branch = Flow.split(test.length);
         if (branch > 0) {
-            Task.notifyAll("key", branch);
+            Flow.notifyAll("key", branch);
             System.out.println("Sent " + branch);
             branch = sq.take();
             synchronized(test) {
@@ -118,11 +118,11 @@ public class TestTasks {
                 SynchronousQueue<String> sq = new SynchronousQueue<String>();
                 int branch = Flow.split(1);
                 if (branch == 1) {
-                    String value = (String) Task.receive("key");
+                    String value = (String) Flow.receive("key");
                     sq.put(value);
                     Flow.end();
                 }
-                Task.send("key", "value");
+                Flow.send("key", "value");
                 String value = sq.take();
                 Assert.assertEquals("value", value);
                 success[0] = true;
@@ -146,7 +146,7 @@ public class TestTasks {
                 SynchronousQueue<Integer> sq = new SynchronousQueue<Integer>();
                 int branch = Flow.split(1);
                 if (branch == 1) {
-                    Integer value = (Integer) Task.receiveMany("key");
+                    Integer value = (Integer) Flow.receiveMany("key");
                     System.out.println("Received " + value);
                     sq.put(value);
                     Flow.end();
@@ -154,7 +154,7 @@ public class TestTasks {
                 boolean[] test = new boolean[8];
                 branch = Flow.split(test.length);
                 if (branch > 0) {
-                    Task.send("key", branch);
+                    Flow.send("key", branch);
                     System.out.println("Sent " + branch);
                     branch = sq.take();
                     synchronized(test) {
@@ -193,7 +193,7 @@ public class TestTasks {
                 try {
                     Flow.joinTask(new Task());
                     if (Flow.split(1) == 0) {
-                        IRequest request = Task.serveMany("PeerA");
+                        IRequest request = Flow.serveMany("PeerA");
                         sq.put("Req:" + request.request());
                         request.respond(sq.take());
                     } else {
@@ -202,7 +202,7 @@ public class TestTasks {
                             if (request.equals("end")) {
                                 return;
                             }
-                            Object response = Task.call("PeerA", request);
+                            Object response = Flow.call("PeerA", request);
                             sq.put("Res:" + response);
                         }
                     }

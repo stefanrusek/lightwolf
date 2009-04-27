@@ -78,6 +78,8 @@ public class LightWolfLog {
     public static void printTrace(Throwable e) {
         StringWriter sw = new StringWriter(500);
         PrintWriter pw = new PrintWriter(sw, false);
+        pw.print(Thread.currentThread());
+        pw.print(' ');
         e.printStackTrace(pw);
         pw.flush();
         print(sw.toString());

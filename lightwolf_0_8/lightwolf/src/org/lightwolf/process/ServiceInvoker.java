@@ -29,8 +29,8 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.util.HashMap;
 
+import org.lightwolf.Flow;
 import org.lightwolf.FlowMethod;
-import org.lightwolf.Task;
 
 public class ServiceInvoker implements InvocationHandler {
 
@@ -58,7 +58,15 @@ public class ServiceInvoker implements InvocationHandler {
 
     @FlowMethod
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-        return Task.call(getAddress(method), args);
+        if (method.getDeclaringClass() == Object.class) {
+            if (method.getName().equals("toString")) {
+                return proxy.getClass().getName() + "@" + System.identityHashCode(proxy);
+            }
+            throw new UnsupportedOperationException(method.toString());
+        }
+        String address = getAddress(method);
+        // Flow.log("Invoking " + address);
+        return Flow.call(address, args);
     }
 
     private synchronized String getAddress(Method method) {

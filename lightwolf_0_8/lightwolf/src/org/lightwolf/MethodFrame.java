@@ -41,13 +41,6 @@ public final class MethodFrame implements Serializable {
     private static final int[] EMPTY_INT_ARRAY = new int[0];
     private static final Object[] EMPTY_OBJECT_ARRAY = new Object[0];
 
-    public static final int ACTIVE = 1;
-    public static final int INVOKING = 2;
-    public static final int RESTORING = 3;
-    public static final int DEAD = 4;
-    public static final int LEAVING_METHOD = 5;
-    public static final int LEAVING_THREAD = 6;
-
     public static MethodFrame enter(Object owner, String name, String desc) {
         return Flow.enter(owner, name, desc);
     }
@@ -68,7 +61,7 @@ public final class MethodFrame implements Serializable {
     final Object target;
     final String name;
     final String desc;
-    int state;
+    FrameState state;
     int resumePoint;
     private int[] vars;
     private int varIndex;
@@ -86,7 +79,7 @@ public final class MethodFrame implements Serializable {
         this.target = target;
         this.name = name;
         this.desc = desc;
-        state = ACTIVE;
+        state = FrameState.ACTIVE;
     }
 
     private MethodFrame(MethodFrame prior, Object target, String name, String desc) {
@@ -95,7 +88,7 @@ public final class MethodFrame implements Serializable {
         this.name = name;
         this.desc = desc;
         this.prior = prior;
-        state = ACTIVE;
+        state = FrameState.ACTIVE;
     }
 
     private MethodFrame(MethodFrame src, Flow flow, boolean deep) {
@@ -115,16 +108,16 @@ public final class MethodFrame implements Serializable {
     }
 
     MethodFrame newFrame(Object aTarget, String aName, String aDesc) {
-        if (state == INVOKING) {
+        if (state == FrameState.INVOKING) {
             return new MethodFrame(this, aTarget, aName, aDesc);
         }
-        if (state == RESTORING) {
+        if (state == FrameState.RESTORING) {
             assert resumePoint > 0;
-            state = INVOKING;
+            state = FrameState.INVOKING;
             assert next != null;
             MethodFrame ret = next;
             ret.checkMatch(aTarget, aName, aDesc);
-            assert ret.state == RESTORING;
+            assert ret.state == FrameState.RESTORING;
             next = null;
             return ret;
         }
@@ -161,27 +154,27 @@ public final class MethodFrame implements Serializable {
 
     public void exit() {
         // Possible states:
-        int curState = state;
-        state = DEAD;
-        assert curState == ACTIVE // The method is returning normally or by exception.
-                || curState == LEAVING_METHOD // The method set itself to leave.
-                || curState == LEAVING_THREAD // The method set this thread to leave.
+        FrameState curState = state;
+        state = FrameState.DEAD;
+        assert curState == FrameState.ACTIVE // The method is returning normally or by exception.
+                || curState == FrameState.LEAVING_METHOD // The method set itself to leave.
+                || curState == FrameState.LEAVING_THREAD // The method set this thread to leave.
         : "State is " + curState;
         MethodFrame thisPrior = prior;
         if (thisPrior == null) {
             flow.finish();
             return;
         }
-        assert thisPrior.state == INVOKING; // The prior must be invoking.
+        assert thisPrior.state == FrameState.INVOKING; // The prior must be invoking.
         assert thisPrior.resumePoint > 0; // The prior's resumePoint must be positive.
         // Before return, we restore the prior's state...
         switch (curState) {
             case LEAVING_THREAD:
-                thisPrior.state = LEAVING_THREAD;
+                thisPrior.state = FrameState.LEAVING_THREAD;
                 break;
             case ACTIVE:
             case LEAVING_METHOD:
-                thisPrior.state = ACTIVE;
+                thisPrior.state = FrameState.ACTIVE;
                 break;
             default:
                 throw new AssertionError("State is " + curState);
@@ -192,33 +185,49 @@ public final class MethodFrame implements Serializable {
     }
 
     public void exit(Throwable e) throws Throwable {
-        if (state == DEAD) {
+        if (state == FrameState.DEAD) {
             throw e;
         }
-        if (state == INVOKING) {
+        if (state == FrameState.INVOKING) {
             if (!(e instanceof NullPointerException)) {
                 throw e;
             }
-            state = ACTIVE;
+            state = FrameState.ACTIVE;
         } else {
-            assert state == ACTIVE;
+            assert state == FrameState.ACTIVE;
             assert e != null;
         }
         exit();
     }
 
+    public RuntimeException exitThrowing(Throwable e) {
+        assert e != null;
+        try {
+            exit(e);
+        } catch (Throwable internal) {
+            e = internal;
+        }
+        if (e instanceof RuntimeException) {
+            throw (RuntimeException) e;
+        }
+        if (e instanceof Error) {
+            throw (Error) e;
+        }
+        throw new RuntimeException(e);
+    }
+
     public boolean isLeaving() {
         vars = null;
         objVars = null;
-        if (state == LEAVING_THREAD || state == LEAVING_METHOD) {
+        if (state == FrameState.LEAVING_THREAD || state == FrameState.LEAVING_METHOD) {
             if (monitorCount != 0) {
-                state = ACTIVE;
+                state = FrameState.ACTIVE;
                 resumePoint = 0;
                 throw new IllegalMonitorStateException("Attempt to break a synchronized block.");
             }
             return true;
         }
-        assert state == ACTIVE : state;
+        assert state == FrameState.ACTIVE : state;
         assert resumePoint == 0;
         return false;
     }
@@ -498,8 +507,8 @@ public final class MethodFrame implements Serializable {
     }
 
     public MethodFrame notifyInvoke(int point, int varCount, int objVarCount) {
-        assert state == ACTIVE || state == RESTORING;
-        state = INVOKING;
+        assert state == FrameState.ACTIVE || state == FrameState.RESTORING;
+        state = FrameState.INVOKING;
         resumePoint = point;
         vars = varCount == 0 ? EMPTY_INT_ARRAY : new int[varCount];
         varIndex = 0;
@@ -512,6 +521,9 @@ public final class MethodFrame implements Serializable {
         return resumePoint;
     }
 
+    /**
+     * Method called before a sequence of restoreXX() methods.
+     */
     public MethodFrame prepare(int varTop, int objVarTop) {
         varIndex = varTop;
         objVarIndex = objVarTop;
@@ -519,42 +531,38 @@ public final class MethodFrame implements Serializable {
     }
 
     boolean isActive() {
-        return state == ACTIVE;
+        return state == FrameState.ACTIVE;
     }
 
     boolean isInvoking() {
-        return state == INVOKING;
+        return state == FrameState.INVOKING;
     }
 
     boolean isRestoring() {
-        return state == RESTORING;
+        return state == FrameState.RESTORING;
     }
 
     void leaveThread() {
-        assert state == INVOKING;
+        assert state == FrameState.INVOKING;
         assert resumePoint > 0;
-        state = LEAVING_THREAD;
+        state = FrameState.LEAVING_THREAD;
     }
 
     public Flow getFlow() {
         return flow;
     }
 
-    int getState() {
-        return state;
-    }
-
     void invoked() {
-        assert state == INVOKING || state == RESTORING || state == LEAVING_THREAD;
+        assert state == FrameState.INVOKING || state == FrameState.RESTORING || state == FrameState.LEAVING_THREAD;
         assert resumePoint > 0;
-        if (state != LEAVING_THREAD) {
-            state = ACTIVE;
+        if (state != FrameState.LEAVING_THREAD) {
+            state = FrameState.ACTIVE;
             resumePoint = 0;
         }
     }
 
     void checkMatch(Object aTarget, String aName, @SuppressWarnings("unused") String aDesc) {
-        assert target == aTarget : "This target: " + target + ", arg target: " + aTarget;
+        // assert target == aTarget : "This target: " + target + ", arg target: " + aTarget;
         assert name.equals(aName) : "This name: " + name + ", arg name: " + aName;
         // TODO: Does not cope with generics.
         //assert this.desc.equals(desc) : "This desc: " + this.desc + ", arg desc: " + desc;
@@ -572,11 +580,11 @@ public final class MethodFrame implements Serializable {
     }
 
     private void leaveMethod() {
-        if (state != ACTIVE) {
+        if (state != FrameState.ACTIVE) {
             throw new IllegalStateException("Current frame must be active to set prior frame to leave method.");
         }
-        assert prior == null || prior.state == INVOKING;
-        state = LEAVING_METHOD;
+        assert prior == null || prior.state == FrameState.INVOKING;
+        state = FrameState.LEAVING_METHOD;
     }
 
     public Class<?> getTargetClass() {

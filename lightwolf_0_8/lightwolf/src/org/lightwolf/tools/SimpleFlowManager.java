@@ -51,6 +51,13 @@ public class SimpleFlowManager extends FlowManager implements Serializable {
 
     private static final WeakHashMap<Key, SimpleFlowManager> activeManagers = new WeakHashMap<Key, SimpleFlowManager>();
 
+    private static final ThreadLocal<Throwable> origin = new ThreadLocal<Throwable>();
+
+    public static void printOrigin() {
+        Throwable originTrace = new Throwable(Thread.currentThread().getName(), origin.get());
+        LightWolfLog.printTrace(originTrace);
+    }
+
     private static SimpleFlowManager restore(Key key) {
         return activeManagers.get(key);
     }
@@ -100,13 +107,15 @@ public class SimpleFlowManager extends FlowManager implements Serializable {
 
     @Override
     protected Future<?> submit(final Flow flow, final Object message) {
-        final Throwable track = new Throwable();
+        final Throwable originTrace = new Throwable(Thread.currentThread().getName(), origin.get());
         Runnable command = new Runnable() {
 
             public void run() {
                 try {
                     clearThread();
-                    Flow.log("Resuming " + flow + ", message=" + message);
+                    //LightWolfLog.printTrace(originTrace);
+                    origin.set(originTrace);
+                    //Flow.log("Resuming " + flow + ", message=" + message);
                     try {
                         flow.resume(message);
                     } catch (FlowSignal s) {
@@ -118,7 +127,7 @@ public class SimpleFlowManager extends FlowManager implements Serializable {
                     }
                     assert flow.isEnded();
                 } catch (Throwable e) {
-                    notifyException(e, track);
+                    notifyException(e, originTrace);
                 }
             }
         };

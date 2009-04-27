@@ -198,6 +198,18 @@ public final class Flow implements Serializable {
         return flow;
     }
 
+    public static void acquireThread() {
+        Flow.safeCurrent().blockingLevel++;
+    }
+
+    public static void releaseThread() {
+        Flow flow = Flow.safeCurrent();
+        if (flow.blockingLevel == 0) {
+            throw new IllegalStateException("Flow does not own thread.");
+        }
+        flow.blockingLevel--;
+    }
+
     /**
      * The task to which this flow belongs.
      * 
@@ -240,8 +252,7 @@ public final class Flow implements Serializable {
             if (task == null) { // Must be called here, inside the try-finally.
                 throw new NullPointerException();
             }
-            Object sync = cur.sync();
-            synchronized(sync) {
+            synchronized(cur) {
                 synchronized(task) {
                     if (cur.task != null) {
                         if (cur.task == task) {
@@ -253,7 +264,7 @@ public final class Flow implements Serializable {
                     assert cur.task == task;
                     cur.currentContext = task.readContext();
                 }
-                sync.notifyAll();
+                cur.notifyAll();
             }
         } finally {
             frame.invoked();
@@ -277,8 +288,7 @@ public final class Flow implements Serializable {
         Flow cur = Flow.fromInvoker();
         MethodFrame frame = cur.currentFrame;
         try {
-            Object sync = cur.sync();
-            synchronized(sync) {
+            synchronized(cur) {
                 Task task = cur.task;
                 if (task == null) {
                     throw new IllegalStateException("Flow does not belong to any task.");
@@ -286,7 +296,7 @@ public final class Flow implements Serializable {
                 task.remove(cur);
                 assert cur.task == null;
                 cur.currentContext = null;
-                sync.notifyAll();
+                cur.notifyAll();
             }
         } finally {
             frame.invoked();
@@ -309,7 +319,7 @@ public final class Flow implements Serializable {
         Flow cur = Flow.fromInvoker();
         MethodFrame frame = cur.currentFrame;
         try {
-            synchronized(cur.sync()) {
+            synchronized(cur) {
                 Task task = cur.task;
                 if (task == null) {
                     return false;
@@ -352,6 +362,411 @@ public final class Flow implements Serializable {
 
     public static void writeProperties(Map<String, Object> properties) {
         current().doWriteProperties(properties);
+    }
+
+    /**
+     * Waits for a notification that matches the informed key. The
+     * {@linkplain current current flow} is {@linkplain suspend suspended} until
+     * another flow invokes {@link #notifyAll(Object, Object)}.
+     * <p>
+     * The specified object is used to link <code>wait</code> and
+     * <code>notify</code> pairs. For example, the invocation
+     * 
+     * <pre>
+     *     Object result = Flow.wait("ABC");
+     * </pre>
+     * will wait until another flow invokes
+     * 
+     * <pre>
+     *     Flow.notifyAll("ABC", "ResultOfABC");
+     * </pre>
+     * , which will cause the first code to resume and assign
+     * <code>"ResultOfABC"</code> to the variable <code>result</code>.
+     * <p>
+     * If the <code>key</code> argument is not <code>null</code>, it must
+     * provide consistent behaviors for {@link Object#equals(Object)} and
+     * {@link Object#hashCode()}. While not an absolute requirement, it is
+     * strongly recommended to use an immutable object as the <code>key</code>.
+     * <p>
+     * Optionally, the <code>key</code> argument can be an instance of
+     * {@link IMatcher}. In this case, the matcher will not behave as a key, but
+     * as a <i>selector</i>. The following example illustrates this behavior:
+     * 
+     * <pre>
+     *     IMatcher matcher = new IMatcher() {
+     *         boolean match(Object candidate) {
+     *             if (!(candidate instanceof String)) { return false; }
+     *             return ((String) candidate).startsWith("ABC");
+     *         }
+     *     };
+     *     Object result = Flow.wait(matcher);
+     * </pre>
+     * The wait in the above example will resume for keys such as
+     * <code>"ABCD"</code> or <code>"ABC123"</code>.
+     * <p>
+     * While waiting, the current flow will be suspended and thus will not
+     * consume any thread. If such flow is resumed by means other than
+     * {@link #notifyAll(Object, Object)}, the effect is unpredictable and the
+     * task manager will be corrupt.
+     * 
+     * @param key The key to wait for (may be <code>null</code>), or an
+     *        {@link IMatcher} instance, as above specified.
+     * @return The <code>message</code> argument that was passed to
+     *         {@link #notifyAll(Object, Object)}.
+     * @throws IllegalStateException If there is no current task.
+     * @see #waitMany(Object)
+     * @see #notifyAll(Object, Object)
+     * @see #send(Object, Object)
+     * @see #receive(Object)
+     */
+    @FlowMethod
+    public static Object wait(Object key) {
+        return safeCurrent().doWait(key);
+    }
+
+    /**
+     * Waits for multiple notifications that matches the informed key. This
+     * method is similar to {@link #wait(Object)}, except in that it may return
+     * multiple times and to concurrent flows. Every subsequent call to
+     * {@link #notifyAll(Object, Object)} with a key that matches the informed
+     * key will cause this method to return. Whenever this method returns, it
+     * will be on a new flow. It never returns to the invoker's flow.
+     * 
+     * @param key The key to wait for (may be <code>null</code>), or an
+     *        {@link IMatcher} instance, as specified on {@link #wait(Object)}.
+     * @return The <code>message</code> argument that was passed to
+     *         {@link #notifyAll(Object, Object)}.
+     * @throws IllegalStateException If there is no current task.
+     * @see #wait(Object)
+     * @see #notifyAll(Object, Object)
+     */
+    @FlowMethod(manual = true)
+    public static Object waitMany(Object key) {
+        MethodFrame frame = MethodFrame.enter(Flow.class, "waitMany", "(Ljava/lang/Object;)Ljava/lang/Object;");
+        Object ret;
+        try {
+            switch (frame.resumePoint()) {
+                case 0:
+                    frame.notifyInvoke(1, 0, 0);
+                case 1:
+                    ret = safeCurrent().doWaitMany(key);
+                    break;
+                default:
+                    throw new AssertionError();
+            }
+        } catch (Throwable e) {
+            throw frame.exitThrowing(e);
+        }
+        frame.exit();
+        return ret;
+    }
+
+    /**
+     * Wakes-up all flows awaiting for the specified key. This method causes all
+     * previous invocations to {@link #wait(Object)} and
+     * {@link #waitMany(Object)}, that matches the informed key, to return. The
+     * informed message is returned in such invocations. If more than one flow
+     * is resumed, they all get the same message instance, so either the message
+     * must be immutable, or adequate synchronization must be used. If there is
+     * no flow awaiting for the specified key, invoking this method has no
+     * effect. For examples and more information, see the {@link #wait(Object)}
+     * method.
+     * 
+     * @param key The key that identifies which {@link #wait(Object)} and
+     *        {@link #waitMany(Object)} invocations will be resumed.
+     * @param message The message to be sent to the resumed flows. It will be
+     *        returned from the resumed {@link #wait(Object)} and
+     *        {@link #waitMany(Object)} invocations.
+     * @throws IllegalStateException If there is no current task.
+     * @see #wait(Object)
+     * @see #waitMany(Object)
+     * @see #send(Object, Object)
+     * @see #receive(Object)
+     */
+    public static void notifyAll(Object key, Object message) {
+        safeCurrent().doNotifyAll(key, message);
+    }
+
+    /**
+     * Sends a message to the informed address. If another flow is listening on
+     * the informed address, this method causes such flow to resume and then
+     * returns immediately. Otherwise, the {@linkplain current current flow} is
+     * {@linkplain suspend suspended} until some flow starts listening on the
+     * informed address.
+     * <p>
+     * The informed address is not a network address. It is an object used to
+     * link the sender and receiver flows. For example, the invocation
+     * 
+     * <pre>
+     *     Flow.send("ABC", "MessageForABC");
+     * </pre>
+     * will send the object "MessageForABC" to a flow that invokes
+     * 
+     * <pre>
+     *     Object result = Flow.receive("ABC");
+     * </pre>
+     * The above <code>receive</code> invocation will assign "MessageForABC" to
+     * the <code>result</code> variable.
+     * <p>
+     * If the <code>address</code> argument is not <code>null</code>, it must
+     * provide consistent behaviors for {@link Object#equals(Object)} and
+     * {@link Object#hashCode()}. While not an absolute requirement, it is
+     * strongly recommended to use an immutable object as the
+     * <code>address</code>.
+     * <p>
+     * While waiting, the current flow will be suspended and thus will not
+     * consume any thread. If such flow is resumed by means other than a
+     * <code>receive</code> method, the effect is unpredictable and the task
+     * manager will be corrupt.
+     * 
+     * @param address The address that identifies the listening flow.
+     * @param message The message to be sent.
+     * @throws IllegalStateException If there is no current task.
+     * @see #receive(Object)
+     * @see #serve(Object)
+     */
+    @FlowMethod
+    public static void send(Object address, Object message) {
+        safeCurrent().doSend(address, message);
+    }
+
+    /**
+     * Listens for a single message sent to the informed address. If another
+     * flow is blocked while sending a message to the informed address, this
+     * method causes such flow to resume and then immediately returns the sent
+     * message. Otherwise the {@linkplain current current flow} is
+     * {@linkplain suspend suspended} until such invocation is issued.
+     * <p>
+     * If another flow sends a message using {@link #call(Object, Object)}, this
+     * method will return an instance of {@link IRequest} that contains the sent
+     * message. Such call will be blocked until invocation of
+     * {@link IRequest#respond(Object)}.
+     * <p>
+     * This method binds the current flow to the informed address. An address
+     * can have at most one flow bound to it. When this method returns (that is,
+     * when the message is received), the address will be free again.
+     * <p>
+     * While waiting, the current flow will be suspended and thus will not
+     * consume any thread. If such flow is resumed by means other than a
+     * <code>send</code> method, the effect is unpredictable and the task
+     * manager will be corrupt.
+     * <p>
+     * For examples and more information, see the {@link #send(Object, Object)}
+     * method.
+     * 
+     * @param address The address on which this flow will be listening.
+     * @return The sent message, or an {@link IRequest} if the message was sent
+     *         via {@link #call(Object, Object)}.
+     * @throws AddressAlreadyInUseException If another flow is listening on this
+     *         address.
+     * @throws IllegalStateException If there is no current task.
+     * @see #send(Object, Object)
+     * @see #serve(Object)
+     */
+    @FlowMethod
+    public static Object receive(Object address) {
+        return safeCurrent().doReceive(address);
+    }
+
+    /**
+     * Listens for multiple messages sent to the informed address. This method
+     * is similar to {@link #receive(Object)}, except in that it may return
+     * multiple times and to concurrent flows. For example, every subsequent
+     * call to a {@link #send(Object, Object) send} method with the informed
+     * address will cause this method to return. Whenever this method returns,
+     * it will be on a new flow. It never returns to the invoker's flow.
+     * <p>
+     * The informed address will be bound to the invoker's flow until the
+     * current task finishes.
+     * 
+     * @param address The address on which this flow will be listening.
+     * @return The sent message, or an {@link IRequest} if the message was sent
+     *         via {@link #call(Object, Object)}.
+     * @throws AddressAlreadyInUseException If another flow is listening on this
+     *         address.
+     * @throws IllegalStateException If there is no current task.
+     * @see #receive(Object)
+     * @see #serveMany(Object)
+     */
+    @FlowMethod
+    public static Object receiveMany(Object address) {
+        return safeCurrent().doReceiveMany(address);
+    }
+
+    /**
+     * Listens for a single request sent to the informed address. If another
+     * flow is blocked while sending a message to the informed address, this
+     * method causes such flow to resume and then immediately returns a request
+     * with the cited message. Otherwise the {@linkplain current current flow}
+     * is {@linkplain suspend suspended} until such invocation is issued.
+     * <p>
+     * If another flow sends a message using {@link #send(Object, Object)}, this
+     * method will cause such invocation to return, and then it will return an
+     * instance of {@link IRequest} that contains the sent message and requires
+     * no response.
+     * <p>
+     * This method binds the current flow to the informed address. An address
+     * can have at most one flow bound to it. When this method returns (that is,
+     * when the message is received), the address will be free again.
+     * <p>
+     * While waiting, the current flow will be suspended and thus will not
+     * consume any thread. If such flow is resumed by means other than a
+     * <code>send</code> method, the effect is unpredictable and the task
+     * manager will be corrupt.
+     * <p>
+     * For examples and more information, see the {@link #call(Object, Object)}
+     * method.
+     * 
+     * @param address The address on which this flow will be listening.
+     * @return An {@link IRequest} containing the sent message.
+     * @throws AddressAlreadyInUseException If another flow is listening on this
+     *         address.
+     * @throws IllegalStateException If there is no current task.
+     * @see IRequest
+     * @see #call(Object, Object)
+     * @see #serveMany(Object)
+     */
+    @FlowMethod
+    public static IRequest serve(Object address) {
+        Object ret = receive(address);
+        if (ret instanceof TwoWayRequest) {
+            return (IRequest) ret;
+        }
+        return new OneWayRequest(ret);
+    }
+
+    /**
+     * Listens for multiple messages sent to the informed address. This method
+     * is similar to {@link #serve(Object)}, except in that it may return
+     * multiple times and to concurrent flows. For example, every subsequent
+     * invocation to {@link #call(Object, Object)} with the informed address
+     * will cause this method to return. Whenever this method returns, it will
+     * be on a new flow. It never returns to the invoker's flow.
+     * <p>
+     * The informed address will be bound to the invoker's flow until the
+     * current task finishes.
+     * <p>
+     * This method can be used to implement a very simple server.
+     * 
+     * @param address The address on which this flow will be listening.
+     * @return An {@link IRequest} containing the sent message.
+     * @throws AddressAlreadyInUseException If another flow is listening on this
+     *         address.
+     * @throws IllegalStateException If there is no current task.
+     * @see #serve(Object)
+     */
+    @FlowMethod
+    public static IRequest serveMany(Object address) {
+        Object ret = receiveMany(address);
+        if (ret instanceof TwoWayRequest) {
+            return (IRequest) ret;
+        }
+        return new OneWayRequest(ret);
+    }
+
+    /**
+     * Sends a request to the informed address and waits for a response. This
+     * method is similar to {@link #send(Object, Object)}, except in that it
+     * waits for a response from the listening flow. While waiting, the
+     * {@linkplain current current flow} is {@linkplain suspend suspended}.
+     * <p>
+     * The following example illustrates the call behavior:
+     * 
+     * <pre>
+     *  public class Example implements Runnable {
+     *
+     *      &#064;{@link FlowMethod}
+     *      public void run() {
+     *          // We must join a task.
+     *          Flow.joinTask(new Task());
+     *          if (Flow.split(1) == 0) {
+     *              // Here is the server.
+     *              IRequest request = <b>Flow.serve("PeerA")</b>;
+     *              System.out.println("Request: " + request.request());
+     *              request.response("I'm fine.");
+     *          } else {
+     *              // Here is the client.
+     *              Object response = <b>Flow.call("PeerA", "How are you?")</b>;
+     *              System.out.println("Response: " + response);
+     *          }
+     *      }
+     *
+     *      public static void main(String[] args) throws InterruptedException {
+     *          Flow.submit(new Example());
+     *          Thread.sleep(1000); // Wait for all flows to finish.
+     *      }
+     *  }
+     * </pre>
+     * The above class prints the following:
+     * 
+     * <pre>
+     *  Request: How are you?
+     *  Response: I'm fine.
+     * </pre>
+     * If the <code>address</code> argument is not <code>null</code>, it must
+     * provide consistent behaviors for {@link Object#equals(Object)} and
+     * {@link Object#hashCode()}. While not an absolute requirement, it is
+     * strongly recommended to use an immutable object as the
+     * <code>address</code>.
+     * <p>
+     * While waiting, the current flow will be suspended and thus will not
+     * consume any thread. If such flow is resumed by means other than a
+     * <code>receive</code> method, the effect is unpredictable and the task
+     * manager will be corrupt.
+     * 
+     * @param address The address that identifies the listening flow.
+     * @param message The message to be sent.
+     * @return The listener's response.
+     * @throws IllegalStateException If there is no current task.
+     * @see #receive(Object)
+     * @see #serve(Object)
+     */
+    @FlowMethod
+    public static Object call(Object address, Object message) {
+        return safeCurrent().doCall(address, message);
+    }
+
+    @FlowMethod
+    public static <T> T call(Object address, Object message, Class<T> resultClass) {
+        if (resultClass == null) {
+            throw new NullPointerException();
+        }
+        Object result = call(address, message);
+        if (!resultClass.isInstance(result)) {
+            if (result == null) {
+                throw new RuntimeException("Unexpected result: null.");
+            }
+            throw new RuntimeException("Unexpected result: (" + result.getClass().getName() + ") " + result + ".");
+        }
+        return (T) result;
+    }
+
+    @FlowMethod
+    public static void callVoid(Object address, Object message) {
+        Object result = call(address, message);
+        if (result != null) {
+            throw new RuntimeException("Unexpected result: (" + result.getClass().getName() + ") " + result + ".");
+        }
+    }
+
+    @FlowMethod
+    public static Connection accept(Object matcher) {
+        return safeCurrent().doAccept(matcher);
+    }
+
+    @FlowMethod
+    public static Connection acceptMany(Object matcher) {
+        return safeCurrent().doAcceptMany(matcher);
+    }
+
+    @FlowMethod
+    public static Connection connect(Object matcher) {
+        return safeCurrent().doConnect(matcher);
+    }
+
+    @FlowMethod
+    public static Connection connectMany(Object matcher) {
+        return safeCurrent().doConnectMany(matcher);
     }
 
     public static Flow snapshot() {
@@ -1141,6 +1556,11 @@ public final class Flow implements Serializable {
         return method.invoke(owner, args);
     }
 
+    @FlowMethod
+    public synchronized Object synchronizedCall(CallableFlow callable) {
+        return callable.call();
+    }
+
     /**
      * Equivalent to {@link #suspend(Object) suspend(null)}.
      */
@@ -1302,15 +1722,32 @@ public final class Flow implements Serializable {
     @FlowMethod(manual = true)
     public static Object signal(FlowSignal signal) {
         Flow cur = fromInvoker();
-        synchronized(cur.sync()) {
+        synchronized(cur) {
             MethodFrame frame = cur.currentFrame;
             try {
                 if (frame.isInvoking()) {
                     // We are suspending.
-                    cur.getCheckpointContext();
-                    //log("Signaling, signal=" + signal);
+                    cur.currentContext = cur.getCheckpointContext();
+                    // log("Signaling, signal=" + signal);
                     if (signal == null) {
                         throw new NullPointerException();
+                    }
+                    if (cur.blockingLevel > 0) {
+                        cur.state = FlowState.BLOCKED;
+                        cur.result = signal;
+                        signal.flow = cur;
+                        if (cur.task != null) {
+                            cur.task.notifySuspend(cur);
+                        }
+                        cur.notifyAll();
+                        while (cur.state == FlowState.BLOCKED) {
+                            try {
+                                cur.wait();
+                            } catch (InterruptedException e) {
+                                throw new RuntimeException(e);
+                            }
+                        }
+                        return cur.restore();
                     }
                     cur.state = SUSPENDING;
                     cur.suspendedFrame = frame.copy(cur);
@@ -1370,9 +1807,6 @@ public final class Flow implements Serializable {
     }
 
     public static void log(String msg) {
-        if (true) {
-            return;
-        }
         synchronized(System.out) {
             System.out.print('[');
             System.out.print(Thread.currentThread().getName());
@@ -1434,6 +1868,7 @@ public final class Flow implements Serializable {
     private transient Flow previous;
     private final FlowManager manager;
     private FlowState state;
+    private int blockingLevel;
     private MethodFrame currentFrame;
     private MethodFrame suspendedFrame;
     transient Task task;
@@ -1553,31 +1988,26 @@ public final class Flow implements Serializable {
      * @see #activate(Object)
      */
     public Object resume(Object signalResult) {
-        for (;;) {
-            Object sync = sync();
-            synchronized(sync()) {
-                if (state == SUSPENDING) {
-                    try {
-                        sync.wait();
-                    } catch (InterruptedException e) {
-                        throw new RuntimeException(e);
-                    }
-                    continue;
+        synchronized(this) {
+            try {
+                while (state == SUSPENDING) {
+                    wait();
                 }
-                if (state != SUSPENDED && state != PASSIVE) {
-                    throw new IllegalStateException("Cannot resume if the flow is " + state + '.');
-                }
-                if (task != null) {
-                    task.notifyResume(this);
-                }
-                // We redo the check because the task might have changed the state or might forget to
-                // set this PASSIVE flow to SUSPENDED.
-                if (state != SUSPENDED) {
-                    throw new IllegalStateException("Cannot resume if the flow is " + state + '.');
-                }
-                state = ACTIVE;
-                break;
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
             }
+            if (state != SUSPENDED && state != PASSIVE) {
+                throw new IllegalStateException("Cannot resume if the flow is " + state + '.');
+            }
+            if (task != null) {
+                task.notifyResume(this);
+            }
+            // We redo the check because the task might have changed the state or might forget to
+            // set this PASSIVE flow to SUSPENDED.
+            if (state != SUSPENDED) {
+                throw new IllegalStateException("Cannot resume if the flow is " + state + '.');
+            }
+            state = ACTIVE;
         }
         String debugMethodName = null;
         boolean success = false;
@@ -1588,7 +2018,7 @@ public final class Flow implements Serializable {
             Class<?> clazz = suspendedFrame.getTargetClass();
 
             assert (debugMethodName = clazz.getName() + "#" + suspendedFrame.getMethodName()) != "";
-            log("resuming " + debugMethodName);
+            // log("Resuming " + debugMethodName + ", result = " + signalResult);
 
             try {
                 Class<?>[] argClasses = suspendedFrame.getMethodParameterTypes();
@@ -1608,6 +2038,7 @@ public final class Flow implements Serializable {
                         m.setAccessible(true);
                         Object owner = getRootValues(m, argValues);
                         result = m.invoke(owner, argValues);
+                        success = true;
                         return result;
                     } catch (NoSuchMethodException e) {
                         if (fe == null) {
@@ -1697,32 +2128,35 @@ public final class Flow implements Serializable {
      * @see #activate()
      * @see #activateThrowing(Throwable)
      */
-    public Future<?> activate(Object signalResult) {
+    public synchronized Future<?> activate(Object signalResult) {
+        if (state == FlowState.BLOCKED) {
+            state = FlowState.ACTIVE;
+            notifyAll();
+            return null;
+        }
         return manager.submit(this, signalResult);
     }
 
-    public void interrupt() {
-        synchronized(sync()) {
-            if (state == INTERRUPTED) {
-                return;
-            }
-            if (state == ACTIVE) {
-                state = INTERRUPTED;
-                return;
-            }
-            if (state == PASSIVE) {
-                throw new IllegalStateException("Cannot interrupt while flow is " + state + ".");
-            }
-            try {
-                waitNotRunning();
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-            if (state == ENDED) {
-                return;
-            }
-            activate(INTERRUPT_SIGNAL);
+    public synchronized void interrupt() {
+        if (state == INTERRUPTED) {
+            return;
         }
+        if (state == ACTIVE) {
+            state = INTERRUPTED;
+            return;
+        }
+        if (state == PASSIVE) {
+            throw new IllegalStateException("Cannot interrupt while flow is " + state + ".");
+        }
+        try {
+            waitNotRunning();
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+        if (state == ENDED) {
+            return;
+        }
+        activate(INTERRUPT_SIGNAL);
     }
 
     /**
@@ -1751,40 +2185,36 @@ public final class Flow implements Serializable {
      *         all heap objects referenced by stack frames.
      * @throws IllegalStateException If this flow is not suspended nor ended.
      */
-    public Flow copy() {
-        synchronized(sync()) {
-            checkSteady();
-            Flow ret = new Flow(manager, null);
-            ret.state = state == TEMP_SUSP ? SUSPENDED : state;
-            ret.suspendedFrame = suspendedFrame.copy(ret);
-            ret.result = result;
-            if (task != null) {
-                task.add(ret);
-                assert ret.task == task;
-            }
-            if (currentContext != null) {
-                ret.currentContext = currentContext.copy();
-            }
-            return ret;
+    public synchronized Flow copy() {
+        checkSteady();
+        Flow ret = new Flow(manager, null);
+        ret.state = state == TEMP_SUSP ? SUSPENDED : state;
+        ret.suspendedFrame = suspendedFrame.copy(ret);
+        ret.result = result;
+        if (task != null) {
+            task.add(ret);
+            assert ret.task == task;
         }
+        if (currentContext != null) {
+            ret.currentContext = currentContext.copy();
+        }
+        return ret;
     }
 
-    private Flow frameCopy() {
-        synchronized(sync()) {
-            checkSteady();
-            Flow ret = new Flow(manager, null);
-            ret.state = state == TEMP_SUSP ? SUSPENDED : state;
-            ret.suspendedFrame = suspendedFrame.shallowCopy(ret);
-            ret.result = result;
-            if (task != null) {
-                task.add(ret);
-                assert ret.task == task;
-            }
-            if (currentContext != null) {
-                ret.currentContext = currentContext.copy();
-            }
-            return ret;
+    private synchronized Flow frameCopy() {
+        checkSteady();
+        Flow ret = new Flow(manager, null);
+        ret.state = state == TEMP_SUSP ? SUSPENDED : state;
+        ret.suspendedFrame = suspendedFrame.shallowCopy(ret);
+        ret.result = result;
+        if (task != null) {
+            task.add(ret);
+            assert ret.task == task;
         }
+        if (currentContext != null) {
+            ret.currentContext = currentContext.copy();
+        }
+        return ret;
     }
 
     private void checkSteady() {
@@ -1820,43 +2250,27 @@ public final class Flow implements Serializable {
         }
     }
 
-    public Object join() throws InterruptedException {
-        for (;;) {
-            Object sync = sync();
-            synchronized(sync) {
-                if (state != ENDED) {
-                    sync.wait();
-                    continue;
-                }
-                return result;
-            }
+    public synchronized Object join() throws InterruptedException {
+        while (state != ENDED) {
+            wait();
         }
+        return result;
     }
 
-    public FlowSignal waitSuspended() throws InterruptedException {
-        for (;;) {
-            Object sync = sync();
-            synchronized(sync) {
-                if (state != SUSPENDED && state != PASSIVE) {
-                    sync.wait();
-                    continue;
-                }
-                return (FlowSignal) result;
-            }
+    public synchronized FlowSignal waitSuspended() throws InterruptedException {
+        while (state != SUSPENDED && state != PASSIVE) {
+            wait();
+            continue;
         }
+        return (FlowSignal) result;
     }
 
-    public Object waitNotRunning() throws InterruptedException {
-        for (;;) {
-            Object sync = sync();
-            synchronized(sync) {
-                if (state != SUSPENDED && state != PASSIVE && state != ENDED) {
-                    sync.wait();
-                    continue;
-                }
-                return result;
-            }
+    public synchronized Object waitNotRunning() throws InterruptedException {
+        while (state != SUSPENDED && state != PASSIVE && state != ENDED) {
+            wait();
+            continue;
         }
+        return result;
     }
 
     /**
@@ -1875,48 +2289,117 @@ public final class Flow implements Serializable {
      * 
      * @see #getState()
      */
-    public Object getResult() {
-        Object sync = sync();
-        for (;;) {
-            synchronized(sync) {
-                try {
-                    if (state == SUSPENDING) {
-                        sync.wait();
-                        continue;
-                    }
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
-                }
-                if (state == ACTIVE) {
-                    return null;
-                }
-                return result;
+    public synchronized Object getResult() {
+        try {
+            while (state == SUSPENDING) {
+                wait();
             }
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
         }
+        if (state == ACTIVE) {
+            return null;
+        }
+        return result;
     }
 
-    FlowData fetchState(long id) {
-        Object sync = sync();
-        synchronized(sync) {
-            assert task != null;
-            assert state == SUSPENDED;
-            FlowData ret = new FlowData(suspendedFrame, id);
-            suspendedFrame = null;
-            state = PASSIVE;
-            sync.notifyAll();
-            return ret;
-        }
+    @FlowMethod
+    private synchronized Object doWait(Object key) {
+        checkNotInterrupted();
+        return taskManager().wait(key);
     }
 
-    void restoreState(FlowData flowState) {
-        Object sync = sync();
-        synchronized(sync) {
-            assert task != null;
-            assert state == PASSIVE;
-            suspendedFrame = flowState.suspendedFrame;
-            state = SUSPENDED;
-            sync.notifyAll();
+    @FlowMethod
+    private synchronized Object doWaitMany(Object key) {
+        checkNotInterrupted();
+        return taskManager().waitMany(key);
+    }
+
+    private synchronized void doNotifyAll(Object key, Object message) {
+        taskManager().notify(key, message);
+    }
+
+    @FlowMethod
+    private synchronized void doSend(Object address, Object message) {
+        checkNotInterrupted();
+        taskManager().send(address, message);
+    }
+
+    @FlowMethod
+    private synchronized Object doReceive(Object address) {
+        checkNotInterrupted();
+        return taskManager().receive(address);
+    }
+
+    @FlowMethod
+    private synchronized Object doReceiveMany(Object address) {
+        checkNotInterrupted();
+        return taskManager().receiveMany(address);
+    }
+
+    @FlowMethod
+    private synchronized Object doCall(Object address, Object message) {
+        checkNotInterrupted();
+        TaskManager man = taskManager();
+        TwoWayRequest req = new TwoWayRequest(man, message);
+        man.send(address, req);
+        return man.receive(req);
+    }
+
+    @FlowMethod
+    private synchronized Connection doAccept(Object matcher) {
+        checkNotInterrupted();
+        return taskManager().accept(matcher);
+    }
+
+    @FlowMethod
+    private synchronized Connection doAcceptMany(Object matcher) {
+        checkNotInterrupted();
+        return taskManager().acceptMany(matcher);
+    }
+
+    @FlowMethod
+    private synchronized Connection doConnect(Object matcher) {
+        checkNotInterrupted();
+        return taskManager().connect(matcher);
+    }
+
+    @FlowMethod
+    private synchronized Connection doConnectMany(Object matcher) {
+        checkNotInterrupted();
+        return taskManager().connectMany(matcher);
+    }
+
+    private void checkNotInterrupted() {
+        if (task == null) {
+            throw new IllegalStateException("Current flow is not on a task.");
         }
+        task.checkNotInterrupted();
+    }
+
+    private TaskManager taskManager() {
+        if (task == null) {
+            throw new IllegalStateException("Current flow is not on a task.");
+        }
+        return task.manager;
+    }
+
+    synchronized FlowData fetchState(long id) {
+        assert task != null;
+        assert state == SUSPENDED;
+        FlowData ret = new FlowData(suspendedFrame, id);
+        suspendedFrame = null;
+        state = PASSIVE;
+        notifyAll();
+        return ret;
+    }
+
+    synchronized void restoreState(FlowData flowState) {
+        assert task != null;
+        assert state == PASSIVE;
+        suspendedFrame = flowState.suspendedFrame;
+        state = SUSPENDED;
+        notifyAll();
     }
 
     FlowContext getCheckpointContext() {
@@ -1938,72 +2421,66 @@ public final class Flow implements Serializable {
         currentContext = context;
     }
 
-    Object restore() {
-        synchronized(sync()) {
-            assert state == ACTIVE;
-            //log("Restored from signal.");
-            // assert signal.flow == cur : signal.flow;
-            Object ret = result;
-            result = null;
-            if (ret == INTERRUPT_SIGNAL) {
-                state = INTERRUPTED;
-                throw new FlowInterruptedException();
-            }
-            if (ret instanceof ExceptionEnvelope) {
-                Throwable exception = ((ExceptionEnvelope) ret).exception;
-                throw new ResumeException(exception);
-            }
-            return ret;
+    synchronized Object restore() {
+        assert state == ACTIVE;
+        //log("Restored from signal.");
+        // assert signal.flow == cur : signal.flow;
+        Object ret = result;
+        result = null;
+        if (ret == INTERRUPT_SIGNAL) {
+            state = INTERRUPTED;
+            throw new FlowInterruptedException();
         }
+        if (ret instanceof ExceptionEnvelope) {
+            Throwable exception = ((ExceptionEnvelope) ret).exception;
+            throw new ResumeException(exception);
+        }
+        return ret;
     }
 
-    void finish() {
-        Object sync = sync();
-        synchronized(sync) {
-            log("finishing...");
-            assert current.get() == this;
-            current.set(previous);
-            previous = null;
-            switch (state) {
-                case ACTIVE:
-                case INTERRUPTED:
-                    assert suspendedFrame == null;
-                    Fork fork = currentFork;
-                    while (fork != null) {
-                        if (fork.number > 0) {
-                            assert fork.previous == null;
-                            fork.finished();
-                            break;
-                        }
-                        fork = fork.previous;
+    synchronized void finish() {
+        // log("finishing...");
+        assert current.get() == this;
+        current.set(previous);
+        previous = null;
+        switch (state) {
+            case ACTIVE:
+            case INTERRUPTED:
+                assert suspendedFrame == null;
+                Fork fork = currentFork;
+                while (fork != null) {
+                    if (fork.number > 0) {
+                        assert fork.previous == null;
+                        fork.finished();
+                        break;
                     }
-                    Task thisTask = task;
-                    if (thisTask != null) {
-                        thisTask.remove(this);
-                        // We still reference the task, for information issues and to
-                        // go back to task if this finished flow is resumed.
-                        task = thisTask;
-                    }
-                    state = ENDED;
-                    currentFrame = null;
-                    sync.notifyAll();
-                    log("normally");
-                    return;
-                case SUSPENDING:
-                    assert suspendedFrame != null;
-                    FlowSignal signal = (FlowSignal) result;
-                    result = signal;
-                    currentFrame = null;
-                    state = SUSPENDED;
-                    if (task != null) {
-                        task.notifySuspend(this);
-                    }
-                    sync.notifyAll();
-                    log("throwing signal");
-                    throw signal;
-                default:
-                    throw new AssertionError("state shouldn't be " + state);
-            }
+                    fork = fork.previous;
+                }
+                Task thisTask = task;
+                if (thisTask != null) {
+                    thisTask.remove(this);
+                    // We still reference the task, for information issues and to
+                    // go back to task if this finished flow is resumed.
+                    task = thisTask;
+                }
+                state = ENDED;
+                currentFrame = null;
+                notifyAll();
+                // log("normally");
+                return;
+            case SUSPENDING:
+                assert suspendedFrame != null;
+                FlowSignal signal = (FlowSignal) result;
+                currentFrame = null;
+                state = SUSPENDED;
+                if (task != null) {
+                    task.notifySuspend(this);
+                }
+                notifyAll();
+                // log("throwing signal");
+                throw signal;
+            default:
+                throw new AssertionError("state shouldn't be " + state);
         }
     }
 
@@ -2036,63 +2513,52 @@ public final class Flow implements Serializable {
         currentFork = fork;
     }
 
-    void setSuspendedFrame(MethodFrame frame) {
-        for (;;) {
-            Object sync = sync();
-            synchronized(sync) {
-                try {
-                    if (state == SUSPENDING) {
-                        sync.wait();
-                        continue;
-                    }
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
+    synchronized void setSuspendedFrame(MethodFrame frame) {
+        try {
+            while (state == SUSPENDING) {
+                wait();
+            }
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+        switch (state) {
+            case ENDED:
+                suspendedFrame = frame;
+                state = SUSPENDED;
+                if (task != null) {
+                    Task thisTask = task;
+                    task = null;
+                    thisTask.add(this, true);
                 }
-                switch (state) {
-                    case ENDED:
-                        suspendedFrame = frame;
-                        state = SUSPENDED;
-                        if (task != null) {
-                            Task thisTask = task;
-                            task = null;
-                            thisTask.add(this, true);
-                        }
-                        break;
-                    case SUSPENDED:
-                        suspendedFrame = frame;
-                        break;
-                    default:
-                        throw new IllegalStateException("Cannot resume if flow is " + state + '.');
-                }
-                sync.notifyAll();
                 break;
-            }
+            case SUSPENDED:
+                suspendedFrame = frame;
+                break;
+            default:
+                throw new IllegalStateException("Cannot resume if flow is " + state + '.');
         }
+        notifyAll();
     }
 
-    private void suspendInPlace() {
-        synchronized(sync()) {
-            if (state == INTERRUPTED) {
-                throw new FlowInterruptedException();
-            }
-            assert state == ACTIVE;
-            assert currentFrame != null;
-            assert suspendedFrame == null;
-            state = TEMP_SUSP;
-            suspendedFrame = currentFrame;
-            currentFrame = null;
+    private synchronized void suspendInPlace() {
+        if (state == INTERRUPTED) {
+            throw new FlowInterruptedException();
         }
+        assert state == ACTIVE;
+        assert currentFrame != null;
+        assert suspendedFrame == null;
+        state = TEMP_SUSP;
+        suspendedFrame = currentFrame;
+        currentFrame = null;
     }
 
-    private void restoreInPlace() {
-        synchronized(sync()) {
-            assert state == TEMP_SUSP;
-            assert currentFrame == null;
-            assert suspendedFrame != null;
-            state = ACTIVE;
-            currentFrame = suspendedFrame;
-            suspendedFrame = null;
-        }
+    private synchronized void restoreInPlace() {
+        assert state == TEMP_SUSP;
+        assert currentFrame == null;
+        assert suspendedFrame != null;
+        state = ACTIVE;
+        currentFrame = suspendedFrame;
+        suspendedFrame = null;
     }
 
     private FlowContext doEnterContext() {
@@ -2153,25 +2619,21 @@ public final class Flow implements Serializable {
         currentContext.writeProperties(properties);
     }
 
-    private Object sync() {
-        return task != null ? task : this;
-    }
-
     private void restoreFrame() {
         MethodFrame frame = suspendedFrame;
-        assert frame.state == MethodFrame.INVOKING;
+        assert frame.state == FrameState.INVOKING;
         assert frame.resumePoint > 0;
         MethodFrame next = null;
         for (;;) {
             frame.flow = this;
-            frame.state = MethodFrame.RESTORING;
+            frame.state = FrameState.RESTORING;
             frame.next = next;
             if (frame.prior == null) {
                 break;
             }
             next = frame;
             frame = frame.prior;
-            assert frame.state == MethodFrame.INVOKING;
+            assert frame.state == FrameState.INVOKING;
             assert frame.resumePoint > 0;
         }
         suspendedFrame = frame;
@@ -2248,6 +2710,71 @@ public final class Flow implements Serializable {
             locals = new WeakHashMap<FlowLocal<?>, Object>();
         }
         return locals;
+    }
+
+    private static class OneWayRequest implements IRequest, Serializable {
+
+        private static final long serialVersionUID = 1L;
+        private final Object request;
+
+        OneWayRequest(Object request) {
+            this.request = request;
+        }
+
+        public boolean needResponse() {
+            return false;
+        }
+
+        public Object request() {
+            return request;
+        }
+
+        public void respond(Object response) {
+            throw new IllegalStateException("This request does not need a response.");
+        }
+
+        public void respondThrowing(Throwable exception) {
+            throw new IllegalStateException("This request does not need a response.");
+        }
+    }
+
+    private static class TwoWayRequest implements IRequest, Serializable {
+
+        private static final long serialVersionUID = 1L;
+        private final TaskManager manager;
+        private final Object request;
+        private boolean responseSent;
+
+        TwoWayRequest(TaskManager manager, Object request) {
+            this.manager = manager;
+            this.request = request;
+        }
+
+        public boolean needResponse() {
+            return !responseSent;
+        }
+
+        public Object request() {
+            return request;
+        }
+
+        @FlowMethod
+        public synchronized void respond(Object response) {
+            if (responseSent) {
+                throw new IllegalStateException("The response was already sent.");
+            }
+            responseSent = true;
+            manager.send(this, response);
+        }
+
+        @FlowMethod
+        public synchronized void respondThrowing(Throwable exception) {
+            if (responseSent) {
+                throw new IllegalStateException("The response was already sent.");
+            }
+            responseSent = true;
+            manager.sendThrowing(this, exception);
+        }
     }
 
     private static final class ExceptionEnvelope {

@@ -37,6 +37,7 @@ public final class SimpleTaskManager extends TaskManager {
 
     private static final long serialVersionUID = 1L;
 
+    private static final Object RECEIVE_SINGLE = new Object();
     private static final Object RECEIVE_MANY = new Object();
     private static final WeakHashMap<Key, SimpleTaskManager> activeManagers = new WeakHashMap<Key, SimpleTaskManager>();
 
@@ -86,7 +87,7 @@ public final class SimpleTaskManager extends TaskManager {
     protected synchronized Object wait(Object matcher) {
         Flow flow = Flow.current();
         addWaiter(matcher, flow);
-        return Flow.suspend();
+        return Flow.suspend(RECEIVE_SINGLE);
     }
 
     @Override
@@ -102,7 +103,7 @@ public final class SimpleTaskManager extends TaskManager {
     protected synchronized void send(Object address, Object message) {
         MessageQueue queue = msgQueues.get(address);
         if (queue == null) {
-            queue = new MessageQueue(address, null, null);
+            queue = new MessageQueue(address);
             msgQueues.put(address, queue);
         }
         if (!queue.send(Flow.current(), message)) {
@@ -220,10 +221,14 @@ public final class SimpleTaskManager extends TaskManager {
     private void dispatch(Object message, LinkedList<Flow> list) {
         for (Iterator<Flow> i = list.iterator(); i.hasNext();) {
             Flow flow = i.next();
-            if (((FlowSignal) flow.getResult()).getResult() == RECEIVE_MANY) {
+            // SimpleFlowManager.printOrigin();
+            Object result = ((FlowSignal) flow.getResult()).getResult();
+            if (result == RECEIVE_MANY) {
                 flow = flow.copy();
-            } else {
+            } else if (result == RECEIVE_SINGLE) {
                 i.remove();
+            } else {
+                throw new AssertionError("Unexpected result: " + result);
             }
             flow.activate(message);
         }
@@ -232,7 +237,7 @@ public final class SimpleTaskManager extends TaskManager {
     private MessageQueue getQueue(Object address) {
         MessageQueue queue = msgQueues.get(address);
         if (queue == null) {
-            queue = new MessageQueue(address, null, null);
+            queue = new MessageQueue(address);
             msgQueues.put(address, queue);
         }
         return queue;
@@ -307,11 +312,9 @@ public final class SimpleTaskManager extends TaskManager {
         private ReceiveManyContinuation continuation;
         private Flow freeSender;
 
-        MessageQueue(Object address, Flow receiver, ReceiveManyContinuation continuation) {
+        MessageQueue(Object address) {
             this.address = address;
             senders = new LinkedList<Flow>();
-            this.receiver = receiver;
-            this.continuation = continuation;
         }
 
         void bind(Flow recvFlow) {

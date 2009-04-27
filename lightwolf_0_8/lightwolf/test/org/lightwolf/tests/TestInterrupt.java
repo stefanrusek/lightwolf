@@ -202,7 +202,7 @@ public class TestInterrupt {
         Flow.joinTask(task);
         flow[0] = Flow.current();
         try {
-            Task.receive("here");
+            Flow.receive("here");
             Assert.fail();
         } catch (FlowInterruptedException e) {
             // OK.
@@ -232,7 +232,7 @@ public class TestInterrupt {
         send(sync, 1);
         wait(sync, 2);
         try {
-            Task.receive("here");
+            Flow.receive("here");
             Assert.fail();
         } catch (FlowInterruptedException e) {
             //OK.
@@ -278,7 +278,7 @@ public class TestInterrupt {
         send(sync, 1);
         wait(sync, 2);
         try {
-            Task.receiveMany("here");
+            Flow.receiveMany("here");
             Assert.fail();
         } catch (FlowInterruptedException e) {
             //OK.

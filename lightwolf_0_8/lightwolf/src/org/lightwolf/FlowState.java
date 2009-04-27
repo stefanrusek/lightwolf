@@ -51,6 +51,8 @@ public enum FlowState {
      */
     SUSPENDED,
 
+    BLOCKED,
+
     /**
      * A constant indicating that the flow is passive. A passive flow is not
      * running and its data is stored on its {@linkplain Flow#task() task}.

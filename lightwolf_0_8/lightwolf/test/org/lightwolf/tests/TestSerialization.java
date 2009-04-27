@@ -175,7 +175,7 @@ public class TestSerialization implements Serializable {
     @FlowMethod
     private void send(Object addr, Object data) {
         Flow.joinTask(new Task());
-        Task.send(addr, data);
+        Flow.send(addr, data);
     }
 
     static class TaskFlow implements Runnable, Serializable {
@@ -192,7 +192,7 @@ public class TestSerialization implements Serializable {
             try {
                 Flow.joinTask(task);
                 abq.put(this);
-                Object data = Task.receive(addr);
+                Object data = Flow.receive(addr);
                 abq.put(data);
                 abq.put(this);
             } catch (InterruptedException e) {
